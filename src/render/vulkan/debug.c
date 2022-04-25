@@ -1,0 +1,107 @@
+#include <render/vulkan/debug.h>
+#include <stdio.h>
+
+VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageType,
+    const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+    void *pUserData)
+{
+    (void)pUserData;
+
+    switch (messageSeverity)
+    {
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+    {
+        printf("[VULKAN] verbose: ");
+        break;
+    }
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+    {
+        printf("[VULKAN] info: ");
+        break;
+    }
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+    {
+        printf("[VULKAN] *warn*: ");
+        break;
+    }
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+    {
+        printf("[VULKAN] **error**: ");
+        break;
+    }
+    default:
+    {
+        printf("[VULKAN] **unknown** %i: ", messageSeverity);
+    }
+    }
+
+    switch (messageType)
+    {
+    case VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT:
+    {
+        printf("validation: ");
+        break;
+    }
+    case VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT:
+    {
+        printf("performance:");
+        break;
+    }
+    default:
+    {
+        break;
+    }
+    }
+
+    printf("%s\n", pCallbackData->pMessage);
+
+    return VK_FALSE;
+}
+
+static VkResult vulkan_create_debug_messenger(VulkanCtx *self, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator)
+{
+    PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(self->instance, "vkCreateDebugUtilsMessengerEXT");
+    if (func != NULL)
+    {
+        return func(self->instance, pCreateInfo, pAllocator, &self->debug_messenger);
+    }
+    else
+    {
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
+    }
+}
+
+static void vulkan_destroy_debug_messenger(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks *pAllocator)
+{
+    PFN_vkDestroyDebugUtilsMessengerEXT func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+    if (func != NULL)
+    {
+        func(instance, debugMessenger, pAllocator);
+    }
+}
+
+void vulkan_debug_deinit(VulkanCtx *ctx)
+{
+    vulkan_destroy_debug_messenger(ctx->instance, ctx->debug_messenger, NULL);
+}
+
+void vulkan_debug_info(VkDebugUtilsMessengerCreateInfoEXT *info)
+{
+    *info = (VkDebugUtilsMessengerCreateInfoEXT){
+        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+        .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT,
+        .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+        .pfnUserCallback = vulkan_debug_callback,
+        .pUserData = NULL,
+        .pNext = NULL,
+    };
+}
+
+void vulkan_debug_init(VulkanCtx *ctx)
+{
+    VkDebugUtilsMessengerCreateInfoEXT info;
+    vulkan_debug_info(&info);
+    vulkan_assert_success$(vulkan_create_debug_messenger(ctx, &info, NULL));
+}
