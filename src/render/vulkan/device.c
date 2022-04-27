@@ -1,30 +1,53 @@
 #include <ds/vec.h>
 #include <render/vulkan/device.h>
+#include <render/vulkan/logical.h>
+#include <render/vulkan/swapchain.h>
 #include <render/vulkan/vulkan.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <vulkan/vulkan.h>
 
-static QueueFamilyIndices vulkan_find_queue_family(VkPhysicalDevice dev)
+static QueueFamilyIndices vulkan_find_queue_family(VulkanCtx *self, VkPhysicalDevice dev)
 {
-    QueueFamilyIndices idx = (QueueFamilyIndices){.index = 0, ._present = false};
-
+    QueueFamilyIndices idx = {};
     vec_t(VkQueueFamilyProperties) queue_famiy_properties = {};
     vec_init(&queue_famiy_properties);
 
     uint32_t queue_family_count = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(dev, &queue_family_count, NULL);
 
+    if (queue_family_count == 0)
+    {
+        return idx;
+    }
+
     vec_reserve(&queue_famiy_properties, queue_family_count);
-    vkGetPhysicalDeviceQueueFamilyProperties(dev, &queue_family_count, queue_famiy_properties.data);
+    vkGetPhysicalDeviceQueueFamilyProperties(dev, &queue_family_count,
+                                             queue_famiy_properties.data);
 
     for (size_t i = 0; i < queue_family_count; i++)
     {
         VkQueueFamilyProperties curr = queue_famiy_properties.data[i];
         if (curr.queueFlags & VK_QUEUE_GRAPHICS_BIT)
         {
-            idx.index = i;
+            idx.family_idx = i;
             idx._present = true;
+            VkBool32 present_support;
+
+            vkGetPhysicalDeviceSurfaceSupportKHR(dev, idx.family_idx, self->surface, &present_support);
+
+            if (present_support)
+            {
+                idx._has_present_family = true;
+                idx.present_family = i;
+
+                vec_deinit(&queue_famiy_properties);
+                return idx;
+            }
+        }
+        else
+        {
+            idx._present = false;
         }
     }
 
@@ -32,22 +55,41 @@ static QueueFamilyIndices vulkan_find_queue_family(VkPhysicalDevice dev)
     return idx;
 }
 
-static QueueFamilyIndices vulkan_pick_queue_family(VulkanCtx *self)
+QueueFamilyIndices vulkan_pick_queue_family(VulkanCtx *self)
 {
-    return vulkan_find_queue_family(self->device);
+
+    QueueFamilyIndices idx = vulkan_find_queue_family(self, self->physical_device);
+    return idx;
 }
 
-static bool vulkan_is_device_suitable(VkPhysicalDevice device)
+static bool vulkan_is_device_suitable(VulkanCtx *self, VkPhysicalDevice device)
 {
     VkPhysicalDeviceProperties properties;
     vkGetPhysicalDeviceProperties(device, &properties);
     VkPhysicalDeviceFeatures features;
     vkGetPhysicalDeviceFeatures(device, &features);
 
-    QueueFamilyIndices idx = vulkan_find_queue_family(device);
+    QueueFamilyIndices idx = vulkan_find_queue_family(self, device);
 
-    return properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
-           features.geometryShader && idx._present;
+    if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ||
+        !features.geometryShader ||
+        !idx._present ||
+        !idx._has_present_family ||
+        !vulkan_check_device_extensions(device))
+    {
+        return false;
+    }
+
+    SwapChainSupportDetails swapchain = swap_chain_support_query(self, device);
+
+    if (swapchain.formats.length == 0 || swapchain.modes.length == 0)
+    {
+        swap_chain_support_deinit(&swapchain);
+        return false;
+    }
+
+    swap_chain_support_deinit(&swapchain);
+    return true;
 }
 
 void vulkan_pick_physical_device(VulkanCtx *self)
@@ -72,7 +114,7 @@ void vulkan_pick_physical_device(VulkanCtx *self)
         VkPhysicalDeviceProperties properties;
         vkGetPhysicalDeviceProperties(devices.data[i], &properties);
         printf("device[%u]: %s \n", i, properties.deviceName);
-        if (vulkan_is_device_suitable(devices.data[i]))
+        if (vulkan_is_device_suitable(self, devices.data[i]))
         {
             device = devices.data[i];
             break;
@@ -81,7 +123,13 @@ void vulkan_pick_physical_device(VulkanCtx *self)
 
     vec_deinit(&devices);
 
-    self->device = device;
+    if (device == VK_NULL_HANDLE)
+    {
+        printf("no device founded\n!");
+        exit(-1);
+        return;
+    }
+    self->physical_device = device;
 
     vulkan_pick_queue_family(self);
 }

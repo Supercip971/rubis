@@ -6,6 +6,9 @@
 #include <render/vulkan/debug.h>
 #include <render/vulkan/device.h>
 #include <render/vulkan/layer.h>
+#include <render/vulkan/logical.h>
+#include <render/vulkan/surface.h>
+#include <render/vulkan/swapchain.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,6 +50,7 @@ static int vulkan_query_extension(VulkanCtx *self, VkInstanceCreateInfo *info)
     {
         vec_push(&self->exts, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
+    vec_push(&self->exts, "VK_KHR_xlib_surface");
     info->enabledExtensionCount = self->exts.length;
     info->ppEnabledExtensionNames = self->exts.data;
 
@@ -85,7 +89,22 @@ int vulkan_create_instance(VulkanCtx *self)
     return 0;
 }
 
-int vulkan_init(VulkanCtx *self)
+static int vulkan_device_init(VulkanCtx *self)
+{
+
+    if (ENABLE_VALIDATION_LAYERS)
+    {
+
+        vulkan_debug_init(self);
+    }
+
+    vulkan_pick_physical_device(self);
+
+    vulkan_logical_device_init(self);
+    return 0;
+}
+
+int vulkan_init(VulkanCtx *self, uintptr_t window_handle)
 {
     *self = (VulkanCtx){
         .app_info = (VkApplicationInfo){
@@ -93,8 +112,8 @@ int vulkan_init(VulkanCtx *self)
             .pApplicationName = "compute-tracer",
             .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
             .pEngineName = "none",
-            .engineVersion = VK_MAKE_VERSION(1, 0, 3),
-            .apiVersion = VK_MAKE_VERSION(1, 0, 3),
+            .engineVersion = VK_MAKE_VERSION(1, 0, 0),
+            .apiVersion = VK_MAKE_VERSION(1, 0, 0),
             .pNext = NULL,
         },
         .instance = 0,
@@ -104,22 +123,29 @@ int vulkan_init(VulkanCtx *self)
 
     vulkan_create_instance(self);
 
-    if (ENABLE_VALIDATION_LAYERS)
-    {
+    vulkan_render_surface_init(self, window_handle);
 
-        vulkan_debug_init(self);
-    }
+    vulkan_device_init(self);
 
-    vulkan_pick_physical_device(self);
+    int width, height;
+    vulkan_render_surface_target_size(self, window_handle, &width, &height);
+    vulkan_swapchain_init(self, width, height);
+
     return 0;
 }
 
 int vulkan_deinit(VulkanCtx *self)
 {
+    vulkan_swapchain_deinit(self);
+
+    vulkan_render_surface_deinit(self);
+
+    vulkan_logical_device_deinit(self);
     if (ENABLE_VALIDATION_LAYERS)
     {
         vulkan_debug_deinit(self);
     }
+
     vkDestroyInstance(self->instance, NULL);
     vec_deinit(&self->exts);
     return 0;

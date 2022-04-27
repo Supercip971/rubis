@@ -1,7 +1,7 @@
-
 #include <GLFW/glfw3.h>
 #include <config.h>
 #include <ds/vec.h>
+#include <render/render.h>
 #include <stdio.h>
 #include <utils.h>
 #include <window/window.h>
@@ -13,7 +13,7 @@ typedef struct
     GLFWwindow *window;
 } WindowImpl;
 
-vec_t(WindowImpl) windows;
+vec_t(WindowImpl) windows = {};
 
 int window_engine_init(void)
 {
@@ -47,6 +47,25 @@ int window_engine_deinit(void)
     vec_deinit(&windows);
     glfwTerminate();
     return 0;
+}
+
+int window_surface_init(Window *self, Render *render)
+{
+    render_surface_init(render, (uintptr_t)windows.data[self->window_id].window);
+
+    return 0;
+}
+
+int window_surface_deinit(Window *self, Render *render)
+{
+    render_surface_deinit(render, (uintptr_t)windows.data[self->window_id].window);
+
+    return 0;
+}
+
+uintptr_t window_raw_handle(Window *self)
+{
+    return (uintptr_t)windows.data[self->window_id].window;
 }
 
 /*

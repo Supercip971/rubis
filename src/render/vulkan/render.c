@@ -1,27 +1,41 @@
-#include <render/render.h>
-
-#include <stdio.h>
-#include <stdint.h>
+#include <config.h>
 #include <ds/vec.h>
-#include <utils.h>
+#include <render/render.h>
+#include <render/vulkan/surface.h>
 #include <render/vulkan/vulkan.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <utils.h>
+#include <window/window.h>
 
 typedef struct
 {
-    void* _dummy;
+    void *_dummy;
 } RenderImpl;
 
 VulkanCtx ctx = {};
 vec_t(RenderImpl) impls = {};
 
-int render_engine_init(void)
+int render_surface_init(Render *self, uintptr_t handle)
 {
-    vulkan_init(&ctx);
+    (void)self;
+    return vulkan_render_surface_init(&ctx, handle);
+}
+int render_surface_deinit(Render *self, uintptr_t handle)
+{
+    (void)self;
+    (void)handle;
+    return vulkan_render_surface_deinit(&ctx);
+}
+
+int render_engine_init(Window *window)
+{
+    vulkan_init(&ctx, window_raw_handle(window));
     vec_init(&impls);
     return 0;
 }
 
-int render_init(Render* self)
+int render_init(Render *self)
 {
     *self = (Render){};
 
@@ -33,14 +47,15 @@ int render_init(Render* self)
     return impls.length - 1;
 }
 
-int render_deinit(MAYBE_UNUSED Render* self)
+int render_deinit(MAYBE_UNUSED Render *self)
 {
     return 0;
 }
 
 int render_engine_deinit(void)
 {
-    vec_deinit(&impls);
     vulkan_deinit(&ctx);
+
+    vec_deinit(&impls);
     return 0;
 }

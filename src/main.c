@@ -1,7 +1,7 @@
 #include <cglm/cglm.h>
+#include <render/render.h>
 #include <stdio.h>
 #include <utils.h>
-#include <render/render.h>
 #include <window/window.h>
 
 int main(MAYBE_UNUSED int argc, MAYBE_UNUSED char **argv)
@@ -11,7 +11,7 @@ int main(MAYBE_UNUSED int argc, MAYBE_UNUSED char **argv)
     window_engine_init();
     window_init(&curr_window);
 
-    render_engine_init();
+    render_engine_init(&curr_window);
     render_init(&render);
     while (!window_should_close(&curr_window))
     {

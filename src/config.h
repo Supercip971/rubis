@@ -8,3 +8,6 @@
 
 #define WINDOW_WIDTH (1920)
 #define WINDOW_HEIGHT (1080)
+
+#define USE_GLFW
+#define USE_VULKAN

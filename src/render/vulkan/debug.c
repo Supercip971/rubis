@@ -1,3 +1,4 @@
+#include <log/log.h>
 #include <render/vulkan/debug.h>
 #include <stdio.h>
 
@@ -9,31 +10,32 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(
 {
     (void)pUserData;
 
+    printf("[VULKAN] ");
     switch (messageSeverity)
     {
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
     {
-        printf("[VULKAN] verbose: ");
+        printf(BWHT "verbose: ");
         break;
     }
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
     {
-        printf("[VULKAN] info: ");
+        printf(BGRN "info: ");
         break;
     }
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
     {
-        printf("[VULKAN] *warn*: ");
+        printf(BYEL "*warn*: ");
         break;
     }
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
     {
-        printf("[VULKAN] **error**: ");
+        printf(BRED "**error**: ");
         break;
     }
     default:
     {
-        printf("[VULKAN] **unknown** %i: ", messageSeverity);
+        printf("**unknown** %i: ", messageSeverity);
     }
     }
 
@@ -41,12 +43,12 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(
     {
     case VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT:
     {
-        printf("validation: ");
+        printf(BCYN "validation: ");
         break;
     }
     case VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT:
     {
-        printf("performance:");
+        printf(BMAG "performance:");
         break;
     }
     default:
@@ -55,7 +57,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(
     }
     }
 
-    printf("%s\n", pCallbackData->pMessage);
+    printf(CRESET "%s\n", pCallbackData->pMessage);
 
     return VK_FALSE;
 }

@@ -50,3 +50,9 @@ bool vulkan_load_validation_layer(VkInstanceCreateInfo *create)
 
     return true;
 }
+
+void vulkan_load_validation_layer_device(VkDeviceCreateInfo *info)
+{
+    info->enabledLayerCount = sizeof(enabled_layers) / sizeof(enabled_layers[0]);
+    info->ppEnabledLayerNames = enabled_layers;
+}

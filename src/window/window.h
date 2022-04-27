@@ -1,8 +1,7 @@
 #pragma once
 
-#include <stdint.h>
 #include <stdbool.h>
-
+#include <stdint.h>
 typedef struct
 {
     uint8_t window_id;
@@ -20,6 +19,8 @@ int window_width(Window *self);
 
 int window_height(Window *self);
 
-bool window_should_close(Window* self);
+bool window_should_close(Window *self);
 
-int window_update(Window* self);
+int window_update(Window *self);
+
+uintptr_t window_raw_handle(Window *self);
