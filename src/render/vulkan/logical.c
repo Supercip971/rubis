@@ -1,9 +1,11 @@
-#include <X11/Xlib.h>
 #include <config.h>
 #include <render/vulkan/device.h>
 #include <render/vulkan/layer.h>
 #include <render/vulkan/logical.h>
-#include <vulkan/vulkan_xlib.h>
+//
+#include <X11/Xlib-xcb.h>
+//
+#include <vulkan/vulkan_xcb.h>
 
 const char *device_required_exts[] = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,

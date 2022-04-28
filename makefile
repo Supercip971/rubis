@@ -4,8 +4,8 @@ CC = gcc
 
 SANITIZERS = 			\
 	-fsanitize=address 	\
-	-fsanitize=undefined
-
+	-fsanitize=undefined \
+	-fsanitize-address-use-after-scope 
 
 CFLAGS_WARNS ?= 	\
 		-Werror 	\
@@ -16,10 +16,10 @@ CFLAGS_WARNS ?= 	\
 		-Wvla
 
 CFLAGS = 			\
-		-Og 		\
+		-O0 		\
 		-g 		 	\
 		-std=gnu2x  \
-		--analyzer  \
+		--analyzer \
 		-Isrc/      \
 		$(CFLAGS_WARNS)
 
@@ -39,7 +39,7 @@ OUTPUT = build/$(PROJECT_NAME)
 
 $(OUTPUT): $(OFILES)
 	@$(MKCWD)
-	@echo " LD [ $@ ] $<"
+	@echo " LD [ $@ ] $^"
 	@$(CC) -o $@ $^ $(LDFLAGS)
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c

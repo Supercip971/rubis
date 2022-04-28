@@ -38,9 +38,11 @@ int vulkan_deinit(VulkanCtx *self);
         __auto_type r = (X);                                               \
         if ((r) != VK_SUCCESS)                                             \
         {                                                                  \
-            printf(__FILE__ " %i "                                         \
+            printf(__FILE__ ":l%i "                                        \
                             " " #X " was not successful (error: %i) ! \n", \
                    __LINE__, r);                                           \
             abort();                                                       \
         }                                                                  \
     })
+
+#define vk_try$(x) vulkan_assert_success$(x)

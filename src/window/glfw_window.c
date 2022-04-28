@@ -29,7 +29,9 @@ int window_init(Window *self)
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     self->window_id = windows.length;
+
     impl.window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "loading", NULL, NULL);
+    impl.self = *self;
 
     vec_push(&windows, impl);
     return 0;

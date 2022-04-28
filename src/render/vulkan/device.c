@@ -14,7 +14,7 @@ static QueueFamilyIndices vulkan_find_queue_family(VulkanCtx *self, VkPhysicalDe
     vec_init(&queue_famiy_properties);
 
     uint32_t queue_family_count = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(dev, &queue_family_count, NULL);
+    (vkGetPhysicalDeviceQueueFamilyProperties(dev, &queue_family_count, NULL));
 
     if (queue_family_count == 0)
     {
@@ -22,8 +22,8 @@ static QueueFamilyIndices vulkan_find_queue_family(VulkanCtx *self, VkPhysicalDe
     }
 
     vec_reserve(&queue_famiy_properties, queue_family_count);
-    vkGetPhysicalDeviceQueueFamilyProperties(dev, &queue_family_count,
-                                             queue_famiy_properties.data);
+    (vkGetPhysicalDeviceQueueFamilyProperties(dev, &queue_family_count,
+                                              queue_famiy_properties.data));
 
     for (size_t i = 0; i < queue_family_count; i++)
     {
@@ -34,15 +34,19 @@ static QueueFamilyIndices vulkan_find_queue_family(VulkanCtx *self, VkPhysicalDe
             idx._present = true;
             VkBool32 present_support;
 
-            vkGetPhysicalDeviceSurfaceSupportKHR(dev, idx.family_idx, self->surface, &present_support);
+            (vkGetPhysicalDeviceSurfaceSupportKHR(dev, idx.family_idx, self->surface, &present_support));
 
-            if (present_support)
+            if (present_support && glfwGetPhysicalDevicePresentationSupport(self->instance, dev, i))
             {
                 idx._has_present_family = true;
                 idx.present_family = i;
 
                 vec_deinit(&queue_famiy_properties);
                 return idx;
+            }
+            else
+            {
+                idx._present = false;
             }
         }
         else
@@ -96,7 +100,7 @@ void vulkan_pick_physical_device(VulkanCtx *self)
 {
     VkPhysicalDevice device = VK_NULL_HANDLE;
     uint32_t device_count = 0;
-    vkEnumeratePhysicalDevices(self->instance, &device_count, NULL);
+    vk_try$(vkEnumeratePhysicalDevices(self->instance, &device_count, NULL));
 
     if (device_count == 0)
     {
@@ -107,12 +111,12 @@ void vulkan_pick_physical_device(VulkanCtx *self)
     vec_t(VkPhysicalDevice) devices = {};
     vec_init(&devices);
     vec_reserve(&devices, device_count);
-    vkEnumeratePhysicalDevices(self->instance, &device_count, devices.data);
+    vk_try$(vkEnumeratePhysicalDevices(self->instance, &device_count, devices.data));
 
     for (uint32_t i = 0; i < device_count; ++i)
     {
         VkPhysicalDeviceProperties properties;
-        vkGetPhysicalDeviceProperties(devices.data[i], &properties);
+        (vkGetPhysicalDeviceProperties(devices.data[i], &properties));
         printf("device[%u]: %s \n", i, properties.deviceName);
         if (vulkan_is_device_suitable(self, devices.data[i]))
         {

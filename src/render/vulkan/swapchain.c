@@ -16,6 +16,7 @@ SwapChainSupportDetails swap_chain_support_query(VulkanCtx *self, VkPhysicalDevi
     vec_init(&details.modes);
     vec_init(&details.formats);
 
+    printf("%lx dev %lx surface \n", (uintptr_t)device, (uintptr_t)self->surface);
     vulkan_assert_success$(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, self->surface, &details.capabilities));
 
     uint32_t format_count = 0;

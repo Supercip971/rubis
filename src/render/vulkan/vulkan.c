@@ -44,13 +44,19 @@ static int vulkan_query_extension(VulkanCtx *self, VkInstanceCreateInfo *info)
     for (size_t i = 0; i < glfw_ext_count; i++)
     {
         vec_push(&self->exts, glfw_required_extensions[i]);
+        printf("required[%li]: %s\n", i, glfw_required_extensions[i]);
     }
 
     if (ENABLE_VALIDATION_LAYERS)
     {
+
+        vec_push(&self->exts, "VK_EXT_debug_report");
         vec_push(&self->exts, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
+
+    vec_push(&self->exts, "VK_KHR_get_surface_capabilities2");
     vec_push(&self->exts, "VK_KHR_xlib_surface");
+    vec_push(&self->exts, "VK_KHR_display");
     info->enabledExtensionCount = self->exts.length;
     info->ppEnabledExtensionNames = self->exts.data;
 
@@ -84,19 +90,13 @@ int vulkan_create_instance(VulkanCtx *self)
         create.pNext = debug_info;
     }
 
-    vulkan_assert_success$(vkCreateInstance(&create, NULL, &self->instance));
+    vk_try$(vkCreateInstance(&create, NULL, &self->instance));
 
     return 0;
 }
 
 static int vulkan_device_init(VulkanCtx *self)
 {
-
-    if (ENABLE_VALIDATION_LAYERS)
-    {
-
-        vulkan_debug_init(self);
-    }
 
     vulkan_pick_physical_device(self);
 
@@ -118,17 +118,22 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle)
         },
         .instance = 0,
     };
+    int width, height;
+    vulkan_render_surface_target_size(self, window_handle, &width, &height);
 
     vulkan_dump_extension();
 
     vulkan_create_instance(self);
 
+    if (ENABLE_VALIDATION_LAYERS)
+    {
+
+        vulkan_debug_init(self);
+    }
     vulkan_render_surface_init(self, window_handle);
 
     vulkan_device_init(self);
 
-    int width, height;
-    vulkan_render_surface_target_size(self, window_handle, &width, &height);
     vulkan_swapchain_init(self, width, height);
 
     return 0;

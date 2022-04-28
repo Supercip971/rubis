@@ -23,6 +23,7 @@ static int vulkan_has_layer(const char *name)
 
     for (int i = 0; i < exts.length; i++)
     {
+        printf("layer[%i]: %s\n", i, exts.data[i].layerName);
         if (strcmp(name, exts.data[i].layerName) == 0)
         {
             founded = true;
