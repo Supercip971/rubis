@@ -25,6 +25,7 @@ typedef struct
 {
     float width;
     float height;
+    uint32_t t;
 } VulkanConfig;
 
 typedef struct
@@ -46,6 +47,8 @@ typedef struct
     VkPhysicalDevice physical_device;
     VkDevice logical_device;
     VkQueue gfx_queue;
+    VkQueue comp_queue;
+
     VkQueue present_queue;
     VulkanExts exts;
     VkSwapchainKHR swapchain;
@@ -88,6 +91,7 @@ typedef struct
     VulkanBuffer computing_image;
     VulkanBuffer config_buf;
     VkDescriptorPool descriptor_pool;
+    uint32_t frame_id;
 
 } VulkanCtx;
 

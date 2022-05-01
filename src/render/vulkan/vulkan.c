@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <config.h>
 #include <ds/vec.h>
+#include <render/vulkan/buffer.h>
 #include <render/vulkan/command.h>
 #include <render/vulkan/debug.h>
 #include <render/vulkan/desc_set_layout.h>
@@ -124,6 +125,7 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle)
             .pNext = NULL,
         },
         .instance = 0,
+        .frame_id = 0,
     };
     int width = 0, height = 0;
     vulkan_render_surface_target_size(self, window_handle, &width, &height);
@@ -188,9 +190,16 @@ int vulkan_deinit(VulkanCtx *self)
     vec_deinit(&self->exts);
     return 0;
 }
-
+float v = 0;
 int vulkan_frame(VulkanCtx *self)
 {
+
+    VulkanConfig *cfg = vk_buffer_map(self, self->config_buf);
+
+    cfg->width = WINDOW_WIDTH;
+    cfg->height = WINDOW_HEIGHT;
+    cfg->t = self->frame_id;
+    vk_buffer_unmap(self, self->config_buf);
     vk_try$(vkWaitForFences(self->logical_device, 1, &self->in_flight_fence, VK_TRUE, UINT64_MAX));
 
     vk_try$(vkResetFences(self->logical_device, 1, &self->in_flight_fence));

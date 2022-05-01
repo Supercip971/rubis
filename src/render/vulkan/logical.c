@@ -56,6 +56,7 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
 
     QueueFamilyIndices idx = vulkan_pick_queue_family(ctx);
     vec_push(&queue_create_idx, idx.family_idx);
+    vec_push(&queue_create_idx, idx.compute_idx);
 
     if (idx._has_present_family)
     {
@@ -92,6 +93,7 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
     vulkan_assert_success$(vkCreateDevice(ctx->physical_device, &create_info, NULL, &ctx->logical_device));
 
     vkGetDeviceQueue(ctx->logical_device, idx.family_idx, 0, &ctx->gfx_queue);
+    vkGetDeviceQueue(ctx->logical_device, idx.compute_idx, 0, &ctx->comp_queue);
 
     vkGetDeviceQueue(ctx->logical_device, idx.present_family, 0, &ctx->present_queue);
 

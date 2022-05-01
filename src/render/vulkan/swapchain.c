@@ -75,10 +75,13 @@ VkSurfaceFormatKHR swap_chain_get_best_format(SwapChainSupportDetails *self)
 
 VkPresentModeKHR swap_chain_get_best_present_mode(SwapChainSupportDetails *self)
 {
-
     for (int i = 0; i < self->modes.length; ++i)
     {
-        if (self->modes.data[i] == VK_PRESENT_MODE_MAILBOX_KHR)
+        printf("mode[%i]: %i\n", i, self->modes.data[i]);
+    }
+    for (int i = 0; i < self->modes.length; ++i)
+    {
+        if (self->modes.data[i] == VK_PRESENT_MODE_FIFO_KHR)
         {
             return self->modes.data[i];
         }

@@ -28,7 +28,7 @@ static QueueFamilyIndices vulkan_find_queue_family(VulkanCtx *self, VkPhysicalDe
     for (size_t i = 0; i < queue_family_count; i++)
     {
         VkQueueFamilyProperties curr = queue_famiy_properties.data[i];
-        if (curr.queueFlags & VK_QUEUE_GRAPHICS_BIT && curr.queueFlags & VK_QUEUE_COMPUTE_BIT)
+        if (curr.queueFlags & VK_QUEUE_GRAPHICS_BIT && curr.queueFlags)
         {
             idx.family_idx = i;
             idx._present = true;
@@ -41,13 +41,27 @@ static QueueFamilyIndices vulkan_find_queue_family(VulkanCtx *self, VkPhysicalDe
                 idx._has_present_family = true;
                 idx.present_family = i;
 
-                vec_deinit(&queue_famiy_properties);
-                return idx;
+                break;
             }
             else
             {
                 idx._present = false;
             }
+        }
+        else
+        {
+            idx._present = false;
+        }
+    }
+    for (size_t i = 0; i < queue_family_count; i++)
+
+    {
+        VkQueueFamilyProperties curr = queue_famiy_properties.data[i];
+        if (curr.queueFlags & VK_QUEUE_COMPUTE_BIT && idx.family_idx != i)
+        {
+            idx.compute_idx = i;
+            idx._present = true;
+            break;
         }
         else
         {

@@ -62,7 +62,7 @@ void vulkan_desc_set_layout(VulkanCtx *ctx)
 
     vk_try$(vkCreateDescriptorSetLayout(ctx->logical_device, &create_info, NULL, &ctx->descriptor_layout));
 
-    ctx->computing_image = vk_buffer_alloc(ctx, 4 * sizeof(float) * WINDOW_WIDTH * WINDOW_HEIGHT, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    ctx->computing_image = vk_buffer_alloc(ctx, 4 * sizeof(float) * WINDOW_WIDTH * WINDOW_HEIGHT, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 0);
     ctx->config_buf = vk_buffer_alloc(ctx, sizeof(ctx->config_buf), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     VulkanConfig *cfg = vk_buffer_map(ctx, ctx->config_buf);

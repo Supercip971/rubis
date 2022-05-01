@@ -7,6 +7,7 @@
 typedef struct
 {
     uint32_t family_idx;
+    uint32_t compute_idx;
     uint32_t present_family;
     bool _present;
     bool _has_present_family;

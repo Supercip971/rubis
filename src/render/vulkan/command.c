@@ -12,7 +12,13 @@ void vulkan_cmd_pool_init(VulkanCtx *ctx)
         .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
         .queueFamilyIndex = queue_family_idx.family_idx,
     };
-    vk_try$(vkCreateCommandPool(ctx->logical_device, &create_info, NULL, &ctx->comp_pool));
+
+    VkCommandPoolCreateInfo comp_create_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .queueFamilyIndex = queue_family_idx.compute_idx,
+    };
+    vk_try$(vkCreateCommandPool(ctx->logical_device, &comp_create_info, NULL, &ctx->comp_pool));
     vk_try$(vkCreateCommandPool(ctx->logical_device, &create_info, NULL, &ctx->cmd_pool));
 }
 
@@ -39,18 +45,10 @@ void vulkan_cmd_buffer_init(VulkanCtx *ctx)
 
     vkAllocateCommandBuffers(ctx->logical_device, &alloc_info, &ctx->cmd_buffer);
     vkAllocateCommandBuffers(ctx->logical_device, &alloc_info2, &ctx->comp_buffer);
-}
-
-void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx)
-{
-
-    vkWaitForFences(ctx->logical_device, 1, &ctx->compute_fence, VK_TRUE, UINT64_MAX);
-    vkResetFences(ctx->logical_device, 1, &ctx->compute_fence);
-
+    vkResetCommandBuffer(ctx->comp_buffer, 0);
     VkCommandBufferBeginInfo begin_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
     };
-    vkResetCommandBuffer(ctx->comp_buffer, 0);
 
     vk_try$(vkBeginCommandBuffer(ctx->comp_buffer, &begin_info));
     {
@@ -60,17 +58,34 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx)
         vkCmdDispatch(ctx->comp_buffer, WINDOW_WIDTH / 16, WINDOW_HEIGHT / 16, 1);
     }
     vk_try$(vkEndCommandBuffer(ctx->comp_buffer));
-    VkSubmitInfo submitInfo = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &ctx->comp_buffer,
+}
+
+void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx)
+{
+    VkCommandBufferBeginInfo begin_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
     };
 
-    vk_try$(vkQueueSubmit(ctx->gfx_queue, 1, &submitInfo, ctx->compute_fence));
+    if (vkGetFenceStatus(ctx->logical_device, ctx->compute_fence) == VK_SUCCESS)
+    {
+        vkResetFences(ctx->logical_device, 1, &ctx->compute_fence);
 
+        VkSubmitInfo submitInfo = {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &ctx->comp_buffer,
+        };
+
+        vk_try$(vkQueueSubmit(ctx->comp_queue, 1, &submitInfo, ctx->compute_fence));
+        ctx->frame_id += 1;
+    }
+    else
+    {
+    }
     vkResetCommandBuffer(ctx->cmd_buffer, 0);
-    vk_try$(vkBeginCommandBuffer(ctx->cmd_buffer, &begin_info));
 
+    vk_try$(vkBeginCommandBuffer(ctx->cmd_buffer, &begin_info));
+    /*
     VkBufferMemoryBarrier barrier = {
 
         .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
@@ -81,14 +96,14 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx)
 
     };
 
-    vkCmdPipelineBarrier(
-        ctx->cmd_buffer,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        0,
-        0, NULL,
-        1, &barrier,
-        0, NULL);
+     vkCmdPipelineBarrier(
+         ctx->cmd_buffer,
+         0,
+         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+         0,
+         0, NULL,
+         1, &barrier,
+         0, NULL);*/
     VkClearValue clear = {{{0.f, 0.f, 0.f, 1.0f}}};
     VkRenderPassBeginInfo render_pass_info = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
