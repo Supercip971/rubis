@@ -19,7 +19,6 @@ CFLAGS = 			\
 		-O0 		\
 		-g 		 	\
 		-std=gnu2x  \
-		--analyzer \
 		-Isrc/      \
 		$(CFLAGS_WARNS)
 
@@ -30,27 +29,53 @@ PROJECT_NAME = test
 BUILD_DIR = build
 SRC_DIR = src
 
+VSFILES = $(wildcard $(SRC_DIR)/*.vs) $(wildcard $(SRC_DIR)/*/*.vs) $(wildcard $(SRC_DIR)/*/*/*.vs)
+FSFILES = $(wildcard $(SRC_DIR)/*.fs) $(wildcard $(SRC_DIR)/*/*.fs) $(wildcard $(SRC_DIR)/*/*/*.fs)
+COMPSFILES = $(wildcard $(SRC_DIR)/*.comp) $(wildcard $(SRC_DIR)/*/*.comp) $(wildcard $(SRC_DIR)/*/*/*.comp)
+
+OSFILES = $(patsubst $(SRC_DIR)/%.vs, $(BUILD_DIR)/%.spv, $(VSFILES)) \
+		$(patsubst $(SRC_DIR)/%.fs, $(BUILD_DIR)/%.spv, $(FSFILES)) \
+		$(patsubst $(SRC_DIR)/%.comp, $(BUILD_DIR)/%.spv, $(COMPSFILES))
+
+
 CFILES = $(wildcard $(SRC_DIR)/*.c) $(wildcard $(SRC_DIR)/*/*.c) $(wildcard $(SRC_DIR)/*/*/*.c)
 DFILES = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.d, $(CFILES))
 OFILES = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(CFILES))
 
 OUTPUT = build/$(PROJECT_NAME)
 
-
-$(OUTPUT): $(OFILES)
+$(BUILD_DIR)/%.spv: $(SRC_DIR)/%.fs
 	@$(MKCWD)
-	@echo " LD [ $@ ] $^"
-	@$(CC) -o $@ $^ $(LDFLAGS)
+	@echo " FS [ $@ ] $<"
+	@glslc -fshader-stage=frag $< -o $@
+
+$(BUILD_DIR)/%.spv: $(SRC_DIR)/%.vs
+	@$(MKCWD)
+	@echo " VS [ $@ ] $<"
+	@glslc -fshader-stage=vert $< -o $@
+
+
+$(BUILD_DIR)/%.spv: $(SRC_DIR)/%.comp
+	@$(MKCWD)
+	@echo " CS [ $@ ] $<"
+	@glslc -fshader-stage=comp $< -o $@
+
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@$(MKCWD)
 	@echo " CC [ $@ ] $<"
-	@$(CC) $(CFLAGS) -MMD -MP $< -c -o $@ 
+	@clang $(CFLAGS) $(SANITIZERS) -MMD -MP $< -c -o $@
 
-run: $(OUTPUT)
+
+$(OUTPUT): $(OFILES)
+	@$(MKCWD)
+	@echo " LD [ $@ ] $^"
+	@clang -o $@ $^ $(LDFLAGS) $(SANITIZERS)
+
+run: $(OUTPUT) $(OSFILES)
 	@$(OUTPUT)
 
-all: $(OUTPUT)
+all: $(OUTPUT) $(OSFILES)
 
 clean:
 	@rm -rf build/

@@ -1,4 +1,5 @@
 #pragma once
+
 #include <render/vulkan/vulkan.h>
 
 int vulkan_render_surface_deinit(VulkanCtx *self);

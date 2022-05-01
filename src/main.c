@@ -16,6 +16,7 @@ int main(MAYBE_UNUSED int argc, MAYBE_UNUSED char **argv)
     while (!window_should_close(&curr_window))
     {
         window_update(&curr_window);
+        render_engine_frame(&render);
     }
 
     render_deinit(&render);

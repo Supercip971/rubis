@@ -113,7 +113,8 @@ void vulkan_swapchain_init(VulkanCtx *self, int width, int height)
     VkSurfaceFormatKHR surface_format = swap_chain_get_best_format(&details);
     VkPresentModeKHR present_mode = swap_chain_get_best_present_mode(&details);
     VkExtent2D extent = swap_chain_get_best_extent(&details, width, height);
-
+    self->extend = extent;
+    self->swapchain_image_format = surface_format.format;
     self->image_cnt = details.capabilities.minImageCount + 1;
 
     VkSwapchainCreateInfoKHR swapchain_info = {
@@ -149,6 +150,15 @@ void vulkan_swapchain_init(VulkanCtx *self, int width, int height)
     }
 
     vulkan_assert_success$(vkCreateSwapchainKHR(self->logical_device, &swapchain_info, NULL, &self->swapchain));
+
+    uint32_t image_cnt = 0;
+    vk_try$(vkGetSwapchainImagesKHR(self->logical_device, self->swapchain, &image_cnt, NULL));
+
+    vec_init(&self->swapchain_images);
+    vec_reserve(&self->swapchain_images, image_cnt);
+
+    self->swapchain_images.length = image_cnt;
+    vk_try$(vkGetSwapchainImagesKHR(self->logical_device, self->swapchain, &image_cnt, self->swapchain_images.data));
 
     swap_chain_support_deinit(&details);
 }

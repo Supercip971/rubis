@@ -47,6 +47,13 @@ int render_init(Render *self)
     return impls.length - 1;
 }
 
+int render_engine_frame(Render *self)
+{
+    (void)self;
+    vulkan_frame(&ctx);
+    return 0;
+}
+
 int render_deinit(MAYBE_UNUSED Render *self)
 {
     return 0;

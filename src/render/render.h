@@ -16,6 +16,8 @@ int render_init(Render *self);
 
 int render_deinit(Render *self);
 
+int render_engine_frame(Render *self);
+
 int render_surface_init(Render *self, uintptr_t handle);
 
 int render_surface_deinit(Render *self, uintptr_t handle);

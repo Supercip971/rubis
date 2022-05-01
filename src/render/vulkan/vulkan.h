@@ -7,10 +7,38 @@
 #include <stdlib.h>
 
 typedef vec_t(const char *) VulkanExts;
+typedef vec_t(VkImage) SwapImages;
+typedef vec_t(VkImageView) SwapImageViews;
+typedef vec_t(VkFramebuffer) Framebuffers;
 
 // I may split this structure in multiple one, like one for the device etc... But I'm not really trying to make a game engine, so for the moment I don't see the point of doing it.
 // Just keep in mind that this structure should be reworked.
+typedef struct
+{
+    size_t len;
+    void *data;
+    VkBuffer buffer;
+    VkDeviceMemory raw_memory;
+} VulkanBuffer;
 
+typedef struct
+{
+    float width;
+    float height;
+} VulkanConfig;
+
+typedef struct
+{
+    VkQueue queue;
+    VkCommandPool cmd_pool;
+    VkCommandBuffer cmd_buffer;
+    VkSemaphore smeaphore;
+    VkDescriptorSetLayout layout;
+    VkDescriptorSet descriptor;
+    VkPipelineLayout pipelines;
+    VkPipeline raw_pipeline;
+    int32_t pipeline_idx;
+} VulkanCompute;
 typedef struct
 {
     VkApplicationInfo app_info;
@@ -27,9 +55,45 @@ typedef struct
 
     uint32_t image_cnt;
 
+    SwapImages swapchain_images;
+    SwapImageViews swapchain_img_view;
+
+    VkExtent2D extend;
+    VkFormat swapchain_image_format;
+    VkPipelineLayout pipeline_layout;
+    VkPipeline gfx_pipeline;
+    VkPipeline compute_pipeline;
+
+    VkRenderPass render_pass;
+
+    Framebuffers framebuffers;
+
+    VkCommandPool cmd_pool;
+    VkCommandPool comp_pool;
+
+    VkCommandBuffer cmd_buffer;
+    VkCommandBuffer comp_buffer;
+
+    VkSemaphore image_available_semaphore;
+    VkFence compute_fence;
+
+    VkSemaphore render_finished_semaphore;
+    VkFence in_flight_fence;
+
+    VulkanCompute compute;
+
+    VkDescriptorSetLayout descriptor_layout;
+    VkDescriptorSet descriptor_set;
+
+    VulkanBuffer computing_image;
+    VulkanBuffer config_buf;
+    VkDescriptorPool descriptor_pool;
+
 } VulkanCtx;
 
 int vulkan_init(VulkanCtx *self, uintptr_t window_handle);
+
+int vulkan_frame(VulkanCtx *self);
 
 int vulkan_deinit(VulkanCtx *self);
 

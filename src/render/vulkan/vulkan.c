@@ -3,12 +3,19 @@
 #include <GLFW/glfw3.h>
 #include <config.h>
 #include <ds/vec.h>
+#include <render/vulkan/command.h>
 #include <render/vulkan/debug.h>
+#include <render/vulkan/desc_set_layout.h>
 #include <render/vulkan/device.h>
+#include <render/vulkan/framebuffer.h>
+#include <render/vulkan/img_view.h>
 #include <render/vulkan/layer.h>
 #include <render/vulkan/logical.h>
+#include <render/vulkan/pipeline.h>
+#include <render/vulkan/render_pass.h>
 #include <render/vulkan/surface.h>
 #include <render/vulkan/swapchain.h>
+#include <render/vulkan/sync.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -113,12 +120,12 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle)
             .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
             .pEngineName = "none",
             .engineVersion = VK_MAKE_VERSION(1, 0, 0),
-            .apiVersion = VK_MAKE_VERSION(1, 0, 0),
+            .apiVersion = VK_MAKE_VERSION(1, 0, 3),
             .pNext = NULL,
         },
         .instance = 0,
     };
-    int width, height;
+    int width = 0, height = 0;
     vulkan_render_surface_target_size(self, window_handle, &width, &height);
 
     vulkan_dump_extension();
@@ -136,12 +143,38 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle)
 
     vulkan_swapchain_init(self, width, height);
 
+    vulkan_image_view_init(self);
+
+    vulkan_render_pass_init(self);
+
+    vulkan_desc_set_layout(self);
+
+    vulkan_pipeline_init(self);
+
+    vulkan_framebuffer_init(self);
+
+    vulkan_cmd_pool_init(self);
+
+    vulkan_cmd_buffer_init(self);
+    vulkan_sync_init(self);
+
     return 0;
 }
 
 int vulkan_deinit(VulkanCtx *self)
 {
+    vkDeviceWaitIdle(self->logical_device);
+    vulkan_sync_deinit(self);
+    vulkan_cmd_pool_deinit(self);
+    vulkan_framebuffer_deinit(self);
+
+    vulkan_pipeline_deinit(self);
+    vulkan_render_pass_deinit(self);
+
+    vulkan_image_view_deinit(self);
+
     vulkan_swapchain_deinit(self);
+    vulkan_desc_layout_deinit(self);
 
     vulkan_render_surface_deinit(self);
 
@@ -153,5 +186,48 @@ int vulkan_deinit(VulkanCtx *self)
 
     vkDestroyInstance(self->instance, NULL);
     vec_deinit(&self->exts);
+    return 0;
+}
+
+int vulkan_frame(VulkanCtx *self)
+{
+    vk_try$(vkWaitForFences(self->logical_device, 1, &self->in_flight_fence, VK_TRUE, UINT64_MAX));
+
+    vk_try$(vkResetFences(self->logical_device, 1, &self->in_flight_fence));
+
+    uint32_t image_idx = 0;
+
+    vk_try$(vkAcquireNextImageKHR(self->logical_device, self->swapchain, UINT64_MAX, self->image_available_semaphore, VK_NULL_HANDLE, &image_idx));
+    vulkan_record_cmd_buffer(self, image_idx);
+
+    VkSemaphore signaledSemaphores[] = {self->render_finished_semaphore};
+    VkSemaphore waitSemaphores[] = {self->image_available_semaphore};
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+
+    VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = waitSemaphores,
+        .pWaitDstStageMask = waitStages,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &self->cmd_buffer,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = signaledSemaphores,
+    };
+
+    vk_try$(vkQueueSubmit(self->gfx_queue, 1, &submitInfo, self->in_flight_fence));
+
+    VkSwapchainKHR swapchains[] = {self->swapchain};
+    VkPresentInfoKHR present_info = {
+        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = signaledSemaphores,
+        .swapchainCount = 1,
+        .pSwapchains = swapchains,
+        .pImageIndices = &image_idx,
+
+    };
+    vk_try$(vkQueuePresentKHR(self->present_queue, &present_info));
+
     return 0;
 }

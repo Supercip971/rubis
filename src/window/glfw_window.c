@@ -32,6 +32,7 @@ int window_init(Window *self)
 
     impl.window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "loading", NULL, NULL);
     impl.self = *self;
+    printf("window: %lx\n", (uintptr_t)impl.window);
 
     vec_push(&windows, impl);
     return 0;
