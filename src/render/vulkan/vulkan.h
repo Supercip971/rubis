@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 #include <ds/vec.h>
 #include <stdio.h>
+#include <math/vec3.h>
 #include <stdlib.h>
 
 typedef vec_t(const char *) VulkanExts;
@@ -23,10 +24,15 @@ typedef struct
 
 typedef struct
 {
-    float width;
-    float height;
-    uint32_t t;
+    _Alignas(4) float width;
+    _Alignas(4) float height;
+    _Alignas(4) unsigned int t;
+
+    _Alignas(16) Vec3 cam_pos;
+    _Alignas(16) Vec3 cam_look;
+    _Alignas(16) Vec3 cam_up;
 } VulkanConfig;
+
 
 typedef struct
 {
@@ -92,6 +98,11 @@ typedef struct
     VulkanBuffer config_buf;
     VkDescriptorPool descriptor_pool;
     uint32_t frame_id;
+
+
+    Vec3 cam_pos;
+    Vec3 cam_look;
+    Vec3 cam_up;
 
 } VulkanCtx;
 

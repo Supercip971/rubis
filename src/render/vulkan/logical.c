@@ -9,6 +9,7 @@
 
 const char *device_required_exts[] = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME
 };
 
 bool vulkan_check_device_extensions(VkPhysicalDevice device)
@@ -56,21 +57,26 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
 
     QueueFamilyIndices idx = vulkan_pick_queue_family(ctx);
     vec_push(&queue_create_idx, idx.family_idx);
-    vec_push(&queue_create_idx, idx.compute_idx);
 
-    if (idx._has_present_family)
+    if(idx.compute_idx != idx.family_idx && idx.compute_idx != idx.present_family)
+    {
+
+         vec_push(&queue_create_idx, idx.compute_idx);
+    }
+
+    if (idx._has_present_family && idx.present_family != idx.family_idx)
     {
         vec_push(&queue_create_idx, idx.present_family);
     }
 
+    printf("queue: compute:%i main:%i present:%i\n", idx.compute_idx, idx.family_idx, idx.present_family);
     uint32_t queue_idx = 0;
-    (void)queue_idx;
     int i = 0;
     vec_foreach(&queue_create_idx, queue_idx, i)
     {
         VkDeviceQueueCreateInfo queue_create_info = {
             .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-            .queueFamilyIndex = i,
+            .queueFamilyIndex = queue_idx,
             .queueCount = 1,
             .pQueuePriorities = &priority,
         };

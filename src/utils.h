@@ -11,3 +11,6 @@
     __auto_type r = clamp(__x_val, __min_val, __max_val); \
     r;                                                    \
 })
+
+#define RAD2DEG(x) (x) * (180.0f / M_PI)
+#define DEG2RAD(x) (x) * (M_PI / 180.0f)

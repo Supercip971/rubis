@@ -63,13 +63,17 @@ void vulkan_desc_set_layout(VulkanCtx *ctx)
     vk_try$(vkCreateDescriptorSetLayout(ctx->logical_device, &create_info, NULL, &ctx->descriptor_layout));
 
     ctx->computing_image = vk_buffer_alloc(ctx, 4 * sizeof(float) * WINDOW_WIDTH * WINDOW_HEIGHT, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 0);
-    ctx->config_buf = vk_buffer_alloc(ctx, sizeof(ctx->config_buf), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    ctx->config_buf = vk_buffer_alloc(ctx, sizeof(ctx->config_buf) * 2, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    VulkanConfig *cfg = vk_buffer_map(ctx, ctx->config_buf);
-
+   volatile VulkanConfig *cfg = vk_buffer_map(ctx, ctx->config_buf);
+    *cfg = (VulkanConfig){};
     cfg->width = WINDOW_WIDTH;
     cfg->height = WINDOW_HEIGHT;
+    cfg->cam_up = vec3_create(0, 1, 0);
 
+    cfg->cam_pos = vec3_create(0, 0, -2);
+
+    cfg->cam_look = vec3_create(0, 0, 0);
     vk_buffer_unmap(ctx, ctx->config_buf);
 
     VkDescriptorSetAllocateInfo alloc_info =

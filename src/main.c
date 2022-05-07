@@ -2,20 +2,29 @@
 #include <render/render.h>
 #include <stdio.h>
 #include <utils.h>
+#include <render/camera/camera.h>
 #include <window/window.h>
 
 int main(MAYBE_UNUSED int argc, MAYBE_UNUSED char **argv)
 {
     Render render = {};
+
     Window curr_window = {};
+    Camera cam = {};
+
     window_engine_init();
     window_init(&curr_window);
 
     render_engine_init(&curr_window);
     render_init(&render);
+
+    camera_init(&cam, (void*)window_raw_handle(&curr_window));
     while (!window_should_close(&curr_window))
     {
+
         window_update(&curr_window);
+        camera_update(&cam, (void*)window_raw_handle(&curr_window));
+        render_engine_update_cam(&render, &cam);
         render_engine_frame(&render);
     }
 

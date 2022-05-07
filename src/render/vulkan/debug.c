@@ -53,7 +53,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(
     }
     default:
     {
-        break;
     }
     }
 

@@ -31,6 +31,8 @@ int window_init(Window *self)
     self->window_id = windows.length;
 
     impl.window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "loading", NULL, NULL);
+
+    glfwSetInputMode(impl.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     impl.self = *self;
     printf("window: %lx\n", (uintptr_t)impl.window);
 

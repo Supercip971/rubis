@@ -55,7 +55,7 @@ void vulkan_cmd_buffer_init(VulkanCtx *ctx)
         vkCmdBindPipeline(ctx->comp_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, ctx->compute.raw_pipeline);
         vkCmdBindDescriptorSets(ctx->comp_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, ctx->pipeline_layout, 0, 1, &ctx->descriptor_set, 0, 0);
 
-        vkCmdDispatch(ctx->comp_buffer, WINDOW_WIDTH / 16, WINDOW_HEIGHT / 16, 1);
+        vkCmdDispatch(ctx->comp_buffer, WINDOW_WIDTH / 32, WINDOW_HEIGHT / 32, 1);
     }
     vk_try$(vkEndCommandBuffer(ctx->comp_buffer));
 }
@@ -78,9 +78,6 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx)
 
         vk_try$(vkQueueSubmit(ctx->comp_queue, 1, &submitInfo, ctx->compute_fence));
         ctx->frame_id += 1;
-    }
-    else
-    {
     }
     vkResetCommandBuffer(ctx->cmd_buffer, 0);
 

@@ -1,9 +1,11 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
+#extension GL_EXT_debug_printf : enable
+#extension GL_EXT_spirv_intrinsics : enable
 
 #define M_PI 3.1415926535897932384626433832795
 
-#define WORKGROUP_SIZE 16
+#define WORKGROUP_SIZE 32
 layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
 
 struct Pixel
@@ -16,11 +18,15 @@ layout(std140, binding = 0) buffer buf
     Pixel image[];
 };
 
-layout(binding = 1) uniform UniformBufferObject
+layout(std140, binding = 1) uniform UniformBufferObject
 {
     float width;
     float height;
     uint t;
+    vec4 camera_pos;
+
+    vec4 camera_target;
+    vec4 camera_up;
 }
 ubo;
 
@@ -106,46 +112,80 @@ vec3 vec_unit(vec3 v)
 {
     return v / vec_len(v);
 }
-bool hit_sphere(vec3 center, float radius, Ray r)
+float hit_sphere(vec3 center, float radius, Ray r)
 {
     vec3 oc = r.origin - center;
     float a = vec_dot(r.direction, r.direction);
     float b = 2.0 * vec_dot(oc, r.direction);
     float c = vec_dot(oc, oc) - radius * radius;
     float discriminant = b * b - 4 * a * c;
-    return (discriminant > 0);
+
+    if (discriminant < 0)
+    {
+        return -1.0;
+    }
+    else
+    {
+        return (-b - sqrt(discriminant)) / (2.0 * a);
+    }
 }
+
 vec4 ray_color(Ray r, float x, float y)
 {
-    if (hit_sphere(vec3(0, 0, -1), 0.5, r))
+    float v = (hit_sphere(vec3(0, 0, -1), 0.5, r));
+
+    if (v > 0)
     {
-        return vec4(random(), random(), random(), 1.0);
+        vec3 n = vec_unit(ray_at(r, v) - vec3(0, 0, -1));
+        return vec4(0.5 * (vec3(n.x + 1, n.y + 1, n.z + 1)), 1);
     }
+
     vec3 unit_direction = vec_unit(r.direction);
     float t = (unit_direction.y + 1.0f) * 0.5f;
 
     return (1.0 - t) * vec4(1.0) + t * vec4(0.5, 0.7, 1.0, 1.0);
 }
 
+struct camera
+{
+    vec3 origin;
+    vec3 llc;
+    vec3 horizontal;
+    vec3 vertical;
+};
+
+camera camera_init(vec3 pos, vec3 to, vec3 up)
+{
+
+    float vt = tan(1.5708 / 2.f);
+    float he = 2.f * vt;
+    float wi = he * (16.f / 9.f);
+
+    vec3 w = normalize(pos - to);
+    vec3 u = normalize(cross(up, w));
+    vec3 v = cross(w, u);
+    camera cam;
+    cam.origin = pos;
+    cam.horizontal = u * wi;
+
+    cam.vertical = v * he;
+    cam.llc = pos - (cam.horizontal / 2) - (cam.vertical / 2) - w;
+    return cam;
+}
+
 void main()
 {
     uint x = gl_GlobalInvocationID.x;
     uint y = gl_GlobalInvocationID.y;
-    float aspect_ratio = 16.0 / 9.0;
-    uint image_width = width;
-    uint image_height = uint(width / aspect_ratio);
-
     // Camera
 
-    float viewport_height = 2.0;
-    float viewport_width = aspect_ratio * viewport_height;
-    float focal_length = 1.0;
-
-    vec3 origin = vec3(0, 0, 0);
+    /*vec3 origin = vec3(sin(ubo.t / 60.f), 0, 0);
     vec3 horizontal = vec3(viewport_width, 0, 0);
     vec3 vertical = vec3(0, viewport_height, 0);
     vec3 lower_left_corner = origin - horizontal / 2 - vertical / 2 - vec3(0, 0, focal_length);
+    */
 
+    camera cam = camera_init(ubo.camera_pos.xyz, vec3(ubo.camera_target.xyz), vec3(0, 1, 0));
     if (x + window_size > width || y + window_size > height)
     {
         return;
@@ -166,8 +206,8 @@ void main()
             float v = abs((float(j + y) + random()) / float(height - 1));
 
             Ray r;
-            r.origin = origin;
-            r.direction = lower_left_corner + u * horizontal + v * vertical - origin;
+            r.origin = cam.origin;
+            r.direction = cam.llc + u * cam.horizontal + v * cam.vertical - cam.origin;
             color += ray_color(r, u, v);
             uint pos2 = width * ((height - (y + j)) + 1) + (x + i);
 

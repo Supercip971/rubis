@@ -60,7 +60,7 @@ khronos_validation.enables =
 # =====================
 # <LayerIdentifier>.printf_to_stdout
 # Enable redirection of Debug Printf messages from the debug callback to stdout
-#khronos_validation.printf_to_stdout = true
+khronos_validation.printf_to_stdout = true
 
 # Printf verbose
 # =====================

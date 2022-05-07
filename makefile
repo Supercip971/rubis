@@ -16,7 +16,7 @@ CFLAGS_WARNS ?= 	\
 		-Wvla
 
 CFLAGS = 			\
-		-O0 		\
+		-Ofast 		\
 		-g 		 	\
 		-std=gnu2x  \
 		-Isrc/      \

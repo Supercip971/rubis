@@ -58,8 +58,12 @@ static int vulkan_query_extension(VulkanCtx *self, VkInstanceCreateInfo *info)
     if (ENABLE_VALIDATION_LAYERS)
     {
 
+
         vec_push(&self->exts, "VK_EXT_debug_report");
-        vec_push(&self->exts, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        vec_push(&self->exts, "VK_EXT_validation_features");
+
+        vec_push(&self->exts, "VK_EXT_debug_utils");
+
     }
 
     vec_push(&self->exts, "VK_KHR_get_surface_capabilities2");
@@ -76,8 +80,14 @@ int vulkan_create_instance(VulkanCtx *self)
     VkInstanceCreateInfo create = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &self->app_info,
-    };
 
+    };
+    VkValidationFeatureEnableEXT enables[] = {VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT};
+    VkValidationFeaturesEXT features = {};
+    features.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+    features.enabledValidationFeatureCount = 1;
+    features.pEnabledValidationFeatures = enables;
+    create.pNext = &features;
     vulkan_query_extension(self, &create);
 
     create.enabledLayerCount = 0;
@@ -112,6 +122,7 @@ static int vulkan_device_init(VulkanCtx *self)
     return 0;
 }
 
+
 int vulkan_init(VulkanCtx *self, uintptr_t window_handle)
 {
     *self = (VulkanCtx){
@@ -121,7 +132,7 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle)
             .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
             .pEngineName = "none",
             .engineVersion = VK_MAKE_VERSION(1, 0, 0),
-            .apiVersion = VK_MAKE_VERSION(1, 0, 3),
+            .apiVersion = VK_API_VERSION_1_3,
             .pNext = NULL,
         },
         .instance = 0,
@@ -194,11 +205,13 @@ float v = 0;
 int vulkan_frame(VulkanCtx *self)
 {
 
-    VulkanConfig *cfg = vk_buffer_map(self, self->config_buf);
-
+    volatile VulkanConfig *cfg = vk_buffer_map(self, self->config_buf);
+    cfg->cam_up = vec3_create(0, 1.0f, 0);
+    cfg->cam_pos = self->cam_pos;
+    cfg->cam_look = vec3_add(self->cam_look, self->cam_pos);
     cfg->width = WINDOW_WIDTH;
     cfg->height = WINDOW_HEIGHT;
-    cfg->t = self->frame_id;
+    cfg->t = 0;
     vk_buffer_unmap(self, self->config_buf);
     vk_try$(vkWaitForFences(self->logical_device, 1, &self->in_flight_fence, VK_TRUE, UINT64_MAX));
 

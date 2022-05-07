@@ -47,6 +47,21 @@ int render_init(Render *self)
     return impls.length - 1;
 }
 
+int render_engine_update_cam(Render *self, Camera* cam)
+{
+    (void)self;
+
+    ctx.cam_look = cam->front;
+
+    ctx.cam_pos = cam->pos;
+
+    ctx.cam_up = cam->up;
+
+
+
+    return 0;
+}
+
 int render_engine_frame(Render *self)
 {
     (void)self;

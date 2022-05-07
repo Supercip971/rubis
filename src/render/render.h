@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <render/camera/camera.h>
 #include <window/window.h>
 
 typedef struct
@@ -17,6 +18,9 @@ int render_init(Render *self);
 int render_deinit(Render *self);
 
 int render_engine_frame(Render *self);
+
+int render_engine_update_cam(Render *self, Camera* cam);
+
 
 int render_surface_init(Render *self, uintptr_t handle);
 
