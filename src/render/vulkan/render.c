@@ -28,9 +28,9 @@ int render_surface_deinit(Render *self, uintptr_t handle)
     return vulkan_render_surface_deinit(&ctx);
 }
 
-int render_engine_init(Window *window)
+int render_engine_init(Window *window, Scene* scene)
 {
-    vulkan_init(&ctx, window_raw_handle(window));
+    vulkan_init(&ctx, window_raw_handle(window), scene);
     vec_init(&impls);
     return 0;
 }

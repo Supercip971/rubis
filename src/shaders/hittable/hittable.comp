@@ -1,0 +1,58 @@
+#ifndef HITTABLE_COMP
+#define HITTABLE_COMP
+
+#include "utils/ray.comp"
+#include "utils/vec.comp"
+
+struct HittableRecord
+{
+    bool hitted;
+    vec3 point;
+    vec3 normal;
+    float t;
+    bool front;
+};
+
+HittableRecord update_face_normal(HittableRecord record, Ray r, vec3 outward)
+{
+    record.front = dot(r.direction, outward) < 0;
+    record.normal = record.front ? (outward) : (-outward);
+    return record;
+}
+
+HittableRecord hit_sphere(float tmin, float tmax, Ray r, vec3 center, vec3 size)
+{
+    HittableRecord record;
+    float radius = size.x;
+    vec3 oc = r.origin - center;
+    float a = squared_len(r.direction);
+    float hb = dot(oc, r.direction);
+    float c = squared_len(oc) - radius * radius;
+
+    float discriminant = hb * hb - a * c;
+
+    record.hitted = false;
+    if (discriminant < 0)
+    {
+        return record;
+    }
+
+    float sqrtd = sqrt(discriminant);
+
+    float root = (-hb - sqrtd) / a;
+
+    if (root < tmin || tmax < root)
+    {
+        root = -(hb + sqrtd) / a;
+        if (root < tmin || tmax < root)
+        {
+            return record;
+        }
+    }
+
+    record.t = root;
+    record.point = ray_at(r, root);
+    record.hitted = true;
+    return update_face_normal(record, r, (record.point - center) / radius);
+}
+#endif

@@ -147,6 +147,17 @@ static inline bool is_vec3_near_zero(Vec3 vec)
 
     return (fabs((double)vec.x) < precision) && (fabs((double)vec.y) < precision) && (fabs((double)vec.z) < precision);
 }
+static inline bool is_vec3_near_zero_l(Vec3 vec)
+{
+    const float precision = 1e-3;
+
+    return (fabs((double)vec.x) < precision) && (fabs((double)vec.y) < precision) && (fabs((double)vec.z) < precision);
+}
+
+static inline bool vec3_eq(Vec3 l, Vec3 r)
+{
+    return is_vec3_near_zero_l(vec3_sub(l, r));
+}
 
 /* vec / sqrt(vecx * vecx + vecy * vecy + vecz * vecz)
 // vec * 1/sqrt()

@@ -5,6 +5,7 @@
 #include <ds/vec.h>
 #include <stdio.h>
 #include <math/vec3.h>
+#include <obj/scene.h>
 #include <stdlib.h>
 
 typedef vec_t(const char *) VulkanExts;
@@ -96,6 +97,10 @@ typedef struct
 
     VulkanBuffer computing_image;
     VulkanBuffer config_buf;
+
+    VulkanBuffer mesh_buf;
+
+    VulkanBuffer mesh_data_buf;
     VkDescriptorPool descriptor_pool;
     uint32_t frame_id;
 
@@ -104,9 +109,11 @@ typedef struct
     Vec3 cam_look;
     Vec3 cam_up;
 
+    Scene scene;
+
 } VulkanCtx;
 
-int vulkan_init(VulkanCtx *self, uintptr_t window_handle);
+int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene* scene);
 
 int vulkan_frame(VulkanCtx *self);
 

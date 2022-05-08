@@ -1,6 +1,55 @@
 #include <obj/scene.h>
+#include <obj/material.h>
 
-void scene_buffer_init(SceneBuffer* buf);
-void scene_buffer_deinit(SceneBuffer* buf);
-int scene_buffer_push(SceneBuffer* buf, void* v, size_t len );
+void scene_init(Scene* self)
+{
+    vec_init(&self->data);
+    vec_init(&self->meshes);
+    // just add the entry n°0 so we can avoid to use this number
+    vec_push(&self->data, (Vec3){});
+    vec_push(&self->meshes, (Mesh){});
+}
 
+
+void scene_data_reference_push(Scene* self, DataReference* dat, Vec3 value)
+{
+    if(dat->start == 0)
+    {
+        dat->start = self->data.length;
+    }
+
+    vec_push(&self->data, value);
+
+    dat->end = self->data.length;
+}
+
+void scene_push_circle(Scene* self, Vec3 pos, float r, Material  material)
+{
+    Mesh mesh = {
+        .material_type = material.type,
+        .material = material.data,
+        .type = MESH_CIRCLE,
+    };
+
+    scene_data_reference_push(self, &mesh.vertices, pos);
+    scene_data_reference_push(self, &mesh.vertices, vec3$(r,r,r));
+
+    vec_push(&self->meshes, mesh);
+}
+
+Material scene_push_lambertian(Scene* self, Vec3 color)
+{
+    Material mat = {
+        .type = MATERIAL_LAMBERTIAN,
+        .data =  {}
+    };
+
+    scene_data_reference_push(self, &mat.data, color);
+    return mat;
+}
+
+void scene_deinit(Scene* self)
+{
+    vec_deinit(&self->data);
+    vec_deinit(&self->meshes);
+}

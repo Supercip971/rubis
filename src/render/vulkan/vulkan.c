@@ -123,7 +123,7 @@ static int vulkan_device_init(VulkanCtx *self)
 }
 
 
-int vulkan_init(VulkanCtx *self, uintptr_t window_handle)
+int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene* scene)
 {
     *self = (VulkanCtx){
         .app_info = (VkApplicationInfo){
@@ -137,6 +137,7 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle)
         },
         .instance = 0,
         .frame_id = 0,
+        .scene = *scene
     };
     int width = 0, height = 0;
     vulkan_render_surface_target_size(self, window_handle, &width, &height);
@@ -170,7 +171,7 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle)
 
     vulkan_cmd_buffer_init(self);
     vulkan_sync_init(self);
-
+    scene_buf_value_init(self);
     return 0;
 }
 
@@ -206,12 +207,22 @@ int vulkan_frame(VulkanCtx *self)
 {
 
     volatile VulkanConfig *cfg = vk_buffer_map(self, self->config_buf);
-    cfg->cam_up = vec3_create(0, 1.0f, 0);
+    Vec3 cam_look = vec3_add(self->cam_look, self->cam_pos);
+
+
+    if(!vec3_eq(cfg->cam_pos, self->cam_pos) ||
+        !vec3_eq(cfg->cam_look, cam_look))
+    {
+        self->frame_id = 0;
+    }
+
+
     cfg->cam_pos = self->cam_pos;
-    cfg->cam_look = vec3_add(self->cam_look, self->cam_pos);
+    cfg->cam_look = cam_look;
+
     cfg->width = WINDOW_WIDTH;
     cfg->height = WINDOW_HEIGHT;
-    cfg->t = 0;
+    cfg->t = self->frame_id;
     vk_buffer_unmap(self, self->config_buf);
     vk_try$(vkWaitForFences(self->logical_device, 1, &self->in_flight_fence, VK_TRUE, UINT64_MAX));
 

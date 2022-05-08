@@ -1,0 +1,31 @@
+
+#ifndef CAM_COMP
+#define CAM_COMP
+
+struct camera
+{
+    vec3 origin;
+    vec3 llc;
+    vec3 horizontal;
+    vec3 vertical;
+};
+
+camera camera_init(vec3 pos, vec3 to, vec3 up)
+{
+
+    float vt = tan(1.5708 / 2.f);
+    float he = 2.f * vt;
+    float wi = he * (16.f / 9.f);
+
+    vec3 w = normalize(pos - to);
+    vec3 u = normalize(cross(up, w));
+    vec3 v = cross(w, u);
+    camera cam;
+    cam.origin = pos;
+    cam.horizontal = u * wi;
+
+    cam.vertical = v * he;
+    cam.llc = pos - (cam.horizontal / 2.0) - (cam.vertical / 2.0) - w;
+    return cam;
+}
+#endif

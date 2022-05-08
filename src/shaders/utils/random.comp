@@ -1,0 +1,63 @@
+#ifndef RANDOM_COMP
+#define RANDOM_COMP
+
+layout(std140, binding = 1) uniform UniformBufferObjectRandom
+{
+    float width;
+    float height;
+    uint t;
+    vec4 camera_pos;
+
+    vec4 camera_target;
+    vec4 camera_up;
+}
+rubo;
+struct RandomResult
+{
+    uvec4 state;
+    float value;
+};
+
+uint TausStep(uint z, int S1, int S2, int S3, uint M)
+{
+    uint b = (((z << S1) ^ z) >> S2);
+    return (((z & M) << S3) ^ b);
+}
+
+uint LCGStep(uint z, uint A, uint C)
+{
+    return (A * z + C);
+}
+
+RandomResult random_impl(uvec4 state)
+{
+    state.x = TausStep(uint(state.x), 13, 19, 12, 4294967294);
+    state.y = TausStep(uint(state.y), 2, 25, 4, 4294967288);
+    state.z = TausStep(uint(state.z), 3, 11, 17, 4294967280);
+    state.w = LCGStep(uint(state.w), 1664525, 1013904223);
+
+    RandomResult result;
+    result.state = state;
+    result.value = 2.3283064365387e-10 * (state.x ^ state.y ^ state.z ^ state.w);
+
+    return result;
+}
+
+uvec4 seed;
+bool loaded = false;
+float random()
+{
+    if (!loaded)
+    {
+        seed.x = gl_GlobalInvocationID.x + 128;
+        seed.y = gl_GlobalInvocationID.y + 128;
+        seed.z = uint(rubo.t + 128);
+        seed.w = (uint(rubo.width * rubo.height) ^ rubo.t) + 128;
+        loaded = true;
+    }
+
+    RandomResult r = random_impl(seed);
+    seed = r.state;
+    return r.value;
+}
+#endif

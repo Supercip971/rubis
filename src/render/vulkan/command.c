@@ -55,7 +55,7 @@ void vulkan_cmd_buffer_init(VulkanCtx *ctx)
         vkCmdBindPipeline(ctx->comp_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, ctx->compute.raw_pipeline);
         vkCmdBindDescriptorSets(ctx->comp_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, ctx->pipeline_layout, 0, 1, &ctx->descriptor_set, 0, 0);
 
-        vkCmdDispatch(ctx->comp_buffer, WINDOW_WIDTH / 32, WINDOW_HEIGHT / 32, 1);
+        vkCmdDispatch(ctx->comp_buffer, WINDOW_WIDTH / 30, WINDOW_HEIGHT / 30, 1);
     }
     vk_try$(vkEndCommandBuffer(ctx->comp_buffer));
 }

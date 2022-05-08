@@ -3,13 +3,14 @@
 #include <stdint.h>
 #include <render/camera/camera.h>
 #include <window/window.h>
+#include <obj/scene.h>
 
 typedef struct
 {
     int id;
 } Render;
 
-int render_engine_init(Window *window);
+int render_engine_init(Window *window, Scene*scene);
 
 int render_engine_deinit(void);
 

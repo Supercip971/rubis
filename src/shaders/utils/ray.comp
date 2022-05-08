@@ -1,0 +1,14 @@
+#ifndef RAY_COMP
+#define RAY_COMP
+
+struct Ray
+{
+    vec3 origin;
+    vec3 direction;
+};
+
+vec3 ray_at(Ray r, float v)
+{
+    return r.origin + r.direction * v;
+}
+#endif

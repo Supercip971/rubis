@@ -86,7 +86,7 @@ void vk_buffer_copy(VulkanCtx *ctx, VulkanBuffer to, VulkanBuffer from)
         .pCommandBuffers = &command_buffer,
     };
 
-    vkQueueSubmit(ctx->gfx_queue, 1, &submitInfo, VK_NULL_HANDLE);
+    vk_try$(vkQueueSubmit(ctx->gfx_queue, 1, &submitInfo, VK_NULL_HANDLE));
     vkQueueWaitIdle(ctx->gfx_queue);
 
     vkFreeCommandBuffers(ctx->logical_device, ctx->cmd_pool, 1, &command_buffer);

@@ -1,0 +1,70 @@
+#ifndef MESHES_COMP
+#define MESHES_COMP
+
+#include "utils/ray.comp"
+
+layout(std140, binding = 2) buffer MeshesBufData
+{
+    vec4 buf_datas[];
+};
+
+struct Mesh
+{
+    uint type;
+    uint material_type;
+    uint material_data_start;
+    uint material_data_end;
+    uint mesh_data_start;
+    uint mesh_data_end;
+    vec4 aabb1;
+    vec4 aabb2;
+};
+
+layout(std140, binding = 3) buffer MeshesBuf
+{
+    Mesh meshes[];
+};
+
+vec4 ray_color(Ray r, float x, float y)
+{
+    HittableRecord rec;
+    rec.hitted = false;
+
+    float cmin = 0.00001f;
+    float cmax = 1000000.f;
+    for (int i = 0; i < meshes.length(); i++)
+    {
+        Mesh current_mesh = meshes[i];
+        if (current_mesh.type == 0)
+        {
+            continue;
+        }
+        else if (current_mesh.type == 1)
+        {
+
+            vec3 pos = buf_datas[current_mesh.mesh_data_start].xyz;
+
+            vec3 size = buf_datas[current_mesh.mesh_data_start + 1].xyz;
+            HittableRecord rec2 = hit_sphere(cmin, cmax, r, pos, size);
+
+            if (rec2.hitted)
+            {
+                rec = rec2;
+                cmax = rec.t;
+            }
+        }
+    }
+    float v = rec.t;
+    if (rec.hitted)
+    {
+        vec3 n = vec_unit(ray_at(r, v) - vec3(0, 0, -1));
+        return vec4(0.5 * (vec3(n.x + 1, n.y + 1, n.z + 1)), 1);
+    }
+
+    vec3 unit_direction = vec_unit(r.direction);
+    float t = (unit_direction.y + 1.0f) * 0.5f;
+
+    return (1.0 - t) * vec4(1.0) + t * vec4(0.5, 0.7, 1.0, 1.0);
+}
+
+#endif

@@ -32,6 +32,7 @@ SRC_DIR = src
 VSFILES = $(wildcard $(SRC_DIR)/*.vs) $(wildcard $(SRC_DIR)/*/*.vs) $(wildcard $(SRC_DIR)/*/*/*.vs)
 FSFILES = $(wildcard $(SRC_DIR)/*.fs) $(wildcard $(SRC_DIR)/*/*.fs) $(wildcard $(SRC_DIR)/*/*/*.fs)
 COMPSFILES = $(wildcard $(SRC_DIR)/*.comp) $(wildcard $(SRC_DIR)/*/*.comp) $(wildcard $(SRC_DIR)/*/*/*.comp)
+COMPDFILES = $(patsubst $(SRC_DIR)/%.comp, $(BUILD_DIR)/%.d, $(COMPSFILES))
 
 OSFILES = $(patsubst $(SRC_DIR)/%.vs, $(BUILD_DIR)/%.spv, $(VSFILES)) \
 		$(patsubst $(SRC_DIR)/%.fs, $(BUILD_DIR)/%.spv, $(FSFILES)) \
@@ -47,18 +48,18 @@ OUTPUT = build/$(PROJECT_NAME)
 $(BUILD_DIR)/%.spv: $(SRC_DIR)/%.fs
 	@$(MKCWD)
 	@echo " FS [ $@ ] $<"
-	@glslc -fshader-stage=frag $< -o $@
+	@glslc -O -fshader-stage=frag $< -o $@
 
 $(BUILD_DIR)/%.spv: $(SRC_DIR)/%.vs
 	@$(MKCWD)
 	@echo " VS [ $@ ] $<"
-	@glslc -fshader-stage=vert $< -o $@
+	@glslc -O -fshader-stage=vert $< -o $@
 
 
-$(BUILD_DIR)/%.spv: $(SRC_DIR)/%.comp
+$(BUILD_DIR)/%.spv: $(SRC_DIR)/shaders/comp.comp
 	@$(MKCWD)
 	@echo " CS [ $@ ] $<"
-	@glslc -fshader-stage=comp $< -o $@
+	@glslc -Isrc/shaders/ -O -MD -fshader-stage=comp $< -o $@
 
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
@@ -83,3 +84,5 @@ clean:
 .PHONY: clean all run
 
 -include $(DFILES)
+-include $(COMPDFILES)
+

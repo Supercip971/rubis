@@ -12,10 +12,18 @@ int main(MAYBE_UNUSED int argc, MAYBE_UNUSED char **argv)
     Window curr_window = {};
     Camera cam = {};
 
+    Scene scene = {};
+
+    scene_init(&scene);
+
+    scene_push_circle(&scene, vec3$(0,0,-1), 1, scene_push_lambertian(&scene, vec3$(1,0,0)));
+
+
+
     window_engine_init();
     window_init(&curr_window);
 
-    render_engine_init(&curr_window);
+    render_engine_init(&curr_window, &scene);
     render_init(&render);
 
     camera_init(&cam, (void*)window_raw_handle(&curr_window));
