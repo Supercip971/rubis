@@ -1,0 +1,13 @@
+#ifndef MATERIAL_COMP
+#define MATERIAL_COMP
+
+#include "utils/ray.comp"
+
+struct MaterialRecord
+{
+    bool do_scatter;
+    Ray scatter;
+    vec3 attenuation;
+};
+
+#endif

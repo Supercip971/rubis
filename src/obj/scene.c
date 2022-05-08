@@ -47,7 +47,30 @@ Material scene_push_lambertian(Scene* self, Vec3 color)
     scene_data_reference_push(self, &mat.data, color);
     return mat;
 }
+Material scene_push_metal(Scene* self, Vec3 color, float fuzzy)
+{
+    Material mat = {
+        .type = MATERIAL_METAL,
+        .data =  {}
+    };
 
+    scene_data_reference_push(self, &mat.data, color);
+
+    scene_data_reference_push(self, &mat.data, vec3$(fuzzy,0,0));
+    return mat;
+}
+
+
+Material scene_push_dieletric(Scene* self, float r)
+{
+    Material mat = {
+        .type = MATERIAL_DIELETRIC,
+        .data =  {}
+    };
+
+    scene_data_reference_push(self, &mat.data, vec3$(r,0,0));
+    return mat;
+}
 void scene_deinit(Scene* self)
 {
     vec_deinit(&self->data);

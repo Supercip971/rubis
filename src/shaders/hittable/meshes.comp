@@ -1,6 +1,8 @@
 #ifndef MESHES_COMP
 #define MESHES_COMP
 
+#include "hittable/hittable.comp"
+#include "hittable/material.comp"
 #include "utils/ray.comp"
 
 layout(std140, binding = 2) buffer MeshesBufData
@@ -25,12 +27,75 @@ layout(std140, binding = 3) buffer MeshesBuf
     Mesh meshes[];
 };
 
-vec4 ray_color(Ray r, float x, float y)
+MaterialRecord material_hit(HittableRecord record, Ray r)
+{
+    Mesh current_mesh = meshes[record.mesh_id];
+    MaterialRecord result;
+
+    if (current_mesh.material_type == 1)
+    {
+
+        vec3 color = buf_datas[current_mesh.material_data_start].xyz;
+        result.attenuation = color;
+        result.scatter = Ray(record.point, vec3_random_unit() + record.normal);
+
+        if (is_vec_near_zero(result.scatter.direction))
+        {
+            result.scatter.direction = record.normal;
+        }
+
+        result.do_scatter = true;
+        return result;
+    }
+    else if (current_mesh.material_type == 2)
+    {
+        vec3 color = buf_datas[current_mesh.material_data_start].xyz;
+        float fuzz = buf_datas[current_mesh.material_data_start + 1].x;
+        result.attenuation = color;
+        result.scatter = Ray(record.point, reflect(vec_unit(r.direction), record.normal) + vec3_random_unit() * fuzz);
+
+        result.do_scatter = dot(result.scatter.direction, record.normal) > 0.0f;
+        return result;
+    }
+    else if (current_mesh.material_type == 3)
+    {
+        float idx = buf_datas[current_mesh.material_data_start].x;
+        vec3 attenuation = vec3(1);
+        float refract_ratio = record.front ? (1.0 / idx) : idx;
+
+        vec3 unit_direction = vec_unit(r.direction);
+
+        float cos_theta = min(dot(-unit_direction, record.normal), 1.0);
+        float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+
+        bool cannot_refract = refract_ratio * sin_theta > 1.0;
+
+        vec3 dir;
+        if (cannot_refract || reflectance(cos_theta, refract_ratio) > random())
+        {
+            dir = reflect(unit_direction, record.normal);
+        }
+        else
+        {
+            dir = refract(unit_direction, record.normal, refract_ratio);
+        }
+        result.attenuation = attenuation;
+        result.scatter = Ray(record.point, dir);
+        result.do_scatter = true;
+        return result;
+    }
+
+    result.attenuation = vec3(1.0, 0, 0);
+    result.scatter = r;
+    result.scatter.origin = vec3(0);
+    return result;
+}
+HittableRecord world_hit(Ray r, float x, float y)
 {
     HittableRecord rec;
     rec.hitted = false;
 
-    float cmin = 0.00001f;
+    float cmin = 0.001f;
     float cmax = 1000000.f;
     for (int i = 0; i < meshes.length(); i++)
     {
@@ -51,20 +116,51 @@ vec4 ray_color(Ray r, float x, float y)
             {
                 rec = rec2;
                 cmax = rec.t;
+                rec.mesh_id = i;
             }
         }
     }
-    float v = rec.t;
-    if (rec.hitted)
-    {
-        vec3 n = vec_unit(ray_at(r, v) - vec3(0, 0, -1));
-        return vec4(0.5 * (vec3(n.x + 1, n.y + 1, n.z + 1)), 1);
-    }
+    return rec;
+}
+
+vec4 sky_color(Ray r)
+{
 
     vec3 unit_direction = vec_unit(r.direction);
     float t = (unit_direction.y + 1.0f) * 0.5f;
 
     return (1.0 - t) * vec4(1.0) + t * vec4(0.5, 0.7, 1.0, 1.0);
+}
+vec4 ray_color(Ray r, float x, float y, int maxv)
+{
+
+    HittableRecord rec = world_hit(r, x, y);
+    vec4 result = vec4(sky_color(r));
+    float amount = 2;
+
+    int depth = 0;
+    while (rec.hitted)
+    {
+        MaterialRecord material = material_hit(rec, r);
+        if (material.do_scatter)
+        {
+            r = material.scatter;
+            result = result * vec4(material.attenuation, 1.0);
+        }
+        else
+        {
+            return vec4(0);
+        }
+
+        rec = world_hit(r, x, y);
+        depth += 1;
+        if (rec.hitted == false || depth > maxv || maxv == 0)
+        {
+            return vec4(result);
+        }
+    }
+
+    return sky_color(r);
 }
 
 #endif

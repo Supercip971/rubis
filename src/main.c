@@ -16,7 +16,12 @@ int main(MAYBE_UNUSED int argc, MAYBE_UNUSED char **argv)
 
     scene_init(&scene);
 
-    scene_push_circle(&scene, vec3$(0,0,-1), 1, scene_push_lambertian(&scene, vec3$(1,0,0)));
+    scene_push_circle(&scene, vec3$(0,-100.5,-1), 100., scene_push_lambertian(&scene, vec3$(0.8, 0.8, 0.0)));
+
+    scene_push_circle(&scene, vec3$(0,0,-1), 0.5, scene_push_lambertian(&scene, vec3$(0.7, 0.3, 0.3)));
+    scene_push_circle(&scene, vec3$(-1,0,-1), 0.5, scene_push_metal(&scene, vec3$(0.8, 0.8, 0.8),0.3));
+    scene_push_circle(&scene, vec3$(1,0,-1), 0.5, scene_push_dieletric(&scene,1.5));
+
 
 
 

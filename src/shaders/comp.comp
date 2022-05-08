@@ -66,7 +66,7 @@ void main()
             Ray r;
             r.origin = cam.origin;
             r.direction = cam.llc + u * cam.horizontal + v * cam.vertical - cam.origin;
-            color += ray_color(r, u, v);
+            color += ray_color(r, u, v, ubo.t >= 0.1 ? (50) : (3));
             uint pos2 = uint(ubo.width) * ((uint(ubo.height) - (y + j)) + 1) + (x + i);
 
             if (ubo.t == 0)

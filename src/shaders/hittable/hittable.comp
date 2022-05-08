@@ -11,6 +11,7 @@ struct HittableRecord
     vec3 normal;
     float t;
     bool front;
+    int mesh_id;
 };
 
 HittableRecord update_face_normal(HittableRecord record, Ray r, vec3 outward)
@@ -55,4 +56,5 @@ HittableRecord hit_sphere(float tmin, float tmax, Ray r, vec3 center, vec3 size)
     record.hitted = true;
     return update_face_normal(record, r, (record.point - center) / radius);
 }
+
 #endif
