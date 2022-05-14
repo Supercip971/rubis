@@ -81,13 +81,13 @@ VkPresentModeKHR swap_chain_get_best_present_mode(SwapChainSupportDetails *self)
     }
     for (int i = 0; i < self->modes.length; ++i)
     {
-        if (self->modes.data[i] == VK_PRESENT_MODE_FIFO_KHR)
+        if (self->modes.data[i] == VK_PRESENT_MODE_IMMEDIATE_KHR)
         {
             return self->modes.data[i];
         }
     }
 
-    return VK_PRESENT_MODE_FIFO_KHR;
+    return VK_PRESENT_MODE_IMMEDIATE_KHR;
 }
 
 VkExtent2D swap_chain_get_best_extent(SwapChainSupportDetails *self, int width, int height)

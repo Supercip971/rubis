@@ -1,5 +1,6 @@
 
 #include <config.h>
+#include <render/vulkan/buffer.h>
 #include <render/vulkan/command.h>
 #include <render/vulkan/device.h>
 #include <render/vulkan/logical.h>
@@ -48,6 +49,7 @@ void vulkan_cmd_buffer_init(VulkanCtx *ctx)
     vkResetCommandBuffer(ctx->comp_buffer, 0);
     VkCommandBufferBeginInfo begin_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = 0,
     };
 
     vk_try$(vkBeginCommandBuffer(ctx->comp_buffer, &begin_info));
@@ -55,7 +57,7 @@ void vulkan_cmd_buffer_init(VulkanCtx *ctx)
         vkCmdBindPipeline(ctx->comp_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, ctx->compute.raw_pipeline);
         vkCmdBindDescriptorSets(ctx->comp_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, ctx->pipeline_layout, 0, 1, &ctx->descriptor_set, 0, 0);
 
-        vkCmdDispatch(ctx->comp_buffer, WINDOW_WIDTH / 30, WINDOW_HEIGHT / 30, 1);
+        vkCmdDispatch(ctx->comp_buffer, 32, 32, 1);
     }
     vk_try$(vkEndCommandBuffer(ctx->comp_buffer));
 }
@@ -66,32 +68,19 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx)
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
     };
 
-    if (vkGetFenceStatus(ctx->logical_device, ctx->compute_fence) == VK_SUCCESS)
-    {
-        vkResetFences(ctx->logical_device, 1, &ctx->compute_fence);
-
-        VkSubmitInfo submitInfo = {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .commandBufferCount = 1,
-            .pCommandBuffers = &ctx->comp_buffer,
-        };
-
-        vk_try$(vkQueueSubmit(ctx->comp_queue, 1, &submitInfo, ctx->compute_fence));
-        ctx->frame_id += 1;
-    }
     vkResetCommandBuffer(ctx->cmd_buffer, 0);
 
     vk_try$(vkBeginCommandBuffer(ctx->cmd_buffer, &begin_info));
-    /*
-    VkBufferMemoryBarrier barrier = {
 
-        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
-        .dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-        .srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT,
-        .buffer = ctx->computing_image.buffer,
-        .size = VK_WHOLE_SIZE,
-
+    VkBufferCopy copy_region = {
+        .size = ctx->computing_image.len,
+        .dstOffset = 0,
+        .srcOffset = 0,
     };
+    vkCmdCopyBuffer(ctx->cmd_buffer, ctx->computing_image.buffer, ctx->fragment_image.buffer, 1, &copy_region);
+
+    /*
+
 
      vkCmdPipelineBarrier(
          ctx->cmd_buffer,
@@ -101,7 +90,6 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx)
          0, NULL,
          1, &barrier,
          0, NULL);*/
-    VkClearValue clear = {{{0.f, 0.f, 0.f, 1.0f}}};
     VkRenderPassBeginInfo render_pass_info = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = ctx->render_pass,
@@ -109,11 +97,10 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx)
         .renderArea = {
             .extent = ctx->extend,
         },
-        .clearValueCount = 1,
-        .pClearValues = &clear,
+        .clearValueCount = 0,
     };
 
-    vkCmdBeginRenderPass(ctx->cmd_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(ctx->cmd_buffer, &render_pass_info, 0);
 
     vkCmdBindPipeline(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->gfx_pipeline);
 

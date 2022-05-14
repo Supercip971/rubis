@@ -17,17 +17,23 @@ vec3 vec3_random()
     return (vec3(random(), random(), random()) * 2.f) - vec3(1.0f);
 }
 
+float vec3_min_comp(vec3 v)
+{
+    return min(v.x, min(v.y, v.z));
+}
+float vec3_max_comp(vec3 v)
+{
+    return max(v.x, max(v.y, v.z));
+}
 vec3 vec3_random_insphere()
 {
 
-    while (true)
+    vec3 v = vec3_random();
+    if (squared_len(v) > 1.0f)
     {
-        vec3 v = vec3_random();
-        if (squared_len(v) <= 1.0f)
-        {
-            return v;
-        }
+        v = vec_unit(v);
     }
+    return v;
 }
 
 vec3 vec3_random_unit()
@@ -69,5 +75,15 @@ float reflectance(float cosine, float ref_idx)
     ro = ro * ro;
     return ro + (1 - ro) * pow((1 - cosine), 5);
 }
-
+vec3 vec3_random_unit_in_disk()
+{
+    while (true)
+    {
+        vec3 v = vec3(random(), random(), 0.5f) * 2.0 - vec3(1.0);
+        if (squared_len(v) <= 1.0f)
+        {
+            return v;
+        }
+    }
+}
 #endif

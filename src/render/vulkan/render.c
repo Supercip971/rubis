@@ -57,6 +57,8 @@ int render_engine_update_cam(Render *self, Camera* cam)
 
     ctx.cam_up = cam->up;
 
+    ctx.cam_focus_disk = cam->focus_disc;
+    ctx.cam_aperture = cam->aperture;
 
 
     return 0;

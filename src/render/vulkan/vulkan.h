@@ -3,9 +3,9 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <ds/vec.h>
-#include <stdio.h>
 #include <math/vec3.h>
 #include <obj/scene.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 typedef vec_t(const char *) VulkanExts;
@@ -13,6 +13,7 @@ typedef vec_t(VkImage) SwapImages;
 typedef vec_t(VkImageView) SwapImageViews;
 typedef vec_t(VkFramebuffer) Framebuffers;
 
+#include <obj/bvh.h>
 // I may split this structure in multiple one, like one for the device etc... But I'm not really trying to make a game engine, so for the moment I don't see the point of doing it.
 // Just keep in mind that this structure should be reworked.
 typedef struct
@@ -32,8 +33,9 @@ typedef struct
     _Alignas(16) Vec3 cam_pos;
     _Alignas(16) Vec3 cam_look;
     _Alignas(16) Vec3 cam_up;
+    _Alignas(4) float aperture;
+    _Alignas(4) float focus_disc;
 } VulkanConfig;
-
 
 typedef struct
 {
@@ -96,24 +98,32 @@ typedef struct
     VkDescriptorSet descriptor_set;
 
     VulkanBuffer computing_image;
+    VulkanBuffer fragment_image;
+
     VulkanBuffer config_buf;
 
     VulkanBuffer mesh_buf;
 
     VulkanBuffer mesh_data_buf;
+    VulkanBuffer bvh_buf;
+
     VkDescriptorPool descriptor_pool;
     uint32_t frame_id;
-
 
     Vec3 cam_pos;
     Vec3 cam_look;
     Vec3 cam_up;
 
+    float cam_aperture;
+    float cam_focus_disk;
     Scene scene;
+    BvhList bvh_data;
 
+    vec_t(VkQueue) submitting;
+    volatile VulkanConfig *cfg;
 } VulkanCtx;
 
-int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene* scene);
+int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene);
 
 int vulkan_frame(VulkanCtx *self);
 

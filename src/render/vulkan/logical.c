@@ -9,8 +9,7 @@
 
 const char *device_required_exts[] = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME
-};
+    VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME};
 
 bool vulkan_check_device_extensions(VkPhysicalDevice device)
 {
@@ -48,7 +47,7 @@ bool vulkan_check_device_extensions(VkPhysicalDevice device)
 void vulkan_logical_device_init(VulkanCtx *ctx)
 {
     float priority = 1.0f;
-
+    float priorityb = 0.0f;
     vec_t(VkDeviceQueueCreateInfo) queue_create_infos = {};
     vec_t(uint32_t) queue_create_idx = {};
 
@@ -58,10 +57,10 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
     QueueFamilyIndices idx = vulkan_pick_queue_family(ctx);
     vec_push(&queue_create_idx, idx.family_idx);
 
-    if(idx.compute_idx != idx.family_idx && idx.compute_idx != idx.present_family)
+    if (idx.compute_idx != idx.family_idx && idx.compute_idx != idx.present_family)
     {
 
-         vec_push(&queue_create_idx, idx.compute_idx);
+        vec_push(&queue_create_idx, idx.compute_idx);
     }
 
     if (idx._has_present_family && idx.present_family != idx.family_idx)
@@ -74,14 +73,29 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
     int i = 0;
     vec_foreach(&queue_create_idx, queue_idx, i)
     {
-        VkDeviceQueueCreateInfo queue_create_info = {
-            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-            .queueFamilyIndex = queue_idx,
-            .queueCount = 1,
-            .pQueuePriorities = &priority,
-        };
 
-        vec_push(&queue_create_infos, queue_create_info);
+        if (queue_idx == idx.compute_idx)
+        {
+            VkDeviceQueueCreateInfo queue_create_info = {
+                .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+                .queueFamilyIndex = queue_idx,
+                .queueCount = 1,
+                .pQueuePriorities = &priority,
+            };
+
+            vec_push(&queue_create_infos, queue_create_info);
+        }
+        else
+        {
+            VkDeviceQueueCreateInfo queue_create_info = {
+                .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+                .queueFamilyIndex = queue_idx,
+                .queueCount = 1,
+                .pQueuePriorities = &priorityb,
+            };
+
+            vec_push(&queue_create_infos, queue_create_info);
+        }
     }
 
     VkPhysicalDeviceFeatures features = {};
@@ -100,7 +114,6 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
 
     vkGetDeviceQueue(ctx->logical_device, idx.family_idx, 0, &ctx->gfx_queue);
     vkGetDeviceQueue(ctx->logical_device, idx.compute_idx, 0, &ctx->comp_queue);
-
     vkGetDeviceQueue(ctx->logical_device, idx.present_family, 0, &ctx->present_queue);
 
     vec_deinit(&queue_create_infos);

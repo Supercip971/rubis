@@ -2,18 +2,26 @@
 #ifndef CAM_COMP
 #define CAM_COMP
 
+#include "utils/ray.comp"
+
 struct camera
 {
     vec3 origin;
     vec3 llc;
     vec3 horizontal;
     vec3 vertical;
+    float aperture;
+    float focus_disk;
+
+    vec3 u;
+    vec3 v;
+    float lens_radius;
 };
 
-camera camera_init(vec3 pos, vec3 to, vec3 up)
+camera camera_init(vec3 pos, vec3 to, vec3 up, float aperture, float focus_disk)
 {
 
-    float vt = tan(1.5708 / 2.f);
+    float vt = tan(((M_PI / 180.f) * 60.0f) / 2.f);
     float he = 2.f * vt;
     float wi = he * (16.f / 9.f);
 
@@ -22,10 +30,34 @@ camera camera_init(vec3 pos, vec3 to, vec3 up)
     vec3 v = cross(w, u);
     camera cam;
     cam.origin = pos;
-    cam.horizontal = u * wi;
+    cam.horizontal = focus_disk * u * wi;
 
-    cam.vertical = v * he;
-    cam.llc = pos - (cam.horizontal / 2.0) - (cam.vertical / 2.0) - w;
+    cam.vertical = focus_disk * v * he;
+    cam.llc = pos - (cam.horizontal / 2.0) - (cam.vertical / 2.0) - focus_disk * w;
+    cam.aperture = aperture;
+    cam.focus_disk = focus_disk;
+    cam.lens_radius = aperture / 2.0;
+    cam.u = u;
+    cam.v = v;
     return cam;
 }
+
+Ray camera_ray(camera cam, float u, float v)
+{
+
+    Ray r;
+    r.origin = cam.origin;
+    r.direction = cam.llc + u * cam.horizontal + v * cam.vertical - cam.origin;
+    return r;
+
+    /*
+        vec3 rd = cam.lens_radius * vec3_random_unit_in_disk();
+        vec3 off = cam.u * rd.x + cam.v * rd.y;
+        Ray r;
+        r.origin = cam.origin + off;
+        r.direction = cam.llc + u * cam.horizontal + v * cam.vertical - cam.origin - off;
+        return r;
+        */
+}
+
 #endif

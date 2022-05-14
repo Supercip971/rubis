@@ -20,6 +20,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+#include <unistd.h>
 
 static int vulkan_dump_extension(void)
 {
@@ -58,12 +60,10 @@ static int vulkan_query_extension(VulkanCtx *self, VkInstanceCreateInfo *info)
     if (ENABLE_VALIDATION_LAYERS)
     {
 
-
         vec_push(&self->exts, "VK_EXT_debug_report");
         vec_push(&self->exts, "VK_EXT_validation_features");
 
         vec_push(&self->exts, "VK_EXT_debug_utils");
-
     }
 
     vec_push(&self->exts, "VK_KHR_get_surface_capabilities2");
@@ -121,9 +121,9 @@ static int vulkan_device_init(VulkanCtx *self)
     vulkan_logical_device_init(self);
     return 0;
 }
+struct timespec start;
 
-
-int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene* scene)
+int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
 {
     *self = (VulkanCtx){
         .app_info = (VkApplicationInfo){
@@ -137,8 +137,10 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene* scene)
         },
         .instance = 0,
         .frame_id = 0,
-        .scene = *scene
-    };
+        .scene = *scene};
+
+    bvh_init(&self->bvh_data, scene);
+
     int width = 0, height = 0;
     vulkan_render_surface_target_size(self, window_handle, &width, &height);
 
@@ -172,12 +174,17 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene* scene)
     vulkan_cmd_buffer_init(self);
     vulkan_sync_init(self);
     scene_buf_value_init(self);
+
+    clock_gettime(CLOCK_REALTIME, &start);
+
+    self->cfg = vk_buffer_map(self, self->config_buf);
     return 0;
 }
 
 int vulkan_deinit(VulkanCtx *self)
 {
     vkDeviceWaitIdle(self->logical_device);
+    vk_buffer_unmap(self, self->config_buf);
     vulkan_sync_deinit(self);
     vulkan_cmd_pool_deinit(self);
     vulkan_framebuffer_deinit(self);
@@ -206,61 +213,89 @@ float v = 0;
 int vulkan_frame(VulkanCtx *self)
 {
 
-    volatile VulkanConfig *cfg = vk_buffer_map(self, self->config_buf);
     Vec3 cam_look = vec3_add(self->cam_look, self->cam_pos);
 
-
-    if(!vec3_eq(cfg->cam_pos, self->cam_pos) ||
-        !vec3_eq(cfg->cam_look, cam_look))
+    if (!vec3_eq(self->cfg->cam_pos, self->cam_pos) ||
+        !vec3_eq(self->cfg->cam_look, cam_look))
     {
         self->frame_id = 0;
     }
 
+    self->cfg->cam_pos = self->cam_pos;
+    self->cfg->focus_disc = self->cam_focus_disk;
+    self->cfg->aperture = self->cam_aperture;
+    self->cfg->cam_look = cam_look;
 
-    cfg->cam_pos = self->cam_pos;
-    cfg->cam_look = cam_look;
+    self->cfg->width = WINDOW_WIDTH;
+    self->cfg->height = WINDOW_HEIGHT;
+    self->cfg->t = self->frame_id;
 
-    cfg->width = WINDOW_WIDTH;
-    cfg->height = WINDOW_HEIGHT;
-    cfg->t = self->frame_id;
-    vk_buffer_unmap(self, self->config_buf);
-    vk_try$(vkWaitForFences(self->logical_device, 1, &self->in_flight_fence, VK_TRUE, UINT64_MAX));
+    if (vkGetFenceStatus(self->logical_device, self->compute_fence) == VK_SUCCESS)
+    {
 
-    vk_try$(vkResetFences(self->logical_device, 1, &self->in_flight_fence));
+        struct timespec cur;
+        clock_gettime(CLOCK_REALTIME, &cur);
+        vkResetFences(self->logical_device, 1, &self->compute_fence);
 
-    uint32_t image_idx = 0;
+        VkSubmitInfo submitInfo2 = {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &self->comp_buffer,
+        };
 
-    vk_try$(vkAcquireNextImageKHR(self->logical_device, self->swapchain, UINT64_MAX, self->image_available_semaphore, VK_NULL_HANDLE, &image_idx));
-    vulkan_record_cmd_buffer(self, image_idx);
+        double accum;
+        accum = (cur.tv_sec - start.tv_sec) + (double)(cur.tv_nsec - start.tv_nsec) / (double)1000000000L;
+        printf("a1 %lf %i \n", accum, self->frame_id);
 
-    VkSemaphore signaledSemaphores[] = {self->render_finished_semaphore};
-    VkSemaphore waitSemaphores[] = {self->image_available_semaphore};
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+        vk_try$(vkQueueSubmit(self->comp_queue, 1, &submitInfo2, self->compute_fence));
 
-    VkSubmitInfo submitInfo = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = waitSemaphores,
-        .pWaitDstStageMask = waitStages,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &self->cmd_buffer,
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = signaledSemaphores,
-    };
+        printf("a2\n");
+        self->frame_id += 1;
+        clock_gettime(CLOCK_REALTIME, &start);
+    }
 
-    vk_try$(vkQueueSubmit(self->gfx_queue, 1, &submitInfo, self->in_flight_fence));
+    if (vkGetFenceStatus(self->logical_device, self->in_flight_fence) == VK_SUCCESS)
+    {
 
-    VkSwapchainKHR swapchains[] = {self->swapchain};
-    VkPresentInfoKHR present_info = {
-        .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = signaledSemaphores,
-        .swapchainCount = 1,
-        .pSwapchains = swapchains,
-        .pImageIndices = &image_idx,
+        vk_try$(vkResetFences(self->logical_device, 1, &self->in_flight_fence));
 
-    };
-    vk_try$(vkQueuePresentKHR(self->present_queue, &present_info));
+        uint32_t image_idx = 0;
 
+        vk_try$(vkAcquireNextImageKHR(self->logical_device, self->swapchain, UINT64_MAX, self->image_available_semaphore, VK_NULL_HANDLE, &image_idx));
+        vulkan_record_cmd_buffer(self, image_idx);
+
+        VkSemaphore signaledSemaphores[] = {self->render_finished_semaphore};
+        VkSemaphore waitSemaphores[] = {self->image_available_semaphore};
+        VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+
+        VkSubmitInfo submitInfo = {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = waitSemaphores,
+            .pWaitDstStageMask = waitStages,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &self->cmd_buffer,
+            .signalSemaphoreCount = 1,
+            .pSignalSemaphores = signaledSemaphores,
+        };
+
+        vk_try$(vkQueueSubmit(self->gfx_queue, 1, &submitInfo, self->in_flight_fence));
+
+        VkSwapchainKHR swapchains[] = {self->swapchain};
+        VkPresentInfoKHR present_info = {
+            .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = signaledSemaphores,
+            .swapchainCount = 1,
+            .pSwapchains = swapchains,
+            .pImageIndices = &image_idx,
+
+        };
+        vk_try$(vkQueuePresentKHR(self->present_queue, &present_info));
+    }
+    else
+    {
+        vkWaitForFences(self->logical_device, 1, &self->compute_fence, VK_TRUE, 16666000);
+    }
     return 0;
 }

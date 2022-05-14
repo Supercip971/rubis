@@ -1,0 +1,18 @@
+{
+    "null": {
+        "_": "int"
+    },
+    "bvh": {
+        "beg": "vec3",
+        "end": "vec3"
+    },
+    "object_list": {
+        "objects": {
+            "list": "ptr"
+        }
+    },
+    "circle": {
+        "pos": "vec3",
+        "radius": "float"
+    }
+}

@@ -10,7 +10,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
     (void)window;
     (void)xpos;
     (void)ypos;
- double x = xpos;
+    double x = xpos;
     double y = ypos;
 
         float dx = x - cam2->lastx;
@@ -31,16 +31,20 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
     (void)window;
 
 }
-void camera_init(Camera* cam, void* whandle)
+void camera_init(Camera* cam, void* whandle, bool enable_control)
 {
     GLFWwindow* window = whandle;
 
+    if(enable_control)
+    {
     double x;
     double y;
     glfwGetCursorPos(window, &x, &y);
 
     glfwSetCursorPosCallback(window, mouse_callback);
-    cam2 = cam;
+
+    }
+   cam2 = cam;
     cam->pos = vec3$(0,0,1.0);
 
     cam->front = vec3$(0,0,-1.0f);
@@ -50,11 +54,17 @@ void camera_init(Camera* cam, void* whandle)
     cam->pitch = 0;
     cam->lastx = 0;
     cam->lasty = 0;
+    cam->controllable = enable_control;
 }
 
 // FIXME: use the window api
 void camera_update(Camera* cam, void* whandle)
 {
+   cam2->front = vec3_unit(cam2->front);
+
+    if(cam->controllable)
+    {
+
     GLFWwindow* window = whandle;
     cam2 = cam;
 
@@ -75,6 +85,8 @@ void camera_update(Camera* cam, void* whandle)
     if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
     {
         cam->pos = vec3_sub(cam->pos, vec3_mul_val(vec3_cross(cam->front, cam->up), cam_speed));
+    }
+
     }
 
 }

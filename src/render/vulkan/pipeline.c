@@ -21,6 +21,7 @@ void vulkan_compute_pipeline(VulkanCtx *ctx)
 
     VkComputePipelineCreateInfo info = {
         .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+        .flags = 0,
         .stage = {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage = VK_SHADER_STAGE_COMPUTE_BIT,
@@ -127,6 +128,7 @@ void vulkan_pipeline_init(VulkanCtx *ctx)
     VkGraphicsPipelineCreateInfo graphic_pipeline = {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
         .stageCount = infos.length,
+        .flags = 0,
         .pStages = infos.data,
         .pVertexInputState = &vt_input,
         .pInputAssemblyState = &input_assembly,

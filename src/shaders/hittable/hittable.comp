@@ -12,12 +12,15 @@ struct HittableRecord
     float t;
     bool front;
     int mesh_id;
+    int tcount;
 };
 
 HittableRecord update_face_normal(HittableRecord record, Ray r, vec3 outward)
 {
-    record.front = dot(r.direction, outward) < 0;
-    record.normal = record.front ? (outward) : (-outward);
+    float front = dot(r.direction, outward);
+    record.front = front < 0.0f;
+    float front_sign = -1 * (front / abs(front));
+    record.normal = front_sign * (outward);
     return record;
 }
 
@@ -41,19 +44,13 @@ HittableRecord hit_sphere(float tmin, float tmax, Ray r, vec3 center, vec3 size)
     float sqrtd = sqrt(discriminant);
 
     float root = (-hb - sqrtd) / a;
-
-    if (root < tmin || tmax < root)
-    {
-        root = -(hb + sqrtd) / a;
-        if (root < tmin || tmax < root)
-        {
-            return record;
-        }
-    }
-
-    record.t = root;
-    record.point = ray_at(r, root);
-    record.hitted = true;
+    float rootb = -(hb + sqrtd) / a;
+    bool roota_hit = (root < tmin || tmax < root);
+    bool rootb_hit = (rootb < tmin || tmax < rootb);
+    bool hitted = (roota_hit && rootb_hit);
+    record.t = roota_hit ? (root) : (rootb);
+    record.point = ray_at(r, record.t);
+    record.hitted = !hitted;
     return update_face_normal(record, r, (record.point - center) / radius);
 }
 

@@ -15,12 +15,12 @@ struct Pixel
     vec4 value;
 };
 
-layout(std140, binding = 0) buffer buf
+layout(std140, binding = 4) readonly buffer buf
 {
     Pixel image[];
 };
 
-layout(binding = 1) uniform UniformBufferObject
+layout(binding = 1) readonly uniform UniformBufferObject
 {
     float width;
     float height;

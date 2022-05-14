@@ -1,7 +1,7 @@
 #ifndef RANDOM_COMP
 #define RANDOM_COMP
 
-layout(std140, binding = 1) uniform UniformBufferObjectRandom
+layout(std140, binding = 1) readonly uniform UniformBufferObjectRandom
 {
     float width;
     float height;

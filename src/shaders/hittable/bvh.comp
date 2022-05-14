@@ -1,0 +1,14 @@
+#ifndef BVH_COMP
+#define BVH_COMP
+
+struct Bvh
+{
+    int is_next_a_bvh;
+    vec4 aabb_min;
+    vec4 aabb_max;
+    int l;
+    int sibling;
+    int parent;
+};
+
+#endif

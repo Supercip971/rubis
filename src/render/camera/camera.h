@@ -12,9 +12,12 @@ typedef struct
     float lasty;
     float yaw;
     float pitch;
+    float aperture;
+    float focus_disc;
+    bool controllable;
 } Camera;
 
 
-void camera_init(Camera* cam, void* whandle);
+void camera_init(Camera* cam, void* whandle, bool enable_control);
 
 void camera_update(Camera* cam, void* whandle);
