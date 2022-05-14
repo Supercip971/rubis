@@ -90,18 +90,19 @@ bool aabb_hit(Ray r, Bvh cur, float t_min, float t_max)
 
     t_min = max(t0.x, t_min);
     t_max = min(t1.x, t_max);
-    if (t_max <= t_min)
-    {
-        return false;
-    }
     t_min = max(t0.y, t_min);
     t_max = min(t1.y, t_max);
+    t_min = max(t0.z, t_min);
+    t_max = min(t1.z, t_max);
+
     if (t_max <= t_min)
     {
         return false;
     }
-    t_min = max(t0.z, t_min);
-    t_max = min(t1.z, t_max);
+    if (t_max <= t_min)
+    {
+        return false;
+    }
     if (t_max <= t_min)
     {
         return false;
@@ -121,33 +122,31 @@ bool aabb_hit2(Ray r, Bvh cur, float t_min, float t_max)
     return vec3_min_comp(tmax) >= vec3_max_comp(tmin);
 }
 
-// based on a paper:
-// Hapala, Michal & Davidovič, Tomáš & Wald, Ingo & Havran, Vlastimil & Slusallek, Philipp. (2011).
-// Efficient Stack-less BVH Traversal for Ray Tracing. Proceedings - SCCG 2011: 27th Spring Conference on Computer Graphics. 10.1145/2461217.2461219.
-/*
+#define STACK_SIZE 32
+
 HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
 {
-    int stack_ids[20];
-    int chid[20];
+    int stack[STACK_SIZE];
 
     int current = bvhs[0].l;
     float cmin = cmin_f;
     float cmax = cmax_f;
     int i = 0;
-    HittableRecord rec;
-    while (true)
+    int sp = 0;
+    stack[sp] = 0;
+    sp++;
+    HittableRecord res;
+    res.hitted = false;
+
+    while (sp > 0 && sp < STACK_SIZE)
     {
-        Bvh cur = bvhs[current];
+        sp--; // pop
+
+        Bvh cur = bvhs[stack[sp]];
 
         if (aabb_hit(r, cur, cmin, cmax))
         {
-            if (cur.is_next_a_bvh)
-            {
-                stack_ids[i] = current;
-                chid[i] = 0;
-                i++;
-            }
-            else
+            if (cur.is_next_a_bvh == 0)
             {
                 HittableRecord rec2 = process_leaf(r, cur, cmin, cmax);
                 if (rec2.hitted)
@@ -156,28 +155,22 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
                     res = rec2;
                 }
             }
-        }
-        else
-        {
-            if (i == 0)
-            {
-                return rec;
-            }
-            if (chid[i - 1] == 0)
-            {
-                chid[i - 1] = 1;
-                current = cur.sibling;
-            }
             else
             {
-                current = stack_ids[i - 1];
-                i--;
+                stack[sp] = cur.l;
+
+                sp++;
+                stack[sp] = bvhs[cur.l].sibling;
+                sp++;
             }
         }
     }
-    return rec;
+    return res;
 }
-*/
+// based on a paper:
+// Hapala, Michal & Davidovič, Tomáš & Wald, Ingo & Havran, Vlastimil & Slusallek, Philipp. (2011).
+// Efficient Stack-less BVH Traversal for Ray Tracing. Proceedings - SCCG 2011: 27th Spring Conference on Computer Graphics. 10.1145/2461217.2461219.
+
 HittableRecord traverse_bvh_stackless(Ray r, float cmin_f, float cmax_f)
 {
     int state = FROM_PARENT;
@@ -190,6 +183,16 @@ HittableRecord traverse_bvh_stackless(Ray r, float cmin_f, float cmax_f)
     while (current != 0)
     {
         Bvh cur = bvhs[current];
+        if (cur.is_next_a_bvh == 0)
+        {
+            HittableRecord rec2 = process_leaf(r, cur, cmin, cmax);
+            if (rec2.hitted)
+            {
+                cmax = rec2.t;
+                res = rec2;
+            }
+        }
+
         switch (state)
         {
         case FROM_CHILD:
@@ -209,53 +212,50 @@ HittableRecord traverse_bvh_stackless(Ray r, float cmin_f, float cmax_f)
         }
         case FROM_SIBLING:
         {
-            bool hit = aabb_hit(r, cur, cmin, cmax);
-            if (!hit)
+            if (cur.is_next_a_bvh == 0)
             {
-                current = cur.parent;
-                state = FROM_CHILD;
-            }
-            else if (cur.is_next_a_bvh == 0)
-            {
-                HittableRecord rec2 = process_leaf(r, cur, cmin, cmax);
-                if (rec2.hitted)
-                {
-                    cmax = rec2.t;
-                    res = rec2;
-                }
+
                 current = cur.parent;
                 state = FROM_CHILD;
             }
             else
             {
-                current = cur.l;
-                state = FROM_PARENT;
+                bool hit = aabb_hit(r, cur, cmin, cmax);
+                if (!hit)
+                {
+                    current = cur.parent;
+                    state = FROM_CHILD;
+                }
+                else
+                {
+                    current = cur.l;
+                    state = FROM_PARENT;
+                }
             }
             break;
         }
         case FROM_PARENT:
         {
-            bool hit = aabb_hit(r, cur, cmin, cmax);
-            if (!hit)
+            if (cur.is_next_a_bvh == 0)
             {
-                current = cur.sibling;
-                state = FROM_SIBLING;
-            }
-            else if (cur.is_next_a_bvh == 0)
-            {
-                HittableRecord rec2 = process_leaf(r, cur, cmin, cmax);
-                if (rec2.hitted)
-                {
-                    cmax = rec2.t;
-                    res = rec2;
-                }
+
                 current = cur.sibling;
                 state = FROM_SIBLING;
             }
             else
             {
-                current = cur.l;
-                state = FROM_PARENT;
+                bool hit = aabb_hit(r, cur, cmin, cmax);
+                if (!hit)
+                {
+                    current = cur.sibling;
+                    state = FROM_SIBLING;
+                }
+
+                else
+                {
+                    current = cur.l;
+                    state = FROM_PARENT;
+                }
             }
             break;
         }
@@ -366,7 +366,7 @@ HittableRecord world_hit(Ray r, float x, float y)
             }
     }
     return rec;*/
-    return traverse_bvh_stackless(r, cmin, cmax);
+    return traverse_bvh_stack(r, cmin, cmax);
 }
 
 vec4 sky_color(Ray r)
@@ -412,7 +412,7 @@ vec4 ray_color(Ray r, float x, float y, int maxv)
 
         rec = world_hit(r, x, y);
         depth += 1;
-        if (rec.hitted == false || depth > maxv || maxv == 0)
+        if (rec.hitted == false || depth > maxv)
         {
             return vec4(result);
         }
