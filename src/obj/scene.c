@@ -39,6 +39,26 @@ void scene_push_circle(Scene *self, Vec3 pos, float r, Material material)
     vec_push(&self->meshes, mesh);
 }
 
+void scene_push_tri(Scene *self, Vec3 posa, Vec3 posb, Vec3 posc, Material material)
+{
+    Mesh mesh = {
+        .material_type = material.type,
+        .material = material.data,
+        .type = MESH_TRIANGLES,
+        .aabb = {
+            .min = vec3_min(posa, vec3_min(posb, posc)),
+            .max = vec3_max(posa, vec3_max(posb, posc)),
+        },
+    };
+
+    scene_data_reference_push(self, &mesh.vertices, posa);
+    scene_data_reference_push(self, &mesh.vertices, posb);
+
+    scene_data_reference_push(self, &mesh.vertices, posc);
+
+    vec_push(&self->meshes, mesh);
+}
+
 Material scene_push_lambertian(Scene *self, Vec3 color)
 {
     Material mat = {

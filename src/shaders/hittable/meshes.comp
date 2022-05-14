@@ -45,10 +45,11 @@ HittableRecord process_leaf(Ray r, Bvh cur, float cmin, float cmax)
 
     HittableRecord rec;
     rec.hitted = false;
-    vec3 pos = buf_datas[current_mesh.mesh_data_start].xyz;
-    vec3 size = buf_datas[current_mesh.mesh_data_start + 1].xyz;
+    vec3 pa = buf_datas[current_mesh.mesh_data_start].xyz;
+    vec3 pb = buf_datas[current_mesh.mesh_data_start + 1].xyz;
+    vec3 pc = buf_datas[current_mesh.mesh_data_start + 2].xyz;
 
-    rec = hit_sphere(cmin, cmax, r, pos, size);
+    rec = hit_triangle(cmin, cmax, r, pa, pb, pc);
 
     if (rec.hitted)
     {

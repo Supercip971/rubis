@@ -19,6 +19,8 @@ void scene_init(Scene *self);
 
 void scene_push_circle(Scene *self, Vec3 pos, float r, Material material);
 
+void scene_push_tri(Scene *self, Vec3 posa, Vec3 posb, Vec3 posc, Material material);
+
 Material scene_push_lambertian(Scene *self, Vec3 color);
 
 Material scene_push_metal(Scene *self, Vec3 color, float fuzzy);

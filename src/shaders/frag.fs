@@ -26,10 +26,13 @@ layout(binding = 1) readonly uniform UniformBufferObject
     float height;
     uint t;
 
-    vec3 camera_pos;
+    vec4 camera_pos;
 
-    vec3 camera_target;
-    vec3 camera_up;
+    vec4 camera_target;
+    vec4 camera_up;
+    float aperture;
+    float focus_disk;
+    int denoise;
 }
 ubo;
 
@@ -39,13 +42,36 @@ layout(location = 0) out vec4 outColor;
 
 uint width = uint(ubo.width);
 uint height = uint(ubo.height);
-
+#define NO_DENOISE
 void main()
 {
 
-    int x = int(fragCoord.x * width);
-    int y = int(fragCoord.y * height);
-
-    vec4 v = image[y * width + x].value;
+    int ox = int(fragCoord.x * width);
+    int oy = int(fragCoord.y * height);
+    vec4 v = image[oy * width + ox].value;
     outColor = vec4(v.x, v.y, v.z, 1.0f);
+    //
+    //    {
+    //        vec4 color = vec4(0.0);
+    //        float total = 0.0;
+    //        vec4 center = min(image[oy * width + ox].value, vec4(1));
+    //
+    //        for (float x = -4.0; x <= 4.0; x += 1.0)
+    //        {
+    //            for (float y = -4.0; y <= 4.0; y += 1.0)
+    //            {
+    //                int pos = int(ox + x) + int(oy + y) * int(width);
+    //
+    //                vec4 s = min(image[pos].value, vec4(1));
+    //                float weight = 1.0 - abs(dot(s.xyz - center.xyz, vec3(0.25)));
+    //
+    //                weight = pow(weight, 16);
+    //                color += s * weight;
+    //                total += weight;
+    //            }
+    //        }
+    //
+    //        outColor = (((color / total)) + center) / 2;
+    //        // outColor = vec4(1);
+    //    }
 }
