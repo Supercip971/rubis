@@ -31,6 +31,7 @@ void vulkan_cmd_pool_deinit(VulkanCtx *ctx)
 
 void vulkan_cmd_buffer_init(VulkanCtx *ctx)
 {
+
     VkCommandBufferAllocateInfo alloc_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool = ctx->cmd_pool,
@@ -47,6 +48,7 @@ void vulkan_cmd_buffer_init(VulkanCtx *ctx)
     vkAllocateCommandBuffers(ctx->logical_device, &alloc_info, &ctx->cmd_buffer);
     vkAllocateCommandBuffers(ctx->logical_device, &alloc_info2, &ctx->comp_buffer);
     vkResetCommandBuffer(ctx->comp_buffer, 0);
+
     VkCommandBufferBeginInfo begin_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = 0,

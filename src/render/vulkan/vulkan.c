@@ -230,6 +230,8 @@ int vulkan_frame(VulkanCtx *self)
     self->cfg->height = WINDOW_HEIGHT;
     self->cfg->t = self->frame_id;
 
+    self->cfg->denoise = self->enable_denoise;
+
     if (vkGetFenceStatus(self->logical_device, self->compute_fence) == VK_SUCCESS)
     {
 

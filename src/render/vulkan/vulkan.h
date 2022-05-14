@@ -35,6 +35,7 @@ typedef struct
     _Alignas(16) Vec3 cam_up;
     _Alignas(4) float aperture;
     _Alignas(4) float focus_disc;
+    _Alignas(4) int denoise;
 } VulkanConfig;
 
 typedef struct
@@ -113,11 +114,13 @@ typedef struct
     Vec3 cam_pos;
     Vec3 cam_look;
     Vec3 cam_up;
+    bool enable_denoise;
 
     float cam_aperture;
     float cam_focus_disk;
     Scene scene;
     BvhList bvh_data;
+    VkQueryPool qpool;
 
     vec_t(VkQueue) submitting;
     volatile VulkanConfig *cfg;

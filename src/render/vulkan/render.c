@@ -28,7 +28,7 @@ int render_surface_deinit(Render *self, uintptr_t handle)
     return vulkan_render_surface_deinit(&ctx);
 }
 
-int render_engine_init(Window *window, Scene* scene)
+int render_engine_init(Window *window, Scene *scene)
 {
     vulkan_init(&ctx, window_raw_handle(window), scene);
     vec_init(&impls);
@@ -47,7 +47,7 @@ int render_init(Render *self)
     return impls.length - 1;
 }
 
-int render_engine_update_cam(Render *self, Camera* cam)
+int render_engine_update_cam(Render *self, Camera *cam)
 {
     (void)self;
 
@@ -56,10 +56,9 @@ int render_engine_update_cam(Render *self, Camera* cam)
     ctx.cam_pos = cam->pos;
 
     ctx.cam_up = cam->up;
-
+    ctx.enable_denoise = cam->denoise;
     ctx.cam_focus_disk = cam->focus_disc;
     ctx.cam_aperture = cam->aperture;
-
 
     return 0;
 }
