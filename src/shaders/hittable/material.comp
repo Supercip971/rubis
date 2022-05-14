@@ -8,6 +8,7 @@ struct MaterialRecord
     bool do_scatter;
     Ray scatter;
     vec3 attenuation;
+    vec3 emitted;
 };
 
 #endif

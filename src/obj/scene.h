@@ -28,3 +28,5 @@ Material scene_push_dieletric(Scene *self, float r);
 void scene_deinit(Scene *self);
 
 void scene_build_buffer(Scene *self);
+
+Material scene_push_light(Scene *self, Vec3 color);

@@ -48,6 +48,15 @@ Material scene_push_lambertian(Scene *self, Vec3 color)
     scene_data_reference_push(self, &mat.data, color);
     return mat;
 }
+Material scene_push_light(Scene *self, Vec3 color)
+{
+    Material mat = {
+        .type = MATERIAL_LIGHT,
+        .data = {}};
+
+    scene_data_reference_push(self, &mat.data, color);
+    return mat;
+}
 Material scene_push_metal(Scene *self, Vec3 color, float fuzzy)
 {
     Material mat = {

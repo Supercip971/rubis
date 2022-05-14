@@ -2,8 +2,8 @@ MKCWD=mkdir -p $(@D)
 
 CC = gcc
 
-SANITIZERS = 			\
-	-fsanitize=address 	\
+SANITIZERS =
+#	-fsanitize=address 	\
 	-fsanitize=undefined \
 	-fsanitize-address-use-after-scope 
 
@@ -22,7 +22,7 @@ CFLAGS = 			\
 		-Isrc/      \
 		$(CFLAGS_WARNS)
 
-LDFLAGS=$(SANITIZERS) -lglfw -lvulkan -ldl -lpthread
+LDFLAGS=$(SANITIZERS) -lm -lglfw -lvulkan -ldl -lpthread
 
 # some people likes to use sources/source instead of src
 PROJECT_NAME = test

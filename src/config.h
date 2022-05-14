@@ -12,4 +12,4 @@
 #define USE_GLFW
 #define USE_VULKAN
 
-#define CAMERA_CONTROLLABLE true
+#define CAMERA_CONTROLLABLE false

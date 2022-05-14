@@ -1,8 +1,7 @@
-#pragma once 
+#pragma once
 
 #define MATERIAL_NONE 0
 #define MATERIAL_LAMBERTIAN 1
 #define MATERIAL_METAL 2
-#define MATERIAL_DIELETRIC 3
-
-
+#define MATERIAL_DIELETRIC 4
+#define MATERIAL_LIGHT 8

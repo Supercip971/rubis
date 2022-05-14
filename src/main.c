@@ -32,15 +32,19 @@ int main(MAYBE_UNUSED int argc, MAYBE_UNUSED char **argv)
                 continue;
             }
 
-            if (v < 0.8)
+            if (v < 0.7)
             {
                 scene_push_circle(&scene, center, 0.2, scene_push_lambertian(&scene, vec3$(randomf(), randomf(), randomf())));
             }
-            else if (v < 0.95)
+            else if (v < 0.85)
             {
                 float fuzz = randomf() * 0.5;
 
                 scene_push_circle(&scene, center, 0.2, scene_push_metal(&scene, vec3$(randomf(), randomf(), randomf()), fuzz));
+            }
+            else if (v < 0.92)
+            {
+                scene_push_circle(&scene, center, 0.2, scene_push_light(&scene, vec3$(randomf() * 4, randomf() * 4, randomf() * 4)));
             }
             else
             {

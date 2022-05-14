@@ -75,7 +75,7 @@ void main()
 
                 Ray r = camera_ray(cam, u, v);
 
-                color += ray_color(r, u, v, 0);
+                color += ray_color(r, u, v, 8);
             }
 
             image[pos2].value = ((prev * (ubo.t * PER_THREAD)) + color) / ((ubo.t + 1) * PER_THREAD);
