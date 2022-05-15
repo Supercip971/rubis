@@ -2,8 +2,6 @@
 #include <stdio.h>
 typedef struct
 {
-    bool is_bvh;
-    int mesh_idx;
     BvhEntry entry;
     void *next_l;
     void *next_r;
@@ -50,10 +48,16 @@ void bvh_update_parents(BvhList *self, BvhEntry *entry, int parent_idx)
         self->data[self->data[entry->l].sibling].parent = parent_idx; // child->right
     }
 }
+static inline bool aabb_intersect(const AABB *a, const AABB *b)
+{
+    return (a->min.x <= b->max.x && a->max.x >= b->min.x) &&
+           (a->min.y <= b->max.y && a->max.y >= b->min.y) &&
+           (a->min.z <= b->max.z && a->max.z >= b->min.z);
+}
 
 BvhEntry bvh_make_from_temp_list(BvhList *self, ElementOnList *element)
 {
-    if (!element->is_bvh)
+    if (!element->entry.is_next_a_bvh)
     {
         return element->entry;
     }
@@ -72,14 +76,12 @@ BvhEntry bvh_make_from_temp_list(BvhList *self, ElementOnList *element)
     self->data[r].sibling = l;
 
     bvh_update_parents(self, &self->data[l], l);
-
     bvh_update_parents(self, &self->data[r], r);
     BvhEntry curr = {
-        .box = element->entry.box,
         .is_next_a_bvh = true,
         .l = l,
         .parent = 0,
-
+        .box = aabb_surrounding(&left.box, &right.box),
     };
 
     return curr;
@@ -112,12 +114,96 @@ void bvh_dump(BvhList *self, BvhEntry *entry, int depth)
         bvh_dump(self, &self->data[self->data[entry->l].sibling], depth + 1);
     }
 }
+
+typedef struct
+{
+    int i;
+    int j;
+    int jcount;
+    int jsize;
+    bool collided;
+} CollBvh;
+/*
+CollBvh get_colliding_bvh(tempBvhList *curr, int start)
+{
+    int i, j;
+    for (i = start; i < curr->length; (i)++)
+    {
+        for (j = i; j < curr->length; (j)++)
+        {
+            if (i == j)
+            {
+                continue;
+            }
+            int end = curr->data[i].entry.l + curr->data[i].entry.count;
+            int j2 = j;
+            while (end == curr->data[j2].entry.l && aabb_intersect(&curr->data[i].entry.box, &curr->data[j2].entry.box))
+            {
+                end += curr->data[j2].entry.count;
+                j2++;
+            }
+
+            if (j == j2)
+            {
+                continue;
+            }
+            CollBvh cb = {
+                .collided = true,
+                .i = i,
+                .j = j,
+                .jsize = end,
+                .jcount = j2 - j,
+            };
+            return cb;
+        }
+    }
+    printf("fuck\n");
+    for (j = 0; j < curr->length; (j)++)
+    {
+        for (i = 0; i < curr->length; (i)++)
+        {
+
+            if (i == j)
+            {
+                continue;
+            }
+            int end = curr->data[i].entry.l + curr->data[i].entry.count;
+            int j2 = j;
+            while (end == curr->data[j2].entry.l && aabb_intersect(&curr->data[i].entry.box, &curr->data[j2].entry.box))
+            {
+                end += curr->data[j2].entry.count;
+                j2++;
+            }
+
+            if (j == j2)
+            {
+                continue;
+            }
+            CollBvh cb = {
+                .collided = true,
+                .i = i,
+                .j = j,
+                .jsize = end,
+                .jcount = j2 - j,
+            };
+            return cb;
+        }
+    }
+
+    if (start != 0)
+    {
+        return get_colliding_bvh(curr, 0);
+    }
+    return (CollBvh){};
+}
+*/
 // probably don't know what this does in 1 month
 // this tries to create a bvh using a linear memory (usable for gpu) without any pointers
 // this is probably really inefficient:
 // x + x/2 + x/4 ...
 // n + (n)
 // but as we are using it once, I may not want to make it faster (for now)
+
 void bvh_init(BvhList *self, Scene *target)
 {
     vec_init(self);
@@ -137,15 +223,21 @@ void bvh_init(BvhList *self, Scene *target)
 
         ElementOnList on_list = {
             .entry = entry,
-            .is_bvh = false,
-            .mesh_idx = i,
         };
 
         vec_push(&curr, on_list);
     }
 
+    int ii = 0;
+    // fusion really near shape
+    int last = 0;
+    ii = 0;
+
+    last = 0;
     while (curr.length > 1)
     {
+        ii++;
+        printf("merge %i / %i ...\n", curr.length, ii);
         ElementOnList *left = NULL;
         int left_idx;
         ElementOnList *right = NULL;
@@ -155,7 +247,7 @@ void bvh_init(BvhList *self, Scene *target)
         AABB l_aa;
         AABB r_aa;
 
-        for (int i = 0; i < curr.length; i++)
+        for (int i = last; i < curr.length; i++)
         {
             for (int j = 0; j < curr.length; j++)
             {
@@ -176,10 +268,21 @@ void bvh_init(BvhList *self, Scene *target)
                     r_aa = curr.data[j].entry.box;
                     right_idx = j;
                     right = &curr.data[j];
+
+                    if (i + last > curr.length / 10 && aabb_intersect(&left->entry.box, &right->entry.box))
+                    {
+                        goto early_ret;
+                    }
                 }
             }
         }
-        if (!left || !right)
+    early_ret:
+        if ((!left || !right) && last != 0)
+        {
+            last = 0;
+            continue;
+        }
+        else if (!left || !right)
         {
             printf("fuck\n");
             break;
@@ -188,11 +291,12 @@ void bvh_init(BvhList *self, Scene *target)
         ElementOnList res = {
             .next_l = element_copy(left),
             .next_r = element_copy(right),
-            .is_bvh = true,
             .entry = {
                 .box = aabb_surrounding(&l_aa, &r_aa),
                 .is_next_a_bvh = true,
             }};
+
+        last = left_idx;
         vec_splice(&curr, left_idx, 1);
 
         if (right_idx > left_idx)
