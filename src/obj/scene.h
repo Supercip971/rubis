@@ -7,6 +7,7 @@ typedef struct
 {
     Points data;
     Meshes meshes;
+    Meshes reordred;
 } Scene;
 
 typedef struct
