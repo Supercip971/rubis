@@ -16,14 +16,12 @@ struct HittableRecord
 
 HittableRecord update_face_normal(HittableRecord record, Ray r, vec3 outward)
 {
-    float front = dot(r.direction, outward);
-    record.front = front < 0.0f;
-    float front_sign = -1 * (front / abs(front));
-    record.normal = front_sign * (outward);
+    record.normal = faceforward(outward, outward, r.direction);
+    record.front = record.normal.x == outward.x;
     return record;
 }
 
-#define is_near_zero(_val) ((_val > 0.0001f))
+#define is_near_zero(_val) ((_val > -0.00001f) && (_val < 0.0001f))
 
 HittableRecord hit_triangle(float tmin, float tmax, Ray r, vec3 posa, vec3 posb, vec3 posc)
 {
@@ -56,7 +54,7 @@ HittableRecord hit_triangle(float tmin, float tmax, Ray r, vec3 posa, vec3 posb,
 
     float t = inv_a * dot(edge_2, q);
 
-    if (t <= 0 || t > tmax)
+    if (t < tmin || t > tmax)
     {
         return record;
     }
@@ -64,7 +62,7 @@ HittableRecord hit_triangle(float tmin, float tmax, Ray r, vec3 posa, vec3 posb,
     record.t = t;
     record.hitted = true;
 
-    return update_face_normal(record, r, cross(edge_1, edge_2));
+    return update_face_normal(record, r, vec_unit(cross(edge_1, edge_2)));
 }
 
 HittableRecord hit_sphere(float tmin, float tmax, Ray r, vec3 center, vec3 size)

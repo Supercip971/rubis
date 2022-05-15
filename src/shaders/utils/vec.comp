@@ -1,15 +1,13 @@
 #ifndef VEC_COMP
 #define VEC_COMP
 #include "utils/random.comp"
-
-vec3 vec_unit(vec3 v)
-{
-    return v / length(v);
-}
-
 float squared_len(vec3 v)
 {
     return v.x * v.x + v.y * v.y + v.z * v.z;
+}
+vec3 vec_unit(vec3 v)
+{
+    return normalize(v);
 }
 
 vec3 vec3_random()
@@ -58,15 +56,17 @@ bool is_vec_near_zero(vec3 v)
 
 vec3 vec_reflect(vec3 v, vec3 n)
 {
-    return v - 2 * dot(v, n) * n;
+    return reflect(v, n);
 }
 
 vec3 vec_refract(vec3 uv, vec3 n, float etai_over_etat)
 {
+    /*
     float cos_theta = min(dot(-uv, n), 1.0);
     vec3 r_out_perp = etai_over_etat * (uv + cos_theta * n);
     vec3 r_out_parallel = -sqrt(abs(1 - squared_len(r_out_perp))) * n;
-    return r_out_perp + r_out_parallel;
+    return r_out_perp + r_out_parallel;*/
+    return refract(uv, n, etai_over_etat);
 }
 
 float reflectance(float cosine, float ref_idx)
@@ -77,13 +77,11 @@ float reflectance(float cosine, float ref_idx)
 }
 vec3 vec3_random_unit_in_disk()
 {
-    while (true)
+    vec3 v = vec3(random(), random(), 0.5f) * 2.0 - vec3(1.0);
+    if (squared_len(v) <= 1.0f)
     {
-        vec3 v = vec3(random(), random(), 0.5f) * 2.0 - vec3(1.0);
-        if (squared_len(v) <= 1.0f)
-        {
-            return v;
-        }
+        v = vec_unit(v);
     }
+    return v;
 }
 #endif

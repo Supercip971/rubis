@@ -43,27 +43,22 @@ HittableRecord process_leaf(Ray r, Bvh cur, float cmin, float cmax)
 {
     Mesh current_mesh = meshes[cur.l];
 
-    HittableRecord rec;
-    rec.hitted = false;
     vec3 pa = buf_datas[current_mesh.mesh_data_start].xyz;
     vec3 pb = buf_datas[current_mesh.mesh_data_start + 1].xyz;
     vec3 pc = buf_datas[current_mesh.mesh_data_start + 2].xyz;
 
-    rec = hit_triangle(cmin, cmax, r, pa, pb, pc);
+    HittableRecord res = hit_triangle(cmin, cmax, r, pa, pb, pc);
 
-    if (rec.hitted)
-    {
-        rec.mesh_id = cur.l;
-    }
+    res.mesh_id = cur.l;
 
-    return rec;
+    return res;
 }
+
 bool aabb_hit(Ray r, Bvh cur, float t_min, float t_max)
 {
-    vec3 invd = (vec3(1) / r.direction);
+    const vec3 invd = (r.inv_direction);
     vec3 t0 = ((cur.aabb_min.xyz - r.origin) * invd);
     vec3 t1 = ((cur.aabb_max.xyz - r.origin) * invd);
-
     if (invd.x < 0.0f)
     {
         // if(dir.x < 0)
@@ -90,21 +85,14 @@ bool aabb_hit(Ray r, Bvh cur, float t_min, float t_max)
     }
 
     t_min = max(t0.x, t_min);
-    t_max = min(t1.x, t_max);
-    t_min = max(t0.y, t_min);
-    t_max = min(t1.y, t_max);
     t_min = max(t0.z, t_min);
+    t_min = max(t0.y, t_min);
+
+    t_max = min(t1.x, t_max);
+    t_max = min(t1.y, t_max);
     t_max = min(t1.z, t_max);
 
-    if (t_max <= t_min)
-    {
-        return false;
-    }
-    if (t_max <= t_min)
-    {
-        return false;
-    }
-    if (t_max <= t_min)
+    if (t_max < t_min)
     {
         return false;
     }
@@ -117,7 +105,7 @@ bool aabb_hit2(Ray r, Bvh cur, float t_min, float t_max)
     vec3 inv_dir = vec3(1) / r.direction;
     vec3 t0 = ((cur.aabb_min.xyz - r.origin) / r.direction);
     vec3 t1 = ((cur.aabb_max.xyz - r.origin) / r.direction);
-    vec3 tmax = max(t0, t1) * 1.00000024f;
+    vec3 tmax = max(t0, t1);
     vec3 tmin = min(t0, t1);
 
     return vec3_min_comp(tmax) >= vec3_max_comp(tmin);
@@ -144,24 +132,32 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
         sp--; // pop
 
         Bvh cur = bvhs[stack[sp]];
-
-        if (aabb_hit(r, cur, cmin, cmax))
+        if (cur.is_next_a_bvh == 0)
         {
-            if (cur.is_next_a_bvh == 0)
+            HittableRecord rec2 = process_leaf(r, cur, cmin, cmax);
+            if (rec2.hitted)
             {
-                HittableRecord rec2 = process_leaf(r, cur, cmin, cmax);
-                if (rec2.hitted)
-                {
-                    cmax = rec2.t;
-                    res = rec2;
-                }
+                cmax = rec2.t;
+                res = rec2;
             }
-            else
+        }
+        else
+        {
+            Bvh lb = bvhs[cur.l];
+            Bvh rb = bvhs[bvhs[cur.l].sibling];
+
+            if (aabb_hit(r, lb, cmin, cmax))
             {
+
                 stack[sp] = cur.l;
 
                 sp++;
+            }
+            if (aabb_hit(r, rb, cmin, cmax))
+            {
+
                 stack[sp] = bvhs[cur.l].sibling;
+
                 sp++;
             }
         }
@@ -275,7 +271,7 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
     if ((current_mesh.material_type & 1) != 0)
     {
         result.attenuation = first;
-        result.scatter = Ray(record.point, vec3_random_unit() + record.normal);
+        result.scatter = Ray(record.point, vec3_random_unit() + record.normal, vec3(1));
 
         if (is_vec_near_zero(result.scatter.direction))
         {
@@ -288,7 +284,7 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
     {
         float fuzz = buf_datas[current_mesh.material_data_start + 1].x;
         result.attenuation = first;
-        result.scatter = Ray(record.point, reflect(vec_unit(r.direction), record.normal) + vec3_random_unit() * fuzz);
+        result.scatter = Ray(record.point, reflect(vec_unit(r.direction), record.normal) + vec3_random_unit() * fuzz, vec3(0));
 
         result.do_scatter = dot(result.scatter.direction, record.normal) > 0.0f;
     }
@@ -315,7 +311,7 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
             dir = refract(unit_direction, record.normal, refract_ratio);
         }
         result.attenuation = attenuation;
-        result.scatter = Ray(record.point, dir);
+        result.scatter = Ray(record.point, dir, vec3(1) / dir);
         result.do_scatter = true;
     }
 
@@ -332,35 +328,38 @@ HittableRecord world_hit(Ray r, float x, float y)
 
     float cmin = 0.001f;
     float cmax = 1000000.f;
+    /*
+        HittableRecord rec;
+        rec.hitted = false;
+        for (int i = 0; i < meshes.length(); i++)
+        {
+            Mesh current_mesh = meshes[i];
+            Bvh c;
+            c.aabb_min = current_mesh.aabb1;
 
-    /*HittableRecord rec;
-    rec.hitted = false;
-    for (int i = 0; i < meshes.length(); i++)
-    {
-        Mesh current_mesh = meshes[i];
-        Bvh c;
-        c.aabb_min = current_mesh.aabb1;
+            c.aabb_max = current_mesh.aabb2;
+            bool hit = aabb_hit(r, c, cmin, cmax);
 
-        c.aabb_max = current_mesh.aabb2;
-        bool hit = aabb_hit(r, c, cmin, cmax);
-
-        if (hit)
-            if (current_mesh.type == 1)
+            if (hit)
             {
-                vec3 pos = buf_datas[current_mesh.mesh_data_start].xyz;
-                vec3 size = buf_datas[current_mesh.mesh_data_start + 1].xyz;
+                HittableRecord res;
+                vec3 pa = buf_datas[current_mesh.mesh_data_start].xyz;
+                vec3 pb = buf_datas[current_mesh.mesh_data_start + 1].xyz;
+                vec3 pc = buf_datas[current_mesh.mesh_data_start + 2].xyz;
 
-                HittableRecord rec2 = hit_sphere(cmin, cmax, r, pos, size);
+                res = hit_triangle(cmin, cmax, r, pa, pb, pc);
 
-                if (rec2.hitted)
+                if (res.hitted)
                 {
-                    rec = rec2;
+                    res.mesh_id = i;
+                    rec = res;
                     cmax = rec.t;
-                    rec.mesh_id = i;
                 }
             }
-    }
-    return rec;*/
+        }
+
+    return rec;
+        */
     return traverse_bvh_stack(r, cmin, cmax);
 }
 
@@ -398,6 +397,7 @@ vec4 ray_color(Ray r, float x, float y, int maxv)
         if (material.do_scatter)
         {
             r = material.scatter;
+            r.inv_direction = vec3(1) / r.direction;
             result = result * vec4(material.attenuation, 1.0);
         }
         else

@@ -45,8 +45,10 @@ uint window_sizey = int(ubo.height) / WORKGROUP_SIZE;
 #define PER_THREAD 1
 void main()
 {
-    uint x = gl_GlobalInvocationID.x * window_sizex;
-    uint y = gl_GlobalInvocationID.y * window_sizey;
+    const float window_width = (ubo.width);
+    const float window_height = (ubo.height);
+    const uint x = gl_GlobalInvocationID.x * window_sizex;
+    const uint y = gl_GlobalInvocationID.y * window_sizey;
 
     camera cam = camera_init(ubo.camera_pos.xyz, vec3(ubo.camera_target.xyz), vec3(0, 1, 0), 0.1, 10.0);
     if (x + window_sizex > ubo.width || y > ubo.height)
@@ -54,31 +56,64 @@ void main()
         return;
     }
 
-    uint pos = uint(ubo.width) * y + x;
-    for (int j = 0; j < window_sizey; j++)
+    const uint pos = uint(ubo.width) * y + x;
+    if (ubo.t != 0)
     {
-        for (int i = 0; i < window_sizex; i++)
+        for (int j = 0; j < window_sizey; j++)
         {
-
-            uint pos2 = uint(ubo.width) * ((uint(ubo.height) - (y + j)) + 1) + (x + i);
-
-            vec4 prev = image[pos2].value;
-
-            image[pos2].value = vec4(1, 0, 1, 1);
-
-            vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
-            for (int c = 0; c < PER_THREAD; c++)
+            for (int i = 0; i < window_sizex; i++)
             {
 
-                float u = ((float(i + x) + random()) / (ubo.width - 1));
-                float v = ((float(j + y) + random()) / (ubo.height - 1));
+                uint pos2 = uint(window_width) * ((uint(window_height) - (y + j)) + 1) + (x + i);
+
+                vec4 prev = image[pos2].value;
+
+                vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
+                for (int c = 0; c < PER_THREAD; c++)
+                {
+
+                    float u = ((float(i + x) + random()) / (window_width - 1));
+                    float v = ((float(j + y) + random()) / (window_height - 1));
+
+                    Ray r = camera_ray(cam, u, v);
+                    r.inv_direction = vec3(1) / r.direction;
+                    color += ray_color(r, u, v, 2);
+                }
+
+                image[pos2].value = ((prev * (ubo.t * PER_THREAD)) + color) / ((ubo.t + 1) * PER_THREAD);
+            }
+        }
+    }
+    else
+    {
+        for (int j = 0; j < window_sizey / 2; j++)
+        {
+            for (int i = 0; i < window_sizex / 2; i++)
+            {
+
+                uint pos2 = uint(window_width) * ((uint(window_height) - (y + (j * 2))) + 1) + (x + (i * 2));
+
+                vec4 prev = image[pos2].value;
+
+                vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
+
+                float u = ((float(i + x) + random()) / (window_width - 1));
+                float v = ((float(j + y) + random()) / (window_height - 1));
 
                 Ray r = camera_ray(cam, u, v);
+                r.inv_direction = vec3(1) / r.direction;
+                color += ray_color(r, u, v, 0);
 
-                color += ray_color(r, u, v, 8);
+                for (int ix = 0; ix < 2; ix++)
+                {
+                    for (int iy = 0; iy < 2; iy++)
+                    {
+                        uint pos3 = uint(window_width) * ((uint(window_height) - (y + iy + (j * 2))) + 1) + (x + ix + (i * 2));
+
+                        image[pos3].value = ((prev * (ubo.t * PER_THREAD)) + color) / ((ubo.t + 1) * PER_THREAD);
+                    }
+                }
             }
-
-            image[pos2].value = ((prev * (ubo.t * PER_THREAD)) + color) / ((ubo.t + 1) * PER_THREAD);
         }
     }
 }
