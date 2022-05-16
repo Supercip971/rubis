@@ -38,16 +38,17 @@ AABB aabb_surrounding(const AABB *__restrict a, const AABB *__restrict b)
 
 typedef vec_t(ElementOnList) tempBvhList;
 
+/*
 void bvh_update_parents(BvhList *self, BvhEntry *entry, int parent_idx)
 {
     if (entry->is_next_a_bvh)
     {
 
-        self->data[entry->l].parent = parent_idx; // child->left
-
-        self->data[self->data[entry->l].sibling].parent = parent_idx; // child->right
+        // self->data[entry->l].parent = parent_idx; // child->left
+        //  self->data[entry->r].parent = parent_idx; // child->right
     }
 }
+*/
 static inline bool aabb_intersect(const AABB *a, const AABB *b)
 {
     return (a->min.x <= b->max.x && a->max.x >= b->min.x) &&
@@ -55,15 +56,39 @@ static inline bool aabb_intersect(const AABB *a, const AABB *b)
            (a->min.z <= b->max.z && a->max.z >= b->min.z);
 }
 
+BvhEntry bvh_make_mesh_fusion(BvhEntry left, BvhEntry right)
+{
+
+    BvhEntry curr = {
+        .is_next_a_bvh = false,
+        .l = left.l,
+        .r = right.l,
+        //    .parent = 0,
+        .box = aabb_surrounding(&left.box, &right.box),
+    };
+
+    return curr;
+}
+
 BvhEntry bvh_make_from_temp_list(BvhList *self, ElementOnList *element)
 {
     if (!element->entry.is_next_a_bvh)
     {
+        element->entry.r = 0;
         return element->entry;
     }
 
     BvhEntry left = bvh_make_from_temp_list(self, element->next_l);
     BvhEntry right = bvh_make_from_temp_list(self, element->next_r);
+
+    if (!left.is_next_a_bvh && !right.is_next_a_bvh && left.r == 0 && right.r == 0)
+    {
+        if (aabb_intersect(&left.box, &right.box))
+        {
+
+            return bvh_make_mesh_fusion(left, right);
+        }
+    }
 
     int l = self->length;
 
@@ -72,15 +97,14 @@ BvhEntry bvh_make_from_temp_list(BvhList *self, ElementOnList *element)
     int r = l + 1;
 
     vec_push(self, right);
-    self->data[l].sibling = r;
-    self->data[r].sibling = l;
 
-    bvh_update_parents(self, &self->data[l], l);
-    bvh_update_parents(self, &self->data[r], r);
+    // bvh_update_parents(self, &self->data[l], l);
+    // bvh_update_parents(self, &self->data[r], r);
     BvhEntry curr = {
         .is_next_a_bvh = true,
         .l = l,
-        .parent = 0,
+        .r = r,
+        //    .parent = 0,
         .box = aabb_surrounding(&left.box, &right.box),
     };
 
@@ -95,7 +119,7 @@ void bvh_dump(BvhList *self, BvhEntry *entry, int depth)
         printf("\t");               \
     }
     TAB();
-    printf("entry[%i] parent: %i\n", depth, entry->parent);
+    printf("entry[%i] \n", depth);
     TAB();
     printf("{%f,%f,%f} {%f,%f,%f}\n", entry->box.min.x, entry->box.min.y, entry->box.min.z, entry->box.max.x, entry->box.max.y, entry->box.max.z);
     TAB();
@@ -110,93 +134,27 @@ void bvh_dump(BvhList *self, BvhEntry *entry, int depth)
         bvh_dump(self, &self->data[entry->l], depth + 1);
 
         TAB();
-        printf("- r: %i \n", self->data[entry->l].sibling);
-        bvh_dump(self, &self->data[self->data[entry->l].sibling], depth + 1);
+        printf("- r: %i \n", entry->r);
+        bvh_dump(self, &self->data[entry->r], depth + 1);
     }
 }
-
-typedef struct
+void sbvh_init(BvhList *self, int entry_id, Scene *scene)
 {
-    int i;
-    int j;
-    int jcount;
-    int jsize;
-    bool collided;
-} CollBvh;
-/*
-CollBvh get_colliding_bvh(tempBvhList *curr, int start)
-{
-    int i, j;
-    for (i = start; i < curr->length; (i)++)
+    BvhEntry *entry = &self->data[entry_id];
+    if (!entry->is_next_a_bvh && entry->r != 0)
     {
-        for (j = i; j < curr->length; (j)++)
-        {
-            if (i == j)
-            {
-                continue;
-            }
-            int end = curr->data[i].entry.l + curr->data[i].entry.count;
-            int j2 = j;
-            while (end == curr->data[j2].entry.l && aabb_intersect(&curr->data[i].entry.box, &curr->data[j2].entry.box))
-            {
-                end += curr->data[j2].entry.count;
-                j2++;
-            }
+        BvhEntry left = self->data[entry->l];
 
-            if (j == j2)
-            {
-                continue;
-            }
-            CollBvh cb = {
-                .collided = true,
-                .i = i,
-                .j = j,
-                .jsize = end,
-                .jcount = j2 - j,
-            };
-            return cb;
-        }
+        BvhEntry right = self->data[entry->r];
+        (void)left;
+        (void)right;
     }
-    printf("fuck\n");
-    for (j = 0; j < curr->length; (j)++)
+    else
     {
-        for (i = 0; i < curr->length; (i)++)
-        {
-
-            if (i == j)
-            {
-                continue;
-            }
-            int end = curr->data[i].entry.l + curr->data[i].entry.count;
-            int j2 = j;
-            while (end == curr->data[j2].entry.l && aabb_intersect(&curr->data[i].entry.box, &curr->data[j2].entry.box))
-            {
-                end += curr->data[j2].entry.count;
-                j2++;
-            }
-
-            if (j == j2)
-            {
-                continue;
-            }
-            CollBvh cb = {
-                .collided = true,
-                .i = i,
-                .j = j,
-                .jsize = end,
-                .jcount = j2 - j,
-            };
-            return cb;
-        }
+        sbvh_init(self, entry->l, scene);
+        sbvh_init(self, entry->r, scene);
     }
-
-    if (start != 0)
-    {
-        return get_colliding_bvh(curr, 0);
-    }
-    return (CollBvh){};
 }
-*/
 // probably don't know what this does in 1 month
 // this tries to create a bvh using a linear memory (usable for gpu) without any pointers
 // this is probably really inefficient:
@@ -269,7 +227,7 @@ void bvh_init(BvhList *self, Scene *target)
                     right_idx = j;
                     right = &curr.data[j];
 
-                    if (i + last > curr.length / 10 && aabb_intersect(&left->entry.box, &right->entry.box))
+                    if (aabb_intersect(&left->entry.box, &right->entry.box))
                     {
                         goto early_ret;
                     }
@@ -312,7 +270,7 @@ void bvh_init(BvhList *self, Scene *target)
     vec_push(self, start); // reserve the entry n°0 as a start entry
     start = bvh_make_from_temp_list(self, &curr.data[0]);
 
-    bvh_update_parents(self, &start, 0);
+    // bvh_update_parents(self, &start, 0);
     self->data[0] = start;
 
     printf("bvh size: %lu \n", self->length * sizeof(BvhEntry));

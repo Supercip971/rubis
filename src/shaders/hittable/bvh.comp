@@ -7,8 +7,7 @@ struct Bvh
     vec4 aabb_min;
     vec4 aabb_max;
     int l;
-    int sibling;
-    int parent;
+    int r;
 };
 
 #endif

@@ -8,8 +8,7 @@ typedef struct __attribute__((packed))
     _Alignas(4) int is_next_a_bvh;
     _Alignas(16) AABB box;
     _Alignas(4) int l;
-    _Alignas(4) int sibling;
-    _Alignas(4) int parent;
+    _Alignas(4) int r;
 } BvhEntry;
 
 typedef vec_t(BvhEntry) BvhList;
