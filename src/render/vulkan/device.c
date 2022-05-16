@@ -21,7 +21,7 @@ static QueueFamilyIndices vulkan_find_queue_family(VulkanCtx *self, VkPhysicalDe
         return idx;
     }
 
-    vec_reserve(&queue_famiy_properties, queue_family_count);
+    vec_resize(&queue_famiy_properties, queue_family_count);
     (vkGetPhysicalDeviceQueueFamilyProperties(dev, &queue_family_count,
                                               queue_famiy_properties.data));
 
@@ -124,7 +124,8 @@ void vulkan_pick_physical_device(VulkanCtx *self)
 
     vec_t(VkPhysicalDevice) devices = {};
     vec_init(&devices);
-    vec_reserve(&devices, device_count);
+    vec_resize(&devices, device_count);
+
     vk_try$(vkEnumeratePhysicalDevices(self->instance, &device_count, devices.data));
 
     for (uint32_t i = 0; i < device_count; ++i)

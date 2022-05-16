@@ -68,6 +68,13 @@
 #define vec_reserve(v, n) \
     vec_reserve_(vec_unpack_(v), n)
 
+#define vec_resize(v, len)       \
+    do                           \
+    {                            \
+        vec_reserve((v), (len)); \
+        (v)->length = len;       \
+    } while (0)
+
 #define vec_compact(v) \
     vec_compact_(vec_unpack_(v))
 

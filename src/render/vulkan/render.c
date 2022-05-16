@@ -21,6 +21,7 @@ int render_surface_init(Render *self, uintptr_t handle)
     (void)self;
     return vulkan_render_surface_init(&ctx, handle);
 }
+
 int render_surface_deinit(Render *self, uintptr_t handle)
 {
     (void)self;

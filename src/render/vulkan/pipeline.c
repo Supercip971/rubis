@@ -13,9 +13,9 @@ VkShaderModule vulkan_shader_create(VulkanCtx *ctx, Buffer code)
     vk_try$(vkCreateShaderModule(ctx->logical_device, &create_info, NULL, &module));
     return module;
 }
+
 void vulkan_compute_pipeline(VulkanCtx *ctx)
 {
-
     Buffer comp_code = read_file("build/shaders/comp.spv");
     VkShaderModule comp_mod = vulkan_shader_create(ctx, comp_code);
 
@@ -33,6 +33,7 @@ void vulkan_compute_pipeline(VulkanCtx *ctx)
 
     vkCreateComputePipelines(ctx->logical_device, VK_NULL_HANDLE, 1, &info, NULL, &ctx->compute.raw_pipeline);
 }
+
 void vulkan_pipeline_init(VulkanCtx *ctx)
 {
     Buffer frag_code = read_file("build/shaders/frag.spv");
@@ -67,11 +68,13 @@ void vulkan_pipeline_init(VulkanCtx *ctx)
         .vertexAttributeDescriptionCount = 0,
         .pVertexAttributeDescriptions = NULL,
     };
+
     VkPipelineInputAssemblyStateCreateInfo input_assembly = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
         .primitiveRestartEnable = VK_FALSE,
     };
+
     VkViewport viewport = {
         .x = 0.0f,
         .y = 0.0f,
@@ -80,9 +83,11 @@ void vulkan_pipeline_init(VulkanCtx *ctx)
         .minDepth = 0.0f,
         .maxDepth = 1.0f,
     };
+
     VkRect2D scissor = {
         .extent = ctx->extend,
     };
+
     VkPipelineViewportStateCreateInfo viewport_state = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         .viewportCount = 1,
@@ -101,15 +106,18 @@ void vulkan_pipeline_init(VulkanCtx *ctx)
         .frontFace = VK_FRONT_FACE_CLOCKWISE,
         .depthBiasEnable = VK_FALSE,
     };
+
     VkPipelineMultisampleStateCreateInfo multisampling_create_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         .sampleShadingEnable = VK_FALSE,
         .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
     };
+
     VkPipelineColorBlendAttachmentState color_blending_attachement = {
         .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
         .blendEnable = VK_FALSE,
     };
+
     VkPipelineColorBlendStateCreateInfo color_blending = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         .logicOpEnable = VK_FALSE,
@@ -139,8 +147,8 @@ void vulkan_pipeline_init(VulkanCtx *ctx)
         .layout = ctx->pipeline_layout,
         .renderPass = ctx->render_pass,
         .subpass = 0,
-
     };
+
     vk_try$(vkCreateGraphicsPipelines(ctx->logical_device, VK_NULL_HANDLE, 1, &graphic_pipeline, NULL, &ctx->gfx_pipeline));
 
     vkDestroyShaderModule(ctx->logical_device, frag_mod, NULL);
@@ -148,6 +156,7 @@ void vulkan_pipeline_init(VulkanCtx *ctx)
 
     vulkan_compute_pipeline(ctx);
 }
+
 void vulkan_pipeline_deinit(VulkanCtx *ctx)
 {
     vkDestroyPipeline(ctx->logical_device, ctx->compute.raw_pipeline, NULL);

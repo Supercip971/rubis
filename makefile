@@ -20,9 +20,9 @@ CFLAGS = 			\
 		-g 		 	\
 		-std=gnu2x  \
 		-Isrc/      \
-		$(CFLAGS_WARNS)
+		$(CFLAGS_WARNS) $(shell pkg-config --cflags json-c)
 
-LDFLAGS=$(SANITIZERS) -lm -lglfw -lvulkan -ldl -lpthread
+LDFLAGS=$(SANITIZERS) -lm -lglfw -lvulkan -ldl -lpthread -lcjson
 
 # some people likes to use sources/source instead of src
 PROJECT_NAME = test
@@ -59,7 +59,7 @@ $(BUILD_DIR)/%.spv: $(SRC_DIR)/%.vs
 $(BUILD_DIR)/%.spv: $(SRC_DIR)/shaders/comp.comp
 	@$(MKCWD)
 	@echo " CS [ $@ ] $<"
-	@glslc -Isrc/shaders/ -O -MD -fshader-stage=comp $< -o $@
+	@glslc --target-env=vulkan1.1 -std=450core -Isrc/shaders/ -O -MD -fshader-stage=comp $< -o $@
 
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
@@ -71,7 +71,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 $(OUTPUT): $(OFILES)
 	@$(MKCWD)
 	@echo " LD [ $@ ] $^"
-	@clang -o $@ $^ $(LDFLAGS) $(SANITIZERS)
+	@clang $(LDFLAGS) -o $@ $^ $(SANITIZERS)
 
 run: $(OUTPUT) $(OSFILES)
 	@$(OUTPUT)

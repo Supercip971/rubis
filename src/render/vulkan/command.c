@@ -14,39 +14,25 @@ void vulkan_cmd_pool_init(VulkanCtx *ctx)
         .queueFamilyIndex = queue_family_idx.family_idx,
     };
 
+    vk_try$(vkCreateCommandPool(ctx->logical_device, &create_info, NULL, &ctx->cmd_pool));
+
     VkCommandPoolCreateInfo comp_create_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
         .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
         .queueFamilyIndex = queue_family_idx.compute_idx,
     };
+
     vk_try$(vkCreateCommandPool(ctx->logical_device, &comp_create_info, NULL, &ctx->comp_pool));
-    vk_try$(vkCreateCommandPool(ctx->logical_device, &create_info, NULL, &ctx->cmd_pool));
 }
 
 void vulkan_cmd_pool_deinit(VulkanCtx *ctx)
 {
-
     vkDestroyCommandPool(ctx->logical_device, ctx->cmd_pool, NULL);
 }
 
-void vulkan_cmd_buffer_init(VulkanCtx *ctx)
+static void vulkan_compute_cmd_buffer_record(VulkanCtx *ctx)
 {
 
-    VkCommandBufferAllocateInfo alloc_info = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = ctx->cmd_pool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1,
-    };
-    VkCommandBufferAllocateInfo alloc_info2 = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = ctx->comp_pool,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandBufferCount = 1,
-    };
-
-    vkAllocateCommandBuffers(ctx->logical_device, &alloc_info, &ctx->cmd_buffer);
-    vkAllocateCommandBuffers(ctx->logical_device, &alloc_info2, &ctx->comp_buffer);
     vkResetCommandBuffer(ctx->comp_buffer, 0);
 
     VkCommandBufferBeginInfo begin_info = {
@@ -64,6 +50,29 @@ void vulkan_cmd_buffer_init(VulkanCtx *ctx)
     vk_try$(vkEndCommandBuffer(ctx->comp_buffer));
 }
 
+void vulkan_cmd_buffer_init(VulkanCtx *ctx)
+{
+    VkCommandBufferAllocateInfo command_alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = ctx->cmd_pool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+
+    vkAllocateCommandBuffers(ctx->logical_device, &command_alloc_info, &ctx->cmd_buffer);
+
+    VkCommandBufferAllocateInfo compute_alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool = ctx->comp_pool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1,
+    };
+
+    vkAllocateCommandBuffers(ctx->logical_device, &compute_alloc_info, &ctx->comp_buffer);
+
+    vulkan_compute_cmd_buffer_record(ctx);
+}
+
 void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx)
 {
     VkCommandBufferBeginInfo begin_info = {
@@ -79,19 +88,9 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx)
         .dstOffset = 0,
         .srcOffset = 0,
     };
+
     vkCmdCopyBuffer(ctx->cmd_buffer, ctx->computing_image.buffer, ctx->fragment_image.buffer, 1, &copy_region);
 
-    /*
-
-
-     vkCmdPipelineBarrier(
-         ctx->cmd_buffer,
-         0,
-         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-         0,
-         0, NULL,
-         1, &barrier,
-         0, NULL);*/
     VkRenderPassBeginInfo render_pass_info = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = ctx->render_pass,
@@ -103,11 +102,12 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx)
     };
 
     vkCmdBeginRenderPass(ctx->cmd_buffer, &render_pass_info, 0);
+    {
+        vkCmdBindPipeline(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->gfx_pipeline);
 
-    vkCmdBindPipeline(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->gfx_pipeline);
-
-    vkCmdBindDescriptorSets(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->pipeline_layout, 0, 1, &ctx->descriptor_set, 0, NULL);
-    vkCmdDraw(ctx->cmd_buffer, 6, 1, 0, 0);
+        vkCmdBindDescriptorSets(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->pipeline_layout, 0, 1, &ctx->descriptor_set, 0, NULL);
+        vkCmdDraw(ctx->cmd_buffer, 6, 1, 0, 0);
+    }
     vkCmdEndRenderPass(ctx->cmd_buffer);
 
     vk_try$(vkEndCommandBuffer(ctx->cmd_buffer));

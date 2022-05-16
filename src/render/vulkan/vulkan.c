@@ -31,8 +31,8 @@ static int vulkan_dump_extension(void)
 
     vkEnumerateInstanceExtensionProperties(NULL, &ext_count, NULL);
 
-    vec_reserve(&exts, ext_count);
-    exts.length = ext_count;
+    vec_resize(&exts, ext_count);
+
     vkEnumerateInstanceExtensionProperties(NULL, &ext_count, exts.data);
 
     for (int i = 0; i < exts.length; i++)
@@ -59,16 +59,15 @@ static int vulkan_query_extension(VulkanCtx *self, VkInstanceCreateInfo *info)
 
     if (ENABLE_VALIDATION_LAYERS)
     {
-
         vec_push(&self->exts, "VK_EXT_debug_report");
         vec_push(&self->exts, "VK_EXT_validation_features");
-
         vec_push(&self->exts, "VK_EXT_debug_utils");
     }
 
     vec_push(&self->exts, "VK_KHR_get_surface_capabilities2");
     vec_push(&self->exts, "VK_KHR_xlib_surface");
     vec_push(&self->exts, "VK_KHR_display");
+
     info->enabledExtensionCount = self->exts.length;
     info->ppEnabledExtensionNames = self->exts.data;
 
@@ -80,13 +79,14 @@ int vulkan_create_instance(VulkanCtx *self)
     VkInstanceCreateInfo create = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &self->app_info,
-
     };
-    VkValidationFeatureEnableEXT enables[] = {VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT};
+
+    VkValidationFeatureEnableEXT enables[] = {};
     VkValidationFeaturesEXT features = {};
+
     features.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
-    features.enabledValidationFeatureCount = 1;
-    features.pEnabledValidationFeatures = enables;
+    features.enabledValidationFeatureCount = 0;
+    features.pEnabledValidationFeatures = (enables);
     create.pNext = &features;
     vulkan_query_extension(self, &create);
 
@@ -97,8 +97,10 @@ int vulkan_create_instance(VulkanCtx *self)
     {
         exit(-1);
     }
-    memset(debug_info, 0, sizeof(*debug_info));
+    *debug_info = (VkDebugUtilsMessengerCreateInfoEXT){};
+
     vulkan_debug_info(debug_info);
+
     debug_info->pNext = NULL;
 
     if (ENABLE_VALIDATION_LAYERS)
@@ -115,12 +117,12 @@ int vulkan_create_instance(VulkanCtx *self)
 
 static int vulkan_device_init(VulkanCtx *self)
 {
-
     vulkan_pick_physical_device(self);
 
     vulkan_logical_device_init(self);
     return 0;
 }
+
 struct timespec start;
 
 int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
@@ -139,7 +141,9 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
         .frame_id = 0,
         .scene = *scene};
 
+    printf("loading bvh...\n");
     bvh_init(&self->bvh_data, scene);
+    printf("loaded bvh\n");
 
     int width = 0, height = 0;
     vulkan_render_surface_target_size(self, window_handle, &width, &height);
@@ -150,9 +154,9 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
 
     if (ENABLE_VALIDATION_LAYERS)
     {
-
         vulkan_debug_init(self);
     }
+
     vulkan_render_surface_init(self, window_handle);
 
     vulkan_device_init(self);
@@ -209,6 +213,7 @@ int vulkan_deinit(VulkanCtx *self)
     vec_deinit(&self->exts);
     return 0;
 }
+
 float v = 0;
 int vulkan_frame(VulkanCtx *self)
 {
@@ -234,7 +239,6 @@ int vulkan_frame(VulkanCtx *self)
 
     if (vkGetFenceStatus(self->logical_device, self->compute_fence) == VK_SUCCESS)
     {
-
         struct timespec cur;
         clock_gettime(CLOCK_REALTIME, &cur);
         vkResetFences(self->logical_device, 1, &self->compute_fence);
@@ -258,7 +262,6 @@ int vulkan_frame(VulkanCtx *self)
 
     if (vkGetFenceStatus(self->logical_device, self->in_flight_fence) == VK_SUCCESS)
     {
-
         vk_try$(vkResetFences(self->logical_device, 1, &self->in_flight_fence));
 
         uint32_t image_idx = 0;

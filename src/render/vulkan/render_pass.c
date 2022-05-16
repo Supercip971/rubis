@@ -24,6 +24,7 @@ void vulkan_render_pass_init(VulkanCtx *ctx)
         .colorAttachmentCount = 1,
         .pColorAttachments = &color_attachement_ref,
     };
+
     VkSubpassDependency dependency = {
         .srcSubpass = VK_SUBPASS_EXTERNAL,
         .dstSubpass = 0,

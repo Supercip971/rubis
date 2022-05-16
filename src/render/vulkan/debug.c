@@ -104,5 +104,5 @@ void vulkan_debug_init(VulkanCtx *ctx)
 {
     VkDebugUtilsMessengerCreateInfoEXT info;
     vulkan_debug_info(&info);
-    vulkan_assert_success$(vulkan_create_debug_messenger(ctx, &info, NULL));
+    vk_try$(vulkan_create_debug_messenger(ctx, &info, NULL));
 }

@@ -2,14 +2,15 @@
 #include <render/vulkan/device.h>
 #include <render/vulkan/layer.h>
 #include <render/vulkan/logical.h>
-//
+// forced include order for clang-format using comments
 #include <X11/Xlib-xcb.h>
 //
 #include <vulkan/vulkan_xcb.h>
 
 const char *device_required_exts[] = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-    VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME};
+    VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME,
+};
 
 bool vulkan_check_device_extensions(VkPhysicalDevice device)
 {
@@ -18,8 +19,7 @@ bool vulkan_check_device_extensions(VkPhysicalDevice device)
 
     vec_t(VkExtensionProperties) availableExtensions;
     vec_init(&availableExtensions);
-    vec_reserve(&availableExtensions, extensions_count);
-    availableExtensions.length = extensions_count;
+    vec_resize(&availableExtensions, extensions_count);
 
     vkEnumerateDeviceExtensionProperties(device, NULL, &extensions_count, availableExtensions.data);
 
@@ -57,11 +57,7 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
     QueueFamilyIndices idx = vulkan_pick_queue_family(ctx);
     vec_push(&queue_create_idx, idx.family_idx);
 
-    if (idx.compute_idx != idx.family_idx && idx.compute_idx != idx.present_family)
-    {
-
-        vec_push(&queue_create_idx, idx.compute_idx);
-    }
+    vec_push(&queue_create_idx, idx.compute_idx);
 
     if (idx._has_present_family && idx.present_family != idx.family_idx)
     {
@@ -69,11 +65,12 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
     }
 
     printf("queue: compute:%i main:%i present:%i\n", idx.compute_idx, idx.family_idx, idx.present_family);
+
     uint32_t queue_idx = 0;
     int i = 0;
+
     vec_foreach(&queue_create_idx, queue_idx, i)
     {
-
         if (queue_idx == idx.compute_idx)
         {
             VkDeviceQueueCreateInfo queue_create_info = {
@@ -110,7 +107,7 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
     };
 
     vulkan_load_validation_layer_device(&create_info);
-    vulkan_assert_success$(vkCreateDevice(ctx->physical_device, &create_info, NULL, &ctx->logical_device));
+    vk_try$(vkCreateDevice(ctx->physical_device, &create_info, NULL, &ctx->logical_device));
 
     vkGetDeviceQueue(ctx->logical_device, idx.family_idx, 0, &ctx->gfx_queue);
     vkGetDeviceQueue(ctx->logical_device, idx.compute_idx, 0, &ctx->comp_queue);

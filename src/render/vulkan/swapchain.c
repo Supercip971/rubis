@@ -17,37 +17,33 @@ SwapChainSupportDetails swap_chain_support_query(VulkanCtx *self, VkPhysicalDevi
     vec_init(&details.formats);
 
     printf("%lx dev %lx surface \n", (uintptr_t)device, (uintptr_t)self->surface);
-    vulkan_assert_success$(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, self->surface, &details.capabilities));
+    vk_try$(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, self->surface, &details.capabilities));
 
     uint32_t format_count = 0;
-    vulkan_assert_success$(vkGetPhysicalDeviceSurfaceFormatsKHR(device, self->surface, &format_count, NULL));
+    vk_try$(vkGetPhysicalDeviceSurfaceFormatsKHR(device, self->surface, &format_count, NULL));
 
-    if (format_count != 0)
-    {
-        vec_reserve(&details.formats, format_count);
-        details.formats.length = format_count;
-        vulkan_assert_success$(vkGetPhysicalDeviceSurfaceFormatsKHR(device, self->surface, &format_count, details.formats.data));
-    }
-    else
+    if (format_count == 0)
     {
         printf("no format mode! \n");
+        return details;
     }
+
+    vec_resize(&details.formats, format_count);
+
+    vk_try$(vkGetPhysicalDeviceSurfaceFormatsKHR(device, self->surface, &format_count, details.formats.data));
 
     uint32_t present_mode_count = 0;
-    vulkan_assert_success$(vkGetPhysicalDeviceSurfacePresentModesKHR(device, self->surface, &present_mode_count, NULL));
+    vk_try$(vkGetPhysicalDeviceSurfacePresentModesKHR(device, self->surface, &present_mode_count, NULL));
 
-    if (present_mode_count != 0)
-    {
-        vec_reserve(&details.modes, present_mode_count);
-        details.modes.length = present_mode_count;
-        vulkan_assert_success$(vkGetPhysicalDeviceSurfacePresentModesKHR(device, self->surface, &present_mode_count,
-                                                                         details.modes.data));
-    }
-    else
+    if (present_mode_count == 0)
     {
         printf("no present mode! \n");
+        return details;
     }
 
+    vec_resize(&details.modes, present_mode_count);
+
+    vk_try$(vkGetPhysicalDeviceSurfacePresentModesKHR(device, self->surface, &present_mode_count, details.modes.data));
     return details;
 }
 
@@ -152,15 +148,14 @@ void vulkan_swapchain_init(VulkanCtx *self, int width, int height)
         swapchain_info.pQueueFamilyIndices = NULL; // Optional
     }
 
-    vulkan_assert_success$(vkCreateSwapchainKHR(self->logical_device, &swapchain_info, NULL, &self->swapchain));
+    vk_try$(vkCreateSwapchainKHR(self->logical_device, &swapchain_info, NULL, &self->swapchain));
 
     uint32_t image_cnt = 0;
     vk_try$(vkGetSwapchainImagesKHR(self->logical_device, self->swapchain, &image_cnt, NULL));
 
     vec_init(&self->swapchain_images);
-    vec_reserve(&self->swapchain_images, image_cnt);
+    vec_resize(&self->swapchain_images, image_cnt);
 
-    self->swapchain_images.length = image_cnt;
     vk_try$(vkGetSwapchainImagesKHR(self->logical_device, self->swapchain, &image_cnt, self->swapchain_images.data));
 
     swap_chain_support_deinit(&details);

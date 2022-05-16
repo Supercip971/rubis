@@ -11,17 +11,15 @@
 
 int vulkan_render_surface_init(VulkanCtx *self, uintptr_t handle)
 {
-    // VkXlibSurfaceCreateInfoKHR sinfo = glfw_vulkan_handle((GLFWwindow *)handle);
-    // vulkan_assert_success$(vkCreateXlibSurfaceKHR(self->instance, &sinfo, NULL, &self->surface));
     VkSurfaceKHR surface = 0;
 
     vk_try$(glfwCreateWindowSurface(self->instance, (GLFWwindow *)handle, NULL, &surface));
     self->surface = surface;
     return 0;
 }
+
 int vulkan_render_surface_deinit(VulkanCtx *self)
 {
-
     vkDestroySurfaceKHR(self->instance, self->surface, NULL);
     return 0;
 }

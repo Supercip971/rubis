@@ -2,12 +2,10 @@
 
 void vulkan_framebuffer_init(VulkanCtx *ctx)
 {
-
     int fb_count = ctx->swapchain_img_view.length;
     vec_init(&ctx->framebuffers);
 
-    vec_reserve(&ctx->framebuffers, fb_count);
-    ctx->framebuffers.length = fb_count;
+    vec_resize(&ctx->framebuffers, fb_count);
 
     for (int i = 0; i < fb_count; i++)
     {
@@ -28,6 +26,7 @@ void vulkan_framebuffer_init(VulkanCtx *ctx)
         vk_try$(vkCreateFramebuffer(ctx->logical_device, &create_info, NULL, &ctx->framebuffers.data[i]));
     }
 }
+
 void vulkan_framebuffer_deinit(VulkanCtx *ctx)
 {
     int fb_count = ctx->swapchain_img_view.length;

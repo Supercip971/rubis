@@ -8,6 +8,7 @@
 const char *enabled_layers[] = {
     "VK_LAYER_KHRONOS_validation",
 };
+
 static int vulkan_has_layer(const char *name)
 {
     bool founded = false;
@@ -17,8 +18,8 @@ static int vulkan_has_layer(const char *name)
 
     vkEnumerateInstanceLayerProperties(&ext_count, NULL);
 
-    vec_reserve(&exts, ext_count);
-    exts.length = ext_count;
+    vec_resize(&exts, ext_count);
+
     vkEnumerateInstanceLayerProperties(&ext_count, exts.data);
 
     for (int i = 0; i < exts.length; i++)
