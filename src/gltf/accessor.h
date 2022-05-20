@@ -32,9 +32,18 @@ typedef struct
 {
     void *data;
     size_t len;
+} GltfBufView;
+
+typedef struct
+{
+    GltfBufView view;
     int count;
+    int off;
     GltfAcessorTypes type;
     GltfAcessorComponentTypes componen_type;
 } GltfAccessorPtr;
 
-GltfAccessorPtr gltf_read_accessor(cJSON *gltf, int idx, GltfChunkHeader const *binary);
+// if len == 0 auto select
+void gltf_get_buffer_from_view(GltfCtx *ctx, int view_id, GltfBufView *res, int len, int off);
+
+GltfAccessorPtr gltf_read_accessor(GltfCtx *self, int idx);

@@ -1,6 +1,8 @@
 #pragma once
 
 // actually it's more like gltf binary parsing because i'm too dumb
+#include <cjson/cJSON.h>
+#include <cjson/cJSON_Utils.h>
 #include <obj/scene.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -24,5 +26,27 @@ typedef struct
     uint32_t len;
 
 } GltfHeader;
+
+typedef struct
+{
+    imageID normal;
+    imageID base;
+    imageID metallic_roughness;
+    Material final;
+} GltfMaterial;
+
+typedef vec_t(imageID) GltfTextures;
+
+typedef vec_t(GltfMaterial) GltfMaterials;
+
+typedef struct
+{
+    Scene *target;
+    void *data;
+    cJSON *root;
+    GltfChunkHeader *binary;
+    GltfTextures textures;
+    GltfMaterials materials;
+} GltfCtx;
 
 bool parse_gltf(void *data, Scene *target);
