@@ -96,7 +96,7 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
     }
 
     VkPhysicalDeviceFeatures features = {};
-
+    features.fragmentStoresAndAtomics = VK_TRUE;
     VkDeviceCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pQueueCreateInfos = queue_create_infos.data,

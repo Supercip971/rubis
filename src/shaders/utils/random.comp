@@ -12,6 +12,7 @@ layout(std140, binding = 1) readonly uniform UniformBufferObjectRandom
     vec4 camera_up;
 }
 rubo;
+
 struct RandomResult
 {
     uvec2 state;
@@ -21,12 +22,13 @@ float rand(vec2 co)
 {
     return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453123);
 }
-RandomResult fast_rand(uvec2 state)
+
+RandomResult fast_rand(uvec2 state, vec2 state2)
 {
     uint s1 = state.x;
     uint s0 = state.y;
     uint r = (s0 + s1) * (uint(rubo.t) + 8);
-    state.x = s0 ^ (gl_GlobalInvocationID.x + (gl_GlobalInvocationID.y + int(sin(rubo.t / 100.f) * 100)));
+    state.x = s0 ^ (((int(sin(rubo.t / 100.f) * 100))));
     s1 ^= s1 << 11;
     state.y = s1 ^ s0 ^ (s1 >> 9) ^ (s0 >> 5);
 
@@ -38,6 +40,11 @@ RandomResult fast_rand(uvec2 state)
 
 uvec2 seed = uvec2(0);
 bool loaded = false;
+vec2 state2 = vec2(0);
+void random_init(vec2 v)
+{
+    state2 = v * 64 + vec2(v.x * v.y, int(v.y * v.x) ^ int(v.y));
+}
 float random()
 {
     if (!loaded)
@@ -49,7 +56,7 @@ float random()
         loaded = true;
     }
 
-    RandomResult r = fast_rand(seed);
+    RandomResult r = fast_rand(seed, state2);
     seed = r.state;
     return float(r.value) / 4294967296.f;
 }
