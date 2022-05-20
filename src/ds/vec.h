@@ -44,8 +44,12 @@
     (vec_swapsplice_(vec_unpack_(v), start, count), \
      (v)->length -= (count))
 
-#define vec_insert(v, idx, val) \
-    (vec_insert_(vec_unpack_(v), idx) ? -1 : ((v)->data[idx] = (val)), (v)->length++, 0)
+#define vec_insert(v, idx, val)            \
+    if (!vec_insert_(vec_unpack_(v), idx)) \
+    {                                      \
+        ((v)->data[idx] = (val));          \
+        (v)->length++;                     \
+    }
 
 #define vec_sort(v, fn) \
     qsort((v)->data, (v)->length, sizeof(*(v)->data), fn)
