@@ -15,7 +15,7 @@ ElementOnList *element_copy(ElementOnList *from)
     *d = *from;
     return d;
 }
-static float bvh_distance(ElementOnList *left, ElementOnList *right)
+float bvh_distance(ElementOnList *left, ElementOnList *right)
 {
     AABB a, b;
     Vec3 a_center, b_center;
@@ -28,6 +28,12 @@ static float bvh_distance(ElementOnList *left, ElementOnList *right)
     return vec3_squared_length(vec3_sub(b_center, a_center));
 }
 
+Vec3 aabb_centroid(const AABB *a)
+{
+    Vec3 a_center = vec3_add(a->min, vec3_mul_val(vec3_sub(a->max, a->min), 0.5));
+
+    return a_center;
+}
 AABB aabb_surrounding(const AABB *__restrict a, const AABB *__restrict b)
 {
     return (AABB){
@@ -162,6 +168,132 @@ void sbvh_init(BvhList *self, int entry_id, Scene *scene)
 // n + (n)
 // but as we are using it once, I may not want to make it faster (for now)
 
+typedef enum
+{
+    BDIM_X,
+    BDIM_Y,
+    BDIM_Z,
+} DimensionBvh;
+
+DimensionBvh pick_dim(Vec3 a, Vec3 b)
+{
+    float dx = fabs(a.x - b.x);
+    float dy = fabs(a.y - b.y);
+    float dz = fabs(a.z - b.z);
+
+    if (dx >= dy && dx >= dz)
+    {
+        return BDIM_X;
+    }
+    else if (dy >= dx && dy >= dz)
+    {
+        return BDIM_Y;
+    }
+    return BDIM_Z;
+}
+
+bool is_vec3_dim_superior(Vec3 point, Vec3 maxc, Vec3 minc, DimensionBvh dim)
+{
+
+    if (dim == BDIM_X)
+    {
+        float center = (maxc.x + minc.x) / 2;
+        return point.x >= center;
+    }
+    else if (dim == BDIM_Y)
+    {
+        float center = (maxc.y + minc.y) / 2;
+
+        return point.y >= center;
+    }
+    float center = (maxc.z + minc.z) / 2;
+
+    return point.z >= center;
+}
+
+ElementOnList bvh_init_rec(tempBvhList *list, BvhList *tlist, int depth)
+{
+    if (list->length == 0)
+    {
+        abort();
+    }
+    if (list->length == 1)
+    {
+        return list->data[0];
+    }
+    ElementOnList res = {};
+    tempBvhList vl;
+    tempBvhList vr;
+    vec_init(&vr);
+    vec_init(&vl);
+
+    Vec3 max_p = (list->data[0].entry.box.max);
+    Vec3 min_p = (list->data[0].entry.box.min);
+
+    Vec3 min_c = aabb_centroid(&list->data->entry.box);
+    Vec3 max_c = aabb_centroid(&list->data->entry.box);
+    for (int i = 0; i < list->length; i++)
+    {
+        max_p = vec3_max(max_p, list->data[i].entry.box.max);
+        min_p = vec3_min(min_p, list->data[i].entry.box.min);
+
+        max_c = vec3_max(max_p, aabb_centroid(&list->data[i].entry.box));
+        min_c = vec3_min(min_p, aabb_centroid(&list->data[i].entry.box));
+    }
+
+    DimensionBvh dim = pick_dim(min_c, max_c);
+
+    for (int i = 0; i < list->length; i++)
+    {
+        ElementOnList curr = list->data[i];
+
+        if (is_vec3_dim_superior(aabb_centroid(&curr.entry.box), max_c, min_c, dim))
+        {
+            vec_push(&vr, curr);
+        }
+        else
+        {
+            vec_push(&vl, curr);
+        }
+    }
+
+    //  printf("step[%i] (%i) l: %i r: %i \n", depth, list->length, vl.length, vr.length);
+    //  printf("%f %f %f - %f %f %f\n", min_p.x, min_p.y, min_p.z, max_p.x, max_p.y, max_p.z);
+    // generally when we have a lot of point in the same space, just random push, maybe I'll do something more
+    // intelligent but this is a really rare edge case
+    if (vl.length == 0 || vr.length == 0)
+    {
+        vec_clear(&vr);
+        vec_clear(&vl);
+        for (int i = 0; i < list->length; i++)
+        {
+
+            ElementOnList curr = list->data[i];
+            if (i % 2)
+            {
+                vec_push(&vr, curr);
+            }
+            else
+            {
+                vec_push(&vl, curr);
+            }
+        }
+    }
+    res.entry.box = (AABB){min_p, max_p};
+    res.entry.is_next_a_bvh = true;
+    ElementOnList l = bvh_init_rec(&vl, tlist, 1 + depth);
+
+    res.next_l = element_copy(&l);
+
+    vec_deinit(&vl);
+    ElementOnList r = bvh_init_rec(&vr, tlist, 1 + depth);
+
+    res.next_r = element_copy(&r);
+
+    vec_deinit(&vr);
+
+    return res;
+}
 void bvh_init(BvhList *self, Scene *target)
 {
     vec_init(self);
@@ -186,16 +318,19 @@ void bvh_init(BvhList *self, Scene *target)
         vec_push(&curr, on_list);
     }
 
-    int ii = 0;
-    // fusion really near shape
-    int last = 0;
-    ii = 0;
+    // int ii = 0;
+    //  fusion really near shape
+    // int last = 0;
+    //  ii = 0;
 
-    last = 0;
+    //  last = 0;
+
+    /*
     while (curr.length > 1)
     {
         ii++;
         printf("merge %i / %i ...\n", curr.length, ii);
+
         ElementOnList *left = NULL;
         int left_idx;
         ElementOnList *right = NULL;
@@ -204,36 +339,33 @@ void bvh_init(BvhList *self, Scene *target)
         float dist;
         AABB l_aa;
         AABB r_aa;
+        left_idx = last;
 
-        for (int i = last; i < curr.length; i++)
+        left = &curr.data[last];
+        l_aa = curr.data[last].entry.box;
+
+        for (int j = 0; j < curr.length; j++)
         {
-            for (int j = 0; j < curr.length; j++)
+            if (last == j)
             {
-                if (i == j)
+                continue;
+            }
+            dist = bvh_distance(&curr.data[last], &curr.data[j]);
+            if (dist < best_dist)
+            {
+
+                best_dist = dist;
+                r_aa = curr.data[j].entry.box;
+                right_idx = j;
+                right = &curr.data[j];
+
+                if (aabb_intersect(&left->entry.box, &right->entry.box))
                 {
-                    continue;
-                }
-                dist = bvh_distance(&curr.data[i], &curr.data[j]);
-                if (dist < best_dist)
-                {
-
-                    best_dist = dist;
-                    left_idx = i;
-
-                    left = &curr.data[i];
-                    l_aa = curr.data[i].entry.box;
-
-                    r_aa = curr.data[j].entry.box;
-                    right_idx = j;
-                    right = &curr.data[j];
-
-                    if (aabb_intersect(&left->entry.box, &right->entry.box))
-                    {
-                        goto early_ret;
-                    }
+                    goto early_ret;
                 }
             }
         }
+
     early_ret:
         if ((!left || !right) && last != 0)
         {
@@ -264,16 +396,19 @@ void bvh_init(BvhList *self, Scene *target)
 
         vec_splice(&curr, right_idx, 1);
 
-        vec_push(&curr, res);
+        vec_insert(&curr, 0, res);
     }
+    */
     BvhEntry start = {};
     vec_push(self, start); // reserve the entry n°0 as a start entry
-    start = bvh_make_from_temp_list(self, &curr.data[0]);
+
+    ElementOnList element = bvh_init_rec(&curr, self, 0);
+    start = bvh_make_from_temp_list(self, &element);
 
     // bvh_update_parents(self, &start, 0);
     self->data[0] = start;
 
     printf("bvh size: %lu \n", self->length * sizeof(BvhEntry));
 
-    bvh_dump(self, self->data, 0);
+    // bvh_dump(self, self->data, 0);
 }
