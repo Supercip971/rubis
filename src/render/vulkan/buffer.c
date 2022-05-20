@@ -1,15 +1,20 @@
 #include <render/vulkan/buffer.h>
-
-static uint32_t find_memory_type(VulkanCtx *ctx, uint32_t typeFilter, VkMemoryPropertyFlags properties)
+#include <render/vulkan/command.h>
+uint32_t find_memory_type(VulkanCtx *ctx, uint32_t typeFilter, VkMemoryPropertyFlags properties, uint32_t size)
 {
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(ctx->physical_device, &memProperties);
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
     {
-        if (typeFilter & (1 << i) &&
+        if ((typeFilter & (1 << i)) != 0 &&
             (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
         {
-            return i;
+            int heap = memProperties.memoryTypes[i].heapIndex;
+            if (memProperties.memoryHeaps[heap].size >= size)
+            {
+
+                return i;
+            }
         }
     }
     abort();
