@@ -30,7 +30,7 @@ void vulkan_cmd_pool_deinit(VulkanCtx *ctx)
     vkDestroyCommandPool(ctx->logical_device, ctx->cmd_pool, NULL);
 }
 
-static void vulkan_compute_cmd_buffer_record(VulkanCtx *ctx)
+void vulkan_compute_cmd_buffer_record(VulkanCtx *ctx)
 {
 
     vkResetCommandBuffer(ctx->comp_buffer, 0);
@@ -42,7 +42,7 @@ static void vulkan_compute_cmd_buffer_record(VulkanCtx *ctx)
 
     vk_try$(vkBeginCommandBuffer(ctx->comp_buffer, &begin_info));
     {
-        vkCmdBindPipeline(ctx->comp_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, ctx->compute.raw_pipeline);
+        //    vkCmdBindPipeline(ctx->comp_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, ctx->compute.raw_pipeline);
         vkCmdBindDescriptorSets(ctx->comp_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, ctx->pipeline_layout, 0, 1, &ctx->descriptor_set, 0, 0);
 
         vkCmdDispatch(ctx->comp_buffer, 32, 32, 1);
@@ -111,4 +111,41 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx)
     vkCmdEndRenderPass(ctx->cmd_buffer);
 
     vk_try$(vkEndCommandBuffer(ctx->cmd_buffer));
+}
+
+VkCommandBuffer vk_start_single_time_command(VulkanCtx *ctx)
+{
+    VkCommandBufferAllocateInfo alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandPool = ctx->cmd_pool,
+        .commandBufferCount = 1,
+    };
+
+    VkCommandBuffer cmd_buf;
+    vkAllocateCommandBuffers(ctx->logical_device, &alloc_info, &cmd_buf);
+
+    VkCommandBufferBeginInfo begin_info = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+    };
+
+    vkBeginCommandBuffer(cmd_buf, &begin_info);
+
+    return cmd_buf;
+}
+void vk_end_single_time_command(VulkanCtx *ctx, VkCommandBuffer cmd_buf)
+{
+    vkEndCommandBuffer(cmd_buf);
+
+    VkSubmitInfo submit = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &cmd_buf,
+    };
+
+    vkQueueSubmit(ctx->gfx_queue, 1, &submit, VK_NULL_HANDLE);
+
+    vkQueueWaitIdle(ctx->gfx_queue);
+    vkFreeCommandBuffers(ctx->logical_device, ctx->cmd_pool, 1, &cmd_buf);
 }

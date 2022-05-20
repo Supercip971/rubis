@@ -42,7 +42,7 @@ VulkanBuffer vk_buffer_alloc(VulkanCtx *ctx, size_t len, VkBufferUsageFlags flag
     VkMemoryAllocateInfo allocate = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .allocationSize = memRequirements.size,
-        .memoryTypeIndex = find_memory_type(ctx, memRequirements.memoryTypeBits, properties),
+        .memoryTypeIndex = find_memory_type(ctx, memRequirements.memoryTypeBits, properties, len),
     };
 
     vk_try$(vkAllocateMemory(ctx->logical_device, &allocate, NULL, &buf.raw_memory));
@@ -60,71 +60,25 @@ void vk_buffer_free(VulkanCtx *ctx, VulkanBuffer buffer)
 
 void vk_buffer_set(VulkanCtx *ctx, VulkanBuffer buf, uint32_t data)
 {
-    VkCommandBufferAllocateInfo alloc_info = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandPool = ctx->cmd_pool,
-        .commandBufferCount = 1,
-    };
+    VkCommandBuffer command_buffer = vk_start_single_time_command(ctx);
 
-    VkCommandBuffer command_buffer;
-    vkAllocateCommandBuffers(ctx->logical_device, &alloc_info, &command_buffer);
-    VkCommandBufferBeginInfo begin_info = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-    };
-
-    vkBeginCommandBuffer(command_buffer, &begin_info);
     vkCmdFillBuffer(command_buffer, buf.buffer, 0, buf.len, data);
-    vkEndCommandBuffer(command_buffer);
-    VkSubmitInfo submitInfo = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &command_buffer,
-    };
 
-    vk_try$(vkQueueSubmit(ctx->gfx_queue, 1, &submitInfo, VK_NULL_HANDLE));
-    vkQueueWaitIdle(ctx->gfx_queue);
-
-    vkFreeCommandBuffers(ctx->logical_device, ctx->cmd_pool, 1, &command_buffer);
+    vk_end_single_time_command(ctx, command_buffer);
 }
 
 void vk_buffer_copy(VulkanCtx *ctx, VulkanBuffer to, VulkanBuffer from)
 {
 
-    VkCommandBufferAllocateInfo alloc_info = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandPool = ctx->cmd_pool,
-        .commandBufferCount = 1,
-    };
-
-    VkCommandBuffer command_buffer;
-    vkAllocateCommandBuffers(ctx->logical_device, &alloc_info, &command_buffer);
-    VkCommandBufferBeginInfo begin_info = {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-    };
-
-    vkBeginCommandBuffer(command_buffer, &begin_info);
-
+    VkCommandBuffer command_buffer = vk_start_single_time_command(ctx);
     VkBufferCopy copy_region = {
         .size = to.len,
         .dstOffset = 0,
         .srcOffset = 0,
     };
     vkCmdCopyBuffer(command_buffer, from.buffer, to.buffer, 1, &copy_region);
-    vkEndCommandBuffer(command_buffer);
-    VkSubmitInfo submitInfo = {
-        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &command_buffer,
-    };
 
-    vk_try$(vkQueueSubmit(ctx->gfx_queue, 1, &submitInfo, VK_NULL_HANDLE));
-    vkQueueWaitIdle(ctx->gfx_queue);
-
-    vkFreeCommandBuffers(ctx->logical_device, ctx->cmd_pool, 1, &command_buffer);
+    vk_end_single_time_command(ctx, command_buffer);
 }
 void *vk_buffer_map(VulkanCtx *ctx, VulkanBuffer with)
 {
