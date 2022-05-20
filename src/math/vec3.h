@@ -1,7 +1,7 @@
-#pragma once 
+#pragma once
 #include <math.h>
-#include <stdbool.h>
 #include <math/fast.h>
+#include <stdbool.h>
 
 typedef struct vec3_t
 {
@@ -19,7 +19,7 @@ static inline Vec3 vec3_create(float x, float y, float z)
     return res;
 }
 
-#define vec3$(X,Y,Z) (vec3_create((X), (Y), (Z)))
+#define vec3$(X, Y, Z) (vec3_create((X), (Y), (Z)))
 
 static inline Vec3 vec3_inv(Vec3 vec)
 {
@@ -63,6 +63,10 @@ static inline float vec3_min_comp(Vec3 vec1)
 static inline float vec3_max_comp(Vec3 vec1)
 {
     return fmaxf(vec1.x, fmaxf(vec1.y, vec1.z));
+}
+static inline float vec3_dist(Vec3 a, Vec3 b)
+{
+    return vec3_length(vec3_sub(a, b));
 }
 #ifdef USE_INTRINSIC
 #    include <immintrin.h>
@@ -185,6 +189,3 @@ __attribute__((hot)) static inline float vec_axis(Vec3 vec, int axis)
     }
     return vec.z;
 }
-
-
-
