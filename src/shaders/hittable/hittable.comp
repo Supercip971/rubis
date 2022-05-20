@@ -9,6 +9,7 @@ struct HittableRecord
     bool hitted;
     vec3 point;
     vec3 normal;
+    vec2 uv;
     float t;
     bool front;
     int mesh_id;
@@ -21,8 +22,19 @@ HittableRecord update_face_normal(HittableRecord record, Ray r, vec3 outward)
     return record;
 }
 
-#define is_near_zero(_val) ((_val > -0.00001f) && (_val < 0.0001f))
+#define is_near_zero(_val) ((_val < 0.0001f))
+HittableRecord hit_triangle_provide_info(Ray r, vec3 posa, vec3 posb, vec3 posc, vec2 uva, vec2 uvb, vec2 uvc, HittableRecord from)
+{
+    vec3 v0 = posa;
+    vec3 v1 = posb;
+    vec3 v2 = posc;
+    vec3 edge_1 = v1 - v0;
+    vec3 edge_2 = v2 - v0;
 
+    vec2 final = uva * (1 - from.uv.x - from.uv.y) + uvb * (from.uv.x) + uvc * (from.uv.y);
+    from.uv = final;
+    return update_face_normal(from, r, vec_unit(cross(edge_1, edge_2)));
+}
 HittableRecord hit_triangle(float tmin, float tmax, Ray r, vec3 posa, vec3 posb, vec3 posc)
 {
     HittableRecord record;
@@ -61,8 +73,8 @@ HittableRecord hit_triangle(float tmin, float tmax, Ray r, vec3 posa, vec3 posb,
     record.point = ray_at(r, t);
     record.t = t;
     record.hitted = true;
-
-    return update_face_normal(record, r, vec_unit(cross(edge_1, edge_2)));
+    record.uv = vec2(u, v);
+    return record;
 }
 
 HittableRecord hit_sphere(float tmin, float tmax, Ray r, vec3 center, vec3 size)

@@ -34,14 +34,15 @@ layout(std140, binding = 5) readonly buffer BvhBuf
 {
     Bvh bvhs[];
 };
+layout(binding = 6) uniform sampler2DArray textures;
 
 #define FROM_SIBLING 1
 #define FROM_PARENT 2
 #define FROM_CHILD 3
 
-HittableRecord process_leaf(Ray r, Bvh cur, float cmin, float cmax)
+HittableRecord process_leaf(Ray r, int id, float cmin, float cmax)
 {
-    Mesh current_mesh = meshes[cur.l];
+    Mesh current_mesh = meshes[id];
 
     vec3 pa = buf_datas[current_mesh.mesh_data_start].xyz;
     vec3 pb = buf_datas[current_mesh.mesh_data_start + 1].xyz;
@@ -49,7 +50,7 @@ HittableRecord process_leaf(Ray r, Bvh cur, float cmin, float cmax)
 
     HittableRecord res = hit_triangle(cmin, cmax, r, pa, pb, pc);
 
-    res.mesh_id = cur.l;
+    res.mesh_id = id;
 
     return res;
 }
@@ -83,15 +84,13 @@ bool aabb_hit(Ray r, Bvh cur, float t_min, float t_max)
         t0.z = t1.z;
         t1.z = _temp;
     }
-
-    t_min = max(t0.x, t_min);
-    t_min = max(t0.z, t_min);
     t_min = max(t0.y, t_min);
+    t_min = max(t0.z, t_min);
+    t_min = max(t0.x, t_min);
 
     t_max = min(t1.x, t_max);
-    t_max = min(t1.y, t_max);
     t_max = min(t1.z, t_max);
-
+    t_max = min(t1.y, t_max);
     if (t_max < t_min)
     {
         return false;
@@ -134,21 +133,29 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
         Bvh cur = bvhs[stack[sp]];
         if (cur.is_next_a_bvh == 0)
         {
-            HittableRecord rec2 = process_leaf(r, cur, cmin, cmax);
+            HittableRecord rec2 = process_leaf(r, cur.l, cmin, cmax);
             if (rec2.hitted)
             {
                 cmax = rec2.t;
                 res = rec2;
             }
+            if (cur.r != 0)
+            {
+                rec2 = process_leaf(r, cur.r, cmin, cmax);
+                if (rec2.hitted)
+                {
+                    cmax = rec2.t;
+                    res = rec2;
+                }
+            }
         }
         else
         {
             Bvh lb = bvhs[cur.l];
-            Bvh rb = bvhs[bvhs[cur.l].sibling];
+            Bvh rb = bvhs[cur.r];
 
             if (aabb_hit(r, lb, cmin, cmax))
             {
-
                 stack[sp] = cur.l;
 
                 sp++;
@@ -156,106 +163,10 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
             if (aabb_hit(r, rb, cmin, cmax))
             {
 
-                stack[sp] = bvhs[cur.l].sibling;
+                stack[sp] = cur.r;
 
                 sp++;
             }
-        }
-    }
-    return res;
-}
-// based on a paper:
-// Hapala, Michal & Davidovič, Tomáš & Wald, Ingo & Havran, Vlastimil & Slusallek, Philipp. (2011).
-// Efficient Stack-less BVH Traversal for Ray Tracing. Proceedings - SCCG 2011: 27th Spring Conference on Computer Graphics. 10.1145/2461217.2461219.
-
-HittableRecord traverse_bvh_stackless(Ray r, float cmin_f, float cmax_f)
-{
-    int state = FROM_PARENT;
-    int current = bvhs[0].l;
-
-    HittableRecord res;
-    res.hitted = false;
-    float cmin = cmin_f;
-    float cmax = cmax_f;
-    while (current != 0)
-    {
-        Bvh cur = bvhs[current];
-        if (cur.is_next_a_bvh == 0)
-        {
-            HittableRecord rec2 = process_leaf(r, cur, cmin, cmax);
-            if (rec2.hitted)
-            {
-                cmax = rec2.t;
-                res = rec2;
-            }
-        }
-
-        switch (state)
-        {
-        case FROM_CHILD:
-        {
-
-            if (current == bvhs[cur.parent].l)
-            {
-                current = cur.sibling;
-                state = FROM_SIBLING;
-            }
-            else
-            {
-                current = cur.parent;
-                state = FROM_CHILD;
-            }
-            break;
-        }
-        case FROM_SIBLING:
-        {
-            if (cur.is_next_a_bvh == 0)
-            {
-
-                current = cur.parent;
-                state = FROM_CHILD;
-            }
-            else
-            {
-                bool hit = aabb_hit(r, cur, cmin, cmax);
-                if (!hit)
-                {
-                    current = cur.parent;
-                    state = FROM_CHILD;
-                }
-                else
-                {
-                    current = cur.l;
-                    state = FROM_PARENT;
-                }
-            }
-            break;
-        }
-        case FROM_PARENT:
-        {
-            if (cur.is_next_a_bvh == 0)
-            {
-
-                current = cur.sibling;
-                state = FROM_SIBLING;
-            }
-            else
-            {
-                bool hit = aabb_hit(r, cur, cmin, cmax);
-                if (!hit)
-                {
-                    current = cur.sibling;
-                    state = FROM_SIBLING;
-                }
-
-                else
-                {
-                    current = cur.l;
-                    state = FROM_PARENT;
-                }
-            }
-            break;
-        }
         }
     }
     return res;
@@ -267,7 +178,7 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
     MaterialRecord result;
     result.emitted = vec3(0, 0, 0);
     vec3 first = buf_datas[current_mesh.material_data_start].xyz;
-
+    /*
     if ((current_mesh.material_type & 1) != 0)
     {
         result.attenuation = first;
@@ -320,6 +231,13 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
 
         result.emitted = first;
         result.do_scatter = false;
+    }*/
+    if ((current_mesh.material_type & 16) != 0)
+    {
+        int base = int(first.y);
+        //  result.emitted = vec3(record.uv, 1.0 - (record.uv.x + record.uv.y));
+        result.emitted = texture(textures, vec3(record.uv, base)).xyz;
+        result.do_scatter = false;
     }
     return result;
 }
@@ -360,7 +278,22 @@ HittableRecord world_hit(Ray r, float x, float y)
 
     return rec;
         */
-    return traverse_bvh_stack(r, cmin, cmax);
+    HittableRecord rec = traverse_bvh_stack(r, cmin, cmax);
+    if (rec.hitted)
+    {
+        Mesh current_mesh = meshes[rec.mesh_id];
+
+        vec3 pa = buf_datas[current_mesh.mesh_data_start].xyz;
+        vec3 pb = buf_datas[current_mesh.mesh_data_start + 1].xyz;
+        vec3 pc = buf_datas[current_mesh.mesh_data_start + 2].xyz;
+        vec2 uva = buf_datas[current_mesh.mesh_data_start + 3].xy;
+        vec2 uvb = vec2(buf_datas[current_mesh.mesh_data_start + 3].z, buf_datas[current_mesh.mesh_data_start + 4].x);
+        vec2 uvc = buf_datas[current_mesh.mesh_data_start + 4].yz;
+
+        rec = hit_triangle_provide_info(r, pa, pb, pc, uva, uvb, uvc, rec);
+    }
+
+    return rec;
 }
 
 vec4 sky_color(Ray r)
