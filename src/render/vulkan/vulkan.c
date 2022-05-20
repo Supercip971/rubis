@@ -238,32 +238,32 @@ int vulkan_frame(VulkanCtx *self)
     self->cfg->t = self->frame_id;
 
     self->cfg->denoise = self->enable_denoise;
+    /*
+        if (vkGetFenceStatus(self->logical_device, self->compute_fence) == VK_SUCCESS)
+        {
+           vkResetFences(self->logical_device, 1, &self->compute_fence);
 
-    if (vkGetFenceStatus(self->logical_device, self->compute_fence) == VK_SUCCESS)
-    {
-        struct timespec cur;
-        clock_gettime(CLOCK_REALTIME, &cur);
-        vkResetFences(self->logical_device, 1, &self->compute_fence);
+            VkSubmitInfo submitInfo2 = {
+                .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+                .commandBufferCount = 1,
+                .pCommandBuffers = &self->comp_buffer,
+            };
 
-        VkSubmitInfo submitInfo2 = {
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-            .commandBufferCount = 1,
-            .pCommandBuffers = &self->comp_buffer,
-        };
+                  vk_try$(vkQueueSubmit(self->comp_queue, 1, &submitInfo2, self->compute_fence));
 
-        double accum;
-        accum = (cur.tv_sec - start.tv_sec) + (double)(cur.tv_nsec - start.tv_nsec) / (double)1000000000L;
-        printf("a1 %lf %i \n", accum, self->frame_id);
-
-        vk_try$(vkQueueSubmit(self->comp_queue, 1, &submitInfo2, self->compute_fence));
-
-        printf("a2\n");
-        self->frame_id += 1;
-        clock_gettime(CLOCK_REALTIME, &start);
-    }
+            printf("a2\n");
+            clock_gettime(CLOCK_REALTIME, &start);
+        }
+        */
 
     if (vkGetFenceStatus(self->logical_device, self->in_flight_fence) == VK_SUCCESS)
     {
+        struct timespec cur;
+        clock_gettime(CLOCK_REALTIME, &cur);
+        double accum;
+        accum = (cur.tv_sec - start.tv_sec) + (double)(cur.tv_nsec - start.tv_nsec) / (double)1000000000L;
+        printf("a1 %lf %i \n", 1 / accum, self->frame_id);
+
         vk_try$(vkResetFences(self->logical_device, 1, &self->in_flight_fence));
 
         uint32_t image_idx = 0;
@@ -299,10 +299,12 @@ int vulkan_frame(VulkanCtx *self)
 
         };
         vk_try$(vkQueuePresentKHR(self->present_queue, &present_info));
+
+        self->frame_id += 1;
+        clock_gettime(CLOCK_REALTIME, &start);
     }
     else
     {
-        vkWaitForFences(self->logical_device, 1, &self->compute_fence, VK_TRUE, 16666000);
     }
     return 0;
 }

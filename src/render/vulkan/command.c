@@ -70,7 +70,7 @@ void vulkan_cmd_buffer_init(VulkanCtx *ctx)
 
     vkAllocateCommandBuffers(ctx->logical_device, &compute_alloc_info, &ctx->comp_buffer);
 
-    vulkan_compute_cmd_buffer_record(ctx);
+    //  vulkan_compute_cmd_buffer_record(ctx);
 }
 
 void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx)
@@ -83,14 +83,14 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx)
 
     vk_try$(vkBeginCommandBuffer(ctx->cmd_buffer, &begin_info));
 
-    VkBufferCopy copy_region = {
-        .size = ctx->computing_image.len,
-        .dstOffset = 0,
-        .srcOffset = 0,
-    };
+    /*    VkBufferCopy copy_region = {
+            .size = ctx->computing_image.len,
+            .dstOffset = 0,
+            .srcOffset = 0,
+        };
 
-    vkCmdCopyBuffer(ctx->cmd_buffer, ctx->computing_image.buffer, ctx->fragment_image.buffer, 1, &copy_region);
-
+        //  vkCmdCopyBuffer(ctx->cmd_buffer, ctx->computing_image.buffer, ctx->fragment_image.buffer, 1, &copy_region);
+    */
     VkRenderPassBeginInfo render_pass_info = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = ctx->render_pass,

@@ -36,7 +36,6 @@ COMPDFILES = $(patsubst $(SRC_DIR)/%.comp, $(BUILD_DIR)/%.d, $(COMPSFILES))
 
 OSFILES = $(patsubst $(SRC_DIR)/%.vs, $(BUILD_DIR)/%.spv, $(VSFILES)) \
 		$(patsubst $(SRC_DIR)/%.fs, $(BUILD_DIR)/%.spv, $(FSFILES)) \
-		$(patsubst $(SRC_DIR)/%.comp, $(BUILD_DIR)/%.spv, $(COMPSFILES))
 
 
 CFILES = $(wildcard $(SRC_DIR)/*.c) $(wildcard $(SRC_DIR)/*/*.c) $(wildcard $(SRC_DIR)/*/*/*.c)
@@ -48,7 +47,8 @@ OUTPUT = build/$(PROJECT_NAME)
 $(BUILD_DIR)/%.spv: $(SRC_DIR)/%.fs
 	@$(MKCWD)
 	@echo " FS [ $@ ] $<"
-	@glslc -O -fshader-stage=frag $< -o $@
+	@glslc --target-env=vulkan1.2 --target-spv=spv1.5 -std=450core -Isrc/shaders/ -O -MD -fshader-stage=frag $< -o $@
+
 
 $(BUILD_DIR)/%.spv: $(SRC_DIR)/%.vs
 	@$(MKCWD)
@@ -56,10 +56,10 @@ $(BUILD_DIR)/%.spv: $(SRC_DIR)/%.vs
 	@glslc -O -fshader-stage=vert $< -o $@
 
 
-$(BUILD_DIR)/%.spv: $(SRC_DIR)/shaders/comp.comp
-	@$(MKCWD)
-	@echo " CS [ $@ ] $<"
-	@glslc --target-env=vulkan1.2 --target-spv=spv1.5 -std=450core -Isrc/shaders/ -O -MD -fshader-stage=comp $< -o $@
+#$(BUILD_DIR)/%.spv: $(SRC_DIR)/shaders/comp.comp
+#	@$(MKCWD)
+#	@echo " CS [ $@ ] $<"
+#	@glslc --target-env=vulkan1.2 --target-spv=spv1.5 -std=450core -Isrc/shaders/ -O -MD -fshader-stage=comp $< -o $@
 
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c

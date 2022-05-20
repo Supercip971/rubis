@@ -154,7 +154,7 @@ void vulkan_pipeline_init(VulkanCtx *ctx)
     vkDestroyShaderModule(ctx->logical_device, frag_mod, NULL);
     vkDestroyShaderModule(ctx->logical_device, vert_mod, NULL);
 
-    vulkan_compute_pipeline(ctx);
+    // vulkan_compute_pipeline(ctx);
 }
 
 void vulkan_pipeline_deinit(VulkanCtx *ctx)
