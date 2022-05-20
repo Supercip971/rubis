@@ -5,8 +5,15 @@ void scene_init(Scene *self)
 {
     vec_init(&self->data);
     vec_init(&self->meshes);
+    vec_init(&self->textures);
     // just add the entry n°0 so we can avoid to use this number
     vec_push(&self->data, (Vec3){});
+}
+
+imageID scene_push_texture(Scene *self, Image image)
+{
+    vec_push(&self->textures, image);
+    return self->textures.length - 1;
 }
 
 void scene_data_reference_push(Scene *self, DataReference *dat, Vec3 value)
@@ -58,7 +65,38 @@ void scene_push_tri(Scene *self, Vec3 posa, Vec3 posb, Vec3 posc, Material mater
 
     vec_push(&self->meshes, mesh);
 }
+void scene_push_tri2(Scene *self, Triangle triangle, Material material)
+{
+    Mesh mesh = {
+        .material_type = material.type,
+        .material = material.data,
+        .type = MESH_TRIANGLES,
+        .aabb = {
+            .min = vec3_min(triangle.pa, vec3_min(triangle.pb, triangle.pc)),
+            .max = vec3_max(triangle.pa, vec3_max(triangle.pb, triangle.pc)),
+        },
+    };
 
+    scene_data_reference_push(self, &mesh.vertices, triangle.pa);
+    scene_data_reference_push(self, &mesh.vertices, triangle.pb);
+
+    scene_data_reference_push(self, &mesh.vertices, triangle.pc);
+
+    Vec3 tcoord1;
+    Vec3 tcoord2;
+
+    tcoord1.x = triangle.tex_coords[0][0]; // pa.x
+    tcoord1.y = triangle.tex_coords[0][1]; // pa.y
+    tcoord1.z = triangle.tex_coords[1][0]; // pb.x
+    tcoord2.x = triangle.tex_coords[1][1]; // pb.y
+    tcoord2.y = triangle.tex_coords[2][0]; // pc.x
+    tcoord2.z = triangle.tex_coords[2][1]; // pc.y
+
+    scene_data_reference_push(self, &mesh.vertices, tcoord1);
+    scene_data_reference_push(self, &mesh.vertices, tcoord2);
+
+    vec_push(&self->meshes, mesh);
+}
 Material scene_push_lambertian(Scene *self, Vec3 color)
 {
     Material mat = {
@@ -89,6 +127,17 @@ Material scene_push_metal(Scene *self, Vec3 color, float fuzzy)
     return mat;
 }
 
+Material scene_push_pbrt(Scene *self, imageID normal, imageID base, imageID metallic_roughness)
+{
+
+    Material mat = {
+        .type = MATERIAL_PBRT,
+        .data = {}};
+
+    scene_data_reference_push(self, &mat.data, vec3$(normal, base, metallic_roughness));
+
+    return mat;
+}
 Material scene_push_dieletric(Scene *self, float r)
 {
     Material mat = {

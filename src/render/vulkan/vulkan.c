@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include "textures.h"
 
 static int vulkan_dump_extension(void)
 {
@@ -166,6 +167,10 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
     vulkan_image_view_init(self);
 
     vulkan_render_pass_init(self);
+    vulkan_cmd_pool_init(self);
+
+    vulkan_cmd_buffer_init(self);
+    vulkan_scene_textures_init(self);
 
     vulkan_desc_set_layout(self);
 
@@ -173,9 +178,6 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
 
     vulkan_framebuffer_init(self);
 
-    vulkan_cmd_pool_init(self);
-
-    vulkan_cmd_buffer_init(self);
     vulkan_sync_init(self);
     scene_buf_value_init(self);
 

@@ -108,6 +108,10 @@ typedef struct
     VulkanBuffer mesh_data_buf;
     VulkanBuffer bvh_buf;
 
+    VkDescriptorImageInfo combined_textures;
+    VkImage combined_textures_image;
+    VkDeviceMemory combined_textures_mem;
+
     VkDescriptorPool descriptor_pool;
     uint32_t frame_id;
 
