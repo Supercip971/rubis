@@ -1,7 +1,9 @@
 
+#include <cjson/cJSON.h>
 #include <gltf/accessor.h>
 #include <gltf/materials.h>
 #include <stdio.h>
+#include "math/vec3.h"
 
 void gltf_materials_parse(GltfCtx *self)
 {
@@ -106,7 +108,19 @@ void gltf_materials_parse(GltfCtx *self)
         if (emit_fact != NULL)
         {
             current.emissive_fact = vec3$(cJSON_GetArrayItem(emit_fact, 0)->valuedouble, cJSON_GetArrayItem(emit_fact, 1)->valuedouble, cJSON_GetArrayItem(emit_fact, 2)->valuedouble);
+
+            cJSON *emissive_stren = cJSON_GetObjectItem(
+                cJSON_GetObjectItem(
+                    cJSON_GetObjectItem(material, "extensions"),
+                    "KHR_materials_emissive_strength"),
+                "emissiveStrength");
+
+            if (emissive_stren != NULL)
+            {
+                current.emissive_fact = vec3_mul_val(current.emissive_fact, emissive_stren->valuedouble);
+            }
         }
+
         Pbrt final = {
             .base = current.base,
             .is_color = current.is_color,
