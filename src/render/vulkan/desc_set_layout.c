@@ -1,6 +1,7 @@
 #include <config.h>
 #include <render/vulkan/buffer.h>
 #include <render/vulkan/desc_set_layout.h>
+#include <vulkan/vulkan_core.h>
 
 typedef struct
 {
@@ -39,9 +40,9 @@ void shader_descriptors_init(VulkanCtx *ctx, ShaderDescriptors *desc)
     vec_init(desc);
 
     vec_push(desc, ((ShaderDescriptor){
-                       .target = &ctx->computing_image,
-                       .flag = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                       .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                       .image = ctx->comp_targ.desc_info,
+                       .flag = VK_SHADER_STAGE_COMPUTE_BIT ,
+                       .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                    }));
 
     vec_push(desc, ((ShaderDescriptor){
@@ -52,31 +53,43 @@ void shader_descriptors_init(VulkanCtx *ctx, ShaderDescriptors *desc)
 
     vec_push(desc, ((ShaderDescriptor){
                        .target = &ctx->mesh_data_buf,
-                       .flag = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .flag = VK_SHADER_STAGE_COMPUTE_BIT,
                        .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                    }));
 
     vec_push(desc, ((ShaderDescriptor){
                        .target = &ctx->mesh_buf,
-                       .flag = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .flag = VK_SHADER_STAGE_COMPUTE_BIT,
                        .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                    }));
+
+//    vec_push(desc, ((ShaderDescriptor){
+//                       .image = ctx->frag_targ.desc_info,
+//                       .flag = VK_SHADER_STAGE_FRAGMENT_BIT ,
+//                       .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+//                   }));
+//
 
     vec_push(desc, ((ShaderDescriptor){
                        .target = &ctx->fragment_image,
-                       .flag = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .flag = VK_SHADER_STAGE_FRAGMENT_BIT,
                        .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                    }));
-
     vec_push(desc, ((ShaderDescriptor){
                        .target = &ctx->bvh_buf,
-                       .flag = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .flag = VK_SHADER_STAGE_COMPUTE_BIT,
                        .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                    }));
 
     vec_push(desc, ((ShaderDescriptor){
-                       .image = ctx->combined_textures,
-                       .flag = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .image = ctx->combined_textures.desc_info,
+                       .flag = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                   }));
+
+    vec_push(desc, ((ShaderDescriptor){
+                       .image = ctx->skymap.desc_info,
+                       .flag = VK_SHADER_STAGE_COMPUTE_BIT,
                        .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                    }));
 }
@@ -152,7 +165,7 @@ static void vulkan_desc_layout_update(VulkanCtx *ctx, ShaderDescriptors descript
 
         ShaderDescriptor current = descriptors.data[i];
 
-        if (current.type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || current.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+        if (current.type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE || current.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER || current.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
         {
             VkDescriptorImageInfo buffer_info = current.image;
 

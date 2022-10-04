@@ -63,6 +63,6 @@ GltfAccessorPtr gltf_read_accessor(GltfCtx *self, int idx)
     };
 
     int buffer_view_id = cJSON_GetObjectItem(accessor, "bufferView")->valueint;
-    gltf_get_buffer_from_view(self, buffer_view_id, &ptr.view, ptr.count, ptr.off);
+    gltf_get_buffer_from_view(self, buffer_view_id, &ptr.view, 0, ptr.off);
     return ptr;
 }

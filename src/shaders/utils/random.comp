@@ -25,39 +25,44 @@ float rand(vec2 co)
 
 RandomResult fast_rand(uvec2 state, vec2 state2)
 {
-    uint s1 = state.x;
-    uint s0 = state.y;
-    uint r = (s0 + s1) * (uint(rubo.t) + 8);
-    state.x = s0 ^ (((int(sin(rubo.t / 100.f) * 100))));
-    s1 ^= s1 << 11;
-    state.y = s1 ^ s0 ^ (s1 >> 9) ^ (s0 >> 5);
+    uint s1 = state.x + int(state2.x);
+    uint s0 = state.y + int(state2.y);
+    /* uint r = (s0 + s1) * (uint(rubo.t + 16) * 8);
+     state.x = s0 ^ (((int(sin(rubo.t / 10.f) * 100))));
+     s1 ^= s1 << 11;
+     state.y = s1 ^ s0 ^ (s1 >> 9) ^ (s0 >> 5);
+ */
+
+    s1 ^= s1 << 16;
+    s1 ^= s1 >> 5;
+    s1 ^= s1 << 1;
 
     RandomResult result;
-    result.state = state;
-    result.value = r;
+    result.state = uvec2(s1, s0);
+    result.value = s1;
     return result;
 }
 
 uvec2 seed = uvec2(0);
 bool loaded = false;
 vec2 state2 = vec2(0);
+void seed_random_init(vec2 v)
+{
+    seed.xy = uvec2(2419050644 * ((rubo.t + 1) * 69), 343247216 * ((rubo.t + 1) * 69));
+
+    //   seed.y = float(rubo.t) * 13.f + 256.f;
+}
 void random_init(vec2 v)
 {
     state2 = v * 64 + vec2(v.x * v.y, int(v.y * v.x) ^ int(v.y));
+
+    seed_random_init(v);
 }
+
 float random()
 {
-    if (!loaded)
-    {
-        //    seed.x = float(gl_GlobalInvocationID.x * gl_GlobalInvocationID.y) * 13.f + (128.f * float(rubo.t));
-        seed.xy = uvec2(2419050644, 343247216);
-        //   seed.y = float(rubo.t) * 13.f + 256.f;
-
-        loaded = true;
-    }
-
     RandomResult r = fast_rand(seed, state2);
     seed = r.state;
-    return float(r.value) / 4294967296.f;
+    return float(r.value / 4294967296);
 }
 #endif

@@ -11,3 +11,5 @@ typedef struct
 
 Image image_load(void *data, size_t len);
 void image_unload(Image *self);
+
+typedef int imageID;

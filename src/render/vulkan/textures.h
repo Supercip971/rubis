@@ -7,6 +7,8 @@ void vulkan_scene_textures_init(VulkanCtx *ctx);
 
 void vulkan_scene_textures_deinit(VulkanCtx *ctx);
 
+void vulkan_shader_shared_texture_init(VulkanCtx *ctx, VulkanTex *self, int width, int height, bool fragment);
+
 typedef struct
 {
     VkImage image;

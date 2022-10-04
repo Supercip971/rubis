@@ -6,18 +6,20 @@
 
 #define M_PI 3.1415926535897932384626433832795
 
-#define WORKGROUP_SIZE 32
-layout(local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1) in;
+#define WORKGROUP_SIZE 16
+layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
 
 struct Pixel
 {
     vec4 value;
 };
-
+/*
 layout(std140, binding = 0) buffer buf
 {
     Pixel image[];
 };
+*/
+layout(binding = 0, rgba32f) uniform image2D buf;
 
 layout(std140, binding = 1) readonly uniform UniformBufferObject
 {
@@ -40,80 +42,32 @@ ubo;
 #include "utils/ray.comp"
 #include "utils/vec.comp"
 
-uint window_sizex = int(ubo.width) / WORKGROUP_SIZE;
-uint window_sizey = int(ubo.height) / WORKGROUP_SIZE;
-#define PER_THREAD 1
 void main()
 {
     const float window_width = (ubo.width);
     const float window_height = (ubo.height);
-    const uint x = gl_GlobalInvocationID.x * window_sizex;
-    const uint y = gl_GlobalInvocationID.y * window_sizey;
-
+    const uint x = gl_GlobalInvocationID.x;
+    const uint y = gl_GlobalInvocationID.y;
+    const vec2 cc = vec2(x + 1, y + ubo.t + 1);
+    random_init(cc);
     camera cam = camera_init(ubo.camera_pos.xyz, vec3(ubo.camera_target.xyz), vec3(0, 1, 0), 0.1, 10.0);
-    if (x + window_sizex > ubo.width || y > ubo.height)
-    {
-        return;
-    }
 
-    const uint pos = uint(ubo.width) * y + x;
+    vec4 prev = vec4(0);
     if (ubo.t != 0)
     {
-        for (int j = 0; j < window_sizey; j++)
-        {
-            for (int i = 0; i < window_sizex; i++)
-            {
-
-                uint pos2 = uint(window_width) * ((uint(window_height) - (y + j)) + 1) + (x + i);
-
-                vec4 prev = image[pos2].value;
-
-                vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
-                for (int c = 0; c < PER_THREAD; c++)
-                {
-
-                    float u = ((float(i + x) + random()) / (window_width - 1));
-                    float v = ((float(j + y) + random()) / (window_height - 1));
-
-                    Ray r = camera_ray(cam, u, v);
-                    r.inv_direction = vec3(1) / r.direction;
-                    color += ray_color(r, u, v, 2);
-                }
-
-                image[pos2].value = ((prev * (ubo.t * PER_THREAD)) + color) / ((ubo.t + 1) * PER_THREAD);
-            }
-        }
+        prev = imageLoad(buf, ivec2(x, y));
     }
-    else
-    {
-        for (int j = 0; j < window_sizey / 2; j++)
-        {
-            for (int i = 0; i < window_sizex / 2; i++)
-            {
 
-                uint pos2 = uint(window_width) * ((uint(window_height) - (y + (j * 2))) + 1) + (x + (i * 2));
+    vec2 rpos = vec2((x) / window_width, 1 - ((y - 1) / window_height));
 
-                vec4 prev = image[pos2].value;
+    vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
 
-                vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
+    float u = ((float(x) + random()) / (window_width - 1));
+    float v = ((float(y) + random()) / (window_height - 1));
 
-                float u = ((float(i + x) + random()) / (window_width - 1));
-                float v = ((float(j + y) + random()) / (window_height - 1));
+    Ray r = camera_ray(cam, u, v);
+    r.inv_direction = vec3(1) / r.direction;
+    color = ray_color(r, u, v, 4);
 
-                Ray r = camera_ray(cam, u, v);
-                r.inv_direction = vec3(1) / r.direction;
-                color += ray_color(r, u, v, 0);
-
-                for (int ix = 0; ix < 2; ix++)
-                {
-                    for (int iy = 0; iy < 2; iy++)
-                    {
-                        uint pos3 = uint(window_width) * ((uint(window_height) - (y + iy + (j * 2))) + 1) + (x + ix + (i * 2));
-
-                        image[pos3].value = ((prev * (ubo.t * PER_THREAD)) + color) / ((ubo.t + 1) * PER_THREAD);
-                    }
-                }
-            }
-        }
-    }
+    imageStore(buf, ivec2(x, y), ((prev * (ubo.t)) + color) / ((ubo.t + 1)));
 }

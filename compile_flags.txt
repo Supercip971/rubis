@@ -10,3 +10,4 @@
 -Wshadow
 -Wundef
 -Isrc
+-I/usr/include/json-c

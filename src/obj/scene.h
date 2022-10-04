@@ -3,7 +3,7 @@
 #include <obj/img.h>
 #include <obj/mesh.h>
 #include <stddef.h>
-typedef int imageID;
+#include "math/mat4.h"
 
 typedef vec_t(Image) TexLists;
 typedef struct
@@ -12,7 +12,10 @@ typedef struct
     Meshes meshes;
     Meshes reordred;
     TexLists textures;
+    Image skymap;
 
+    Matrix4x4 camera_transform;
+    float camera_fov;
 } Scene;
 
 typedef struct
@@ -40,6 +43,10 @@ typedef struct
         TriangleTexPos tex_pos[3];
     };
 
+    Vec3 na;
+    Vec3 nb;
+    Vec3 nc;
+
 } Triangle;
 
 void scene_init(Scene *self);
@@ -58,7 +65,22 @@ Material scene_push_metal(Scene *self, Vec3 color, float fuzzy);
 
 Material scene_push_dieletric(Scene *self, float r);
 
-Material scene_push_pbrt(Scene *self, imageID normal, imageID base, imageID metallic_roughness);
+typedef struct
+{
+    bool is_color;
+    Vec3 color;
+    imageID normal;
+    imageID base; // only if is_color == false
+    imageID roughness;
+    imageID emit;
+    float rougness_fact; // if -1 none
+    float alpha;
+    float metallic_fact; // if -1 none
+    float normal_mul;
+    Vec3 emmisive_fact;
+} Pbrt;
+
+Material scene_push_pbrt(Scene *self, Pbrt pbrt);
 
 void scene_deinit(Scene *self);
 

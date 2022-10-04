@@ -1,6 +1,7 @@
 #ifndef MATERIAL_COMP
 #define MATERIAL_COMP
 
+#include "hittable/hittable.comp"
 #include "utils/ray.comp"
 
 struct MaterialRecord
@@ -9,6 +10,110 @@ struct MaterialRecord
     Ray scatter;
     vec3 attenuation;
     vec3 emitted;
+    float scatter_factor;
 };
 
+// BASED on gltf sample implementation
+// https://github.com/KhronosGroup/glTF-Sample-Viewer/blob/master/source/Renderer/shaders/brdf.glsl
+// using: https://google.github.io/filament/Filament.md.html#materialsystem/specularbrdf/geometricshadowing(specularg) optimizations
+
+// note: this is inaccurate but fast :tm:
+
+float v_ggx_correlated(float HdotL, float HdotV, float NdotL, float NdotV, float roughness)
+{
+
+    float nl_l = NdotL * (NdotV * (1.0 - roughness) + roughness);
+    float nv_r = NdotV * (NdotL * (1.0 - roughness) + roughness);
+
+    return 0.5 / (nl_l + nv_r);
+    /*
+        const float squarred_r = roughness * roughness;
+
+        float nlu = max(HdotL, 0.0);
+        float nld = abs(NdotL) + sqrt(squarred_r + (1 - squarred_r) * (NdotL * NdotL));
+        float nru = max(HdotV, 0.0);
+        float nrd = abs(NdotV) + sqrt(squarred_r + (1 - squarred_r) * (NdotV * NdotV));
+
+        return (nlu / nld) * (nru / nrd);*/
+    // float l = 2 * (NdotL)*NdotV;
+    // float r = NdotL + NdotV;
+    // return 0.5 / (mix(l, r, roughness));
+}
+
+float d_ggx(float NdotH, float roughness)
+{
+    const float squarred_r = roughness * roughness;
+    const float up = (squarred_r)*max(NdotH, 0);
+    const float da = ((NdotH * NdotH) * (squarred_r - 1) + 1);
+    const float db = (M_PI)*da * da;
+
+    return up / db;
+}
+
+float specular(Ray r, HittableRecord hit, float roughness)
+{
+    const vec3 v = normalize(r.origin - hit.point);
+    const vec3 l = vec3_random_unit();
+    const vec3 n = hit.normal;
+    const vec3 h = normalize(l + n);
+    const float NdotV = dot(n, v);
+    const float HdotV = dot(h, v);
+    const float NdotL = dot(n, l);
+    const float NdotH = dot(n, h);
+    const float HdotL = dot(h, l);
+    const float sq_roughness = roughness * roughness;
+    return v_ggx_correlated(HdotL, HdotV, NdotL, NdotV, sq_roughness) * d_ggx(NdotH, sq_roughness);
+}
+
+vec3 diffuse(vec3 color)
+{
+    return (1 / M_PI) * color;
+}
+vec3 fresnell(float VdH, vec3 f, float bsdf)
+{
+    return bsdf * (f + (1 - f) * pow(1 - abs(VdH), 5));
+}
+
+vec3 fresnel_mix(float ior, vec3 base, vec3 layer, float VdH)
+{
+    float f0 = ((1 - ior) / (1 + ior));
+    f0 = f0 * f0;
+    float fr = f0 + (1 - f0) * pow((1 - abs(VdH)), 5);
+    return mix(base, layer, fr);
+}
+
+vec3 brdf_col(Ray r, HittableRecord hit, float roughness, float metallic, vec3 base)
+{
+
+    const vec3 v = normalize(r.origin - hit.point);
+    const vec3 l = vec3_random_unit();
+    const vec3 n = normalize(hit.normal);
+    const vec3 h = normalize(l + n);
+
+    float NdotV = abs(dot(n, v)) + 1e-5;
+    float VdotH = clamp(dot(v, h), 0, 1);
+    float NdotH = clamp(dot(n, h), 0, 1);
+    float NdotL = clamp(dot(n, l), 0, 1);
+    /*
+    const float HdotV = dot(h, v);
+    const float HdotL = dot(h, l);
+
+    vec3 c_diff = mix(base, vec3(0), metallic);
+    vec3 f0 = mix(vec3(0.04), base, metallic);
+    float alpha = roughness * roughness;
+
+    vec3 F = f0 + (1 - f0) * pow(1 - abs(VdotH), 5);
+    vec3 f_diffuse = (1 - F) * (1 / M_PI) * c_diff;
+    float d = d_ggx(NdotH, alpha);
+    float v2 = v_ggx_correlated(HdotL, HdotV, NdotL, NdotV, alpha);
+
+    vec3 f_specullar = abs(F * (d * v2));
+    return f_specullar;*/
+
+    vec3 metal_brdf = specular(r, hit, roughness * roughness) * (base + (1 - base) * pow(1 - abs(VdotH), 5));
+    vec3 diel_brdf = mix(diffuse(base), specular(r, hit, roughness * roughness) * base, 0.04 + (1 - 0.04) * pow(1 - abs(VdotH), 5));
+    vec3 mat = mix(diel_brdf, metal_brdf, metallic);
+
+    return mat;
+}
 #endif

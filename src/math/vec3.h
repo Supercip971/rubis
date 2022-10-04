@@ -153,7 +153,7 @@ static inline bool is_vec3_near_zero(Vec3 vec)
 }
 static inline bool is_vec3_near_zero_l(Vec3 vec)
 {
-    const float precision = 1e-5;
+    const float precision = 1e-8;
     return (fabs((double)vec.x) < precision) && (fabs((double)vec.y) < precision) && (fabs((double)vec.z) < precision);
 }
 

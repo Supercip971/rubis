@@ -94,6 +94,10 @@ void scene_push_tri2(Scene *self, Triangle triangle, Material material)
 
     scene_data_reference_push(self, &mesh.vertices, tcoord1);
     scene_data_reference_push(self, &mesh.vertices, tcoord2);
+    scene_data_reference_push(self, &mesh.vertices, triangle.na);
+
+    scene_data_reference_push(self, &mesh.vertices, triangle.nb);
+    scene_data_reference_push(self, &mesh.vertices, triangle.nc);
 
     vec_push(&self->meshes, mesh);
 }
@@ -127,14 +131,22 @@ Material scene_push_metal(Scene *self, Vec3 color, float fuzzy)
     return mat;
 }
 
-Material scene_push_pbrt(Scene *self, imageID normal, imageID base, imageID metallic_roughness)
+Material scene_push_pbrt(Scene *self, Pbrt pbrt)
 {
-
     Material mat = {
         .type = MATERIAL_PBRT,
         .data = {}};
 
-    scene_data_reference_push(self, &mat.data, vec3$(normal, base, metallic_roughness));
+    float bret = pbrt.base;
+    if (pbrt.is_color)
+    {
+        bret = -1;
+    }
+    scene_data_reference_push(self, &mat.data, (Vec3){pbrt.normal, bret, pbrt.roughness, pbrt.emit});
+    pbrt.color._padding = pbrt.alpha;
+    scene_data_reference_push(self, &mat.data, pbrt.color);
+    scene_data_reference_push(self, &mat.data, vec3$(pbrt.metallic_fact, pbrt.rougness_fact, pbrt.normal_mul));
+    scene_data_reference_push(self, &mat.data, pbrt.emmisive_fact);
 
     return mat;
 }

@@ -1,6 +1,7 @@
 #include <render/vulkan/buffer.h>
 #include <render/vulkan/command.h>
 #include <render/vulkan/textures.h>
+#include <vulkan/vulkan_core.h>
 
 VulkanBuffer vulkan_scene_texture_data_init(VulkanCtx *ctx, uint32_t *final_sizex, uint32_t *final_sizey)
 {
@@ -21,7 +22,7 @@ VulkanBuffer vulkan_scene_texture_data_init(VulkanCtx *ctx, uint32_t *final_size
 
     printf("textures sizes: %zu  \n", tsize);
 
-    VulkanBuffer staging_buf = vk_buffer_alloc(ctx, tsize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    VulkanBuffer staging_buf = vk_buffer_alloc(ctx, tsize + 16, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     void *data = vk_buffer_map(ctx, staging_buf);
 
@@ -32,7 +33,13 @@ VulkanBuffer vulkan_scene_texture_data_init(VulkanCtx *ctx, uint32_t *final_size
         size_t dst_size = maxw * maxh * sizeof(uint32_t);
 
         size_t src_size = c.width * c.height * sizeof(uint32_t);
-        memcpy(data + off, c.data, src_size);
+        if (src_size != 0)
+        {
+            for (size_t j = 0; j < dst_size; j += src_size)
+            {
+                memcpy(data + off + j, c.data, src_size);
+            }
+        }
         off += dst_size;
 
         image_unload(&c);
@@ -66,7 +73,7 @@ void image_load_from_buffer(VulkanCtx *ctx, VkImage target, uint32_t width, uint
 
     vk_end_single_time_command(ctx, cmd_buf);
 }
-void swap_image_layout(VulkanCtx *ctx, VkImage image, VkImageLayout old, VkImageLayout new, int layers)
+void swap_image_layout(VulkanCtx *ctx, VkImage image, VkImageLayout old, VkImageLayout new, int layers, bool compute, bool writable)
 {
     VkCommandBuffer cmd_buf = vk_start_single_time_command(ctx);
     VkImageMemoryBarrier barrier = {
@@ -96,20 +103,27 @@ void swap_image_layout(VulkanCtx *ctx, VkImage image, VkImageLayout old, VkImage
     }
     VkPipelineStageFlags src_stage = (old == VK_IMAGE_LAYOUT_UNDEFINED) ? (VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT) : (VK_PIPELINE_STAGE_TRANSFER_BIT);
     VkPipelineStageFlags dst_stage = (old == VK_IMAGE_LAYOUT_UNDEFINED) ? (VK_PIPELINE_STAGE_TRANSFER_BIT) : (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-
+    if (compute)
+    {
+        if (dst_stage == VK_PIPELINE_STAGE_TRANSFER_BIT)
+        {
+            dst_stage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            barrier.dstAccessMask = (!writable) ? barrier.dstAccessMask : VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+        }
+    }
     vkCmdPipelineBarrier(cmd_buf, src_stage, dst_stage, 0, 0, 0, 0, 0, 1, &barrier);
 
     vk_end_single_time_command(ctx, cmd_buf);
 }
 
-VkImageView image_view_create(VulkanCtx *ctx, VkImage image, int layers)
+VkImageView image_view_create(VulkanCtx *ctx, VkImage image, int layers, bool use_float)
 {
 
     VkImageViewCreateInfo view_info = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .image = image,
-        .viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
-        .format = VK_FORMAT_R8G8B8A8_SRGB,
+        .viewType = (layers == 1) ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+        .format = (!use_float) ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R32G32B32A32_SFLOAT,
         .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
         .subresourceRange.baseMipLevel = 0,
         .subresourceRange.levelCount = 1,
@@ -144,6 +158,96 @@ VkSampler image_sampler_create(VulkanCtx *ctx)
 
     return sampler;
 }
+
+void vulkan_shader_shared_texture_init(VulkanCtx *ctx, VulkanTex *self, int width, int height, bool fragment)
+{
+
+    VkImageCreateInfo image_info = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .extent.width = width,
+        .extent.height = height,
+        .extent.depth = 1,
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .usage = (fragment) ? (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT) : (VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT),
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+    };
+
+    vk_try$(vkCreateImage(ctx->logical_device, &image_info, NULL, &self->image));
+
+    VkMemoryRequirements mem_requirements;
+    vkGetImageMemoryRequirements(ctx->logical_device, self->image, &mem_requirements);
+
+    VkMemoryAllocateInfo alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = mem_requirements.size,
+        .memoryTypeIndex = find_memory_type(ctx, mem_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mem_requirements.size),
+    };
+
+    vk_try$(vkAllocateMemory(ctx->logical_device, &alloc_info, NULL, &self->mem));
+
+    vk_try$(vkBindImageMemory(ctx->logical_device, self->image, self->mem, 0));
+
+    swap_image_layout(ctx, self->image, VK_IMAGE_LAYOUT_UNDEFINED, (fragment) ? (VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) : (VK_IMAGE_LAYOUT_GENERAL), 1, true, true);
+
+    self->desc_info.imageView = image_view_create(ctx, self->image, 1, true);
+    self->desc_info.sampler = image_sampler_create(ctx);
+    self->desc_info.imageLayout =  (fragment) ? (VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) : (VK_IMAGE_LAYOUT_GENERAL);
+    self->width = width;
+    self->height = height;
+}
+
+void vulkan_scene_texture_load(VulkanCtx *ctx, VulkanTex *self, VulkanBuffer *buffer, int depth, int width, int height)
+{
+
+    VkImageCreateInfo image_info = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .extent.width = width,
+        .extent.height = height,
+        .extent.depth = 1,
+        .mipLevels = 1,
+        .arrayLayers = depth,
+        .format = VK_FORMAT_R8G8B8A8_SRGB,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+    };
+
+    vk_try$(vkCreateImage(ctx->logical_device, &image_info, NULL, &self->image));
+
+    VkMemoryRequirements mem_requirements;
+    vkGetImageMemoryRequirements(ctx->logical_device, self->image, &mem_requirements);
+
+    VkMemoryAllocateInfo alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = mem_requirements.size,
+        .memoryTypeIndex = find_memory_type(ctx, mem_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mem_requirements.size),
+    };
+
+    vk_try$(vkAllocateMemory(ctx->logical_device, &alloc_info, NULL, &self->mem));
+
+    vkBindImageMemory(ctx->logical_device, self->image, self->mem, 0);
+
+    swap_image_layout(ctx, self->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, depth, false, false);
+
+    image_load_from_buffer(ctx, self->image, width, height, depth, buffer->buffer);
+    swap_image_layout(ctx, self->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, depth, false, false);
+
+    self->desc_info.imageView = image_view_create(ctx, self->image, depth, false);
+    self->desc_info.sampler = image_sampler_create(ctx);
+    self->desc_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    self->width = width;
+    self->height = height;
+}
+
 void vulkan_scene_textures_init(VulkanCtx *ctx)
 {
     // FIXME: stop doing fricking dumb thing and use a texture atlas
@@ -153,49 +257,28 @@ void vulkan_scene_textures_init(VulkanCtx *ctx)
     uint32_t maxw = 0;
     uint32_t maxh = 0;
     TexLists texs = ctx->scene.textures;
+    VulkanBuffer staging_buf;
+    if (texs.length != 0)
+    {
 
-    VulkanBuffer staging_buf = vulkan_scene_texture_data_init(ctx, &maxw, &maxh);
-    VkImageCreateInfo image_info = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-        .imageType = VK_IMAGE_TYPE_2D,
-        .extent.width = maxw,
-        .extent.height = maxh,
-        .extent.depth = 1,
-        .mipLevels = 1,
-        .arrayLayers = texs.length,
-        .format = VK_FORMAT_R8G8B8A8_SRGB,
-        .tiling = VK_IMAGE_TILING_OPTIMAL,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-        .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
-    };
+        staging_buf = vulkan_scene_texture_data_init(ctx, &maxw, &maxh);
+        vulkan_scene_texture_load(ctx, &ctx->combined_textures, &staging_buf, texs.length, maxw, maxh);
+        vk_buffer_free(ctx, staging_buf);
+    }
+    if (ctx->scene.skymap.height != 0)
+    {
 
-    vk_try$(vkCreateImage(ctx->logical_device, &image_info, NULL, &ctx->combined_textures_image));
+        uint32_t skybox_data_len = ctx->scene.skymap.width * ctx->scene.skymap.height * sizeof(uint32_t);
 
-    VkMemoryRequirements mem_requirements;
-    vkGetImageMemoryRequirements(ctx->logical_device, ctx->combined_textures_image, &mem_requirements);
+        staging_buf = vk_buffer_alloc(ctx, skybox_data_len + 16, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        void *data = vk_buffer_map(ctx, staging_buf);
 
-    VkMemoryAllocateInfo alloc_info = {
-        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-        .allocationSize = mem_requirements.size,
-        .memoryTypeIndex = find_memory_type(ctx, mem_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mem_requirements.size),
-    };
+        memcpy(data, ctx->scene.skymap.data, skybox_data_len);
 
-    vk_try$(vkAllocateMemory(ctx->logical_device, &alloc_info, NULL, &ctx->combined_textures_mem));
-
-    vkBindImageMemory(ctx->logical_device, ctx->combined_textures_image, ctx->combined_textures_mem, 0);
-
-    swap_image_layout(ctx, ctx->combined_textures_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, texs.length);
-
-    image_load_from_buffer(ctx, ctx->combined_textures_image, maxw, maxh, texs.length, staging_buf.buffer);
-    swap_image_layout(ctx, ctx->combined_textures_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, texs.length);
-
-    vk_buffer_free(ctx, staging_buf);
-
-    ctx->combined_textures.imageView = image_view_create(ctx, ctx->combined_textures_image, texs.length);
-    ctx->combined_textures.sampler = image_sampler_create(ctx);
-    ctx->combined_textures.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        vk_buffer_unmap(ctx, staging_buf);
+        vulkan_scene_texture_load(ctx, &ctx->skymap, &staging_buf, 1, ctx->scene.skymap.width, ctx->scene.skymap.height);
+        vk_buffer_free(ctx, staging_buf);
+    }
 }
 void vulkan_scene_textures_deinit(VulkanCtx *ctx)
 {

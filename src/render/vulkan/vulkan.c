@@ -1,4 +1,5 @@
 #include <render/vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <config.h>
@@ -142,7 +143,7 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
         .frame_id = 0,
         .scene = *scene};
 
-    printf("loading bvh...\n");
+    printf("loading bvh %i...\n", scene->meshes.length);
     bvh_init(&self->bvh_data, scene);
     printf("loaded bvh\n");
 
@@ -172,10 +173,13 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
     vulkan_cmd_buffer_init(self);
     vulkan_scene_textures_init(self);
 
+    vulkan_shader_shared_texture_init(self, &self->comp_targ, width, height, false);
+    vulkan_shader_shared_texture_init(self, &self->frag_targ, width, height, true);
+
     vulkan_desc_set_layout(self);
 
     vulkan_pipeline_init(self);
-
+    vulkan_compute_cmd_buffer_record(self);
     vulkan_framebuffer_init(self);
 
     vulkan_sync_init(self);
@@ -184,6 +188,7 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
     clock_gettime(CLOCK_REALTIME, &start);
 
     self->cfg = vk_buffer_map(self, self->config_buf);
+
     return 0;
 }
 
@@ -238,39 +243,65 @@ int vulkan_frame(VulkanCtx *self)
     self->cfg->t = self->frame_id;
 
     self->cfg->denoise = self->enable_denoise;
-    /*
-        if (vkGetFenceStatus(self->logical_device, self->compute_fence) == VK_SUCCESS)
-        {
-           vkResetFences(self->logical_device, 1, &self->compute_fence);
 
-            VkSubmitInfo submitInfo2 = {
-                .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-                .commandBufferCount = 1,
-                .pCommandBuffers = &self->comp_buffer,
-            };
+    bool compute_refresh = false;
 
-                  vk_try$(vkQueueSubmit(self->comp_queue, 1, &submitInfo2, self->compute_fence));
-
-            printf("a2\n");
-            clock_gettime(CLOCK_REALTIME, &start);
-        }
-        */
-
-    if (vkGetFenceStatus(self->logical_device, self->in_flight_fence) == VK_SUCCESS)
+    if (vkGetFenceStatus(self->logical_device, self->compute_fence) == VK_SUCCESS)
     {
+        compute_refresh = true;
+
+        VkCommandBuffer cmd = vk_start_single_time_command(self);
+        VkImageCopy region = {
+
+            .srcSubresource = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .layerCount = 1,
+            },
+            .srcOffset = {},
+            .dstSubresource = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .layerCount = 1,
+            },
+            .dstOffset = {},
+            .extent = {
+                .width = self->comp_targ.width,
+                .height = self->comp_targ.height,
+                .depth = 1,
+            },
+        };
+        vkCmdCopyImage(cmd, self->comp_targ.image, self->comp_targ.desc_info.imageLayout, self->frag_targ.image, self->frag_targ.desc_info.imageLayout, 1, &region);
+        
+        vk_end_single_time_command(self, cmd);
         struct timespec cur;
         clock_gettime(CLOCK_REALTIME, &cur);
         double accum;
         accum = (cur.tv_sec - start.tv_sec) + (double)(cur.tv_nsec - start.tv_nsec) / (double)1000000000L;
         printf("a1 %lf %i \n", 1 / accum, self->frame_id);
 
+        vkResetFences(self->logical_device, 1, &self->compute_fence);
+
+        VkSubmitInfo submitInfo2 = {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &self->comp_buffer,
+        };
+
+        vk_try$(vkQueueSubmit(self->comp_queue, 1, &submitInfo2, self->compute_fence));
+
+        self->frame_id += 1;
+        printf("a2\n");
+
+        clock_gettime(CLOCK_REALTIME, &start);
+    }
+
+    if (vkGetFenceStatus(self->logical_device, self->in_flight_fence) == VK_SUCCESS)
+    {
         vk_try$(vkResetFences(self->logical_device, 1, &self->in_flight_fence));
 
         uint32_t image_idx = 0;
 
         vk_try$(vkAcquireNextImageKHR(self->logical_device, self->swapchain, UINT64_MAX, self->image_available_semaphore, VK_NULL_HANDLE, &image_idx));
-        vulkan_record_cmd_buffer(self, image_idx);
-
+        vulkan_record_cmd_buffer(self, image_idx, compute_refresh);
         VkSemaphore signaledSemaphores[] = {self->render_finished_semaphore};
         VkSemaphore waitSemaphores[] = {self->image_available_semaphore};
         VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -299,12 +330,10 @@ int vulkan_frame(VulkanCtx *self)
 
         };
         vk_try$(vkQueuePresentKHR(self->present_queue, &present_info));
-
-        self->frame_id += 1;
-        clock_gettime(CLOCK_REALTIME, &start);
     }
     else
     {
+        vkWaitForFences(self->logical_device, 1, &self->compute_fence, VK_TRUE, 16666000);
     }
     return 0;
 }

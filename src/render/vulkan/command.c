@@ -4,6 +4,7 @@
 #include <render/vulkan/command.h>
 #include <render/vulkan/device.h>
 #include <render/vulkan/logical.h>
+#include <vulkan/vulkan_core.h>
 void vulkan_cmd_pool_init(VulkanCtx *ctx)
 {
     QueueFamilyIndices queue_family_idx = vulkan_pick_queue_family(ctx);
@@ -42,10 +43,28 @@ void vulkan_compute_cmd_buffer_record(VulkanCtx *ctx)
 
     vk_try$(vkBeginCommandBuffer(ctx->comp_buffer, &begin_info));
     {
-        //    vkCmdBindPipeline(ctx->comp_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, ctx->compute.raw_pipeline);
-        vkCmdBindDescriptorSets(ctx->comp_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, ctx->pipeline_layout, 0, 1, &ctx->descriptor_set, 0, 0);
+        vkCmdBindPipeline(ctx->comp_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, ctx->compute.raw_pipeline);
 
-        vkCmdDispatch(ctx->comp_buffer, 32, 32, 1);
+        vkCmdBindDescriptorSets(ctx->comp_buffer,
+                                VK_PIPELINE_BIND_POINT_COMPUTE,
+                                ctx->pipeline_layout, 0, 1, &ctx->descriptor_set, 0, 0);
+
+           vkCmdDispatch(ctx->comp_buffer, ctx->comp_targ.width/32, ctx->comp_targ.height/32, 1);
+        VkBufferImageCopy region = {
+            .bufferImageHeight = 0,
+            .bufferOffset = 0,
+            .bufferRowLength = 0,
+            .imageSubresource = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .mipLevel = 0,
+                 .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+            .imageOffset = {0, 0, 0},
+            .imageExtent = {.width = ctx->comp_targ.width, .height = ctx->comp_targ.height, .depth = 1},
+        };
+
+        vkCmdCopyImageToBuffer(ctx->comp_buffer, ctx->comp_targ.image, ctx->comp_targ.desc_info.imageLayout, ctx->fragment_image.buffer, 1, &region);
     }
     vk_try$(vkEndCommandBuffer(ctx->comp_buffer));
 }
@@ -69,12 +88,11 @@ void vulkan_cmd_buffer_init(VulkanCtx *ctx)
     };
 
     vkAllocateCommandBuffers(ctx->logical_device, &compute_alloc_info, &ctx->comp_buffer);
-
-    //  vulkan_compute_cmd_buffer_record(ctx);
 }
 
-void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx)
+void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
 {
+    (void)refresh;
     VkCommandBufferBeginInfo begin_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
     };
@@ -82,15 +100,17 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx)
     vkResetCommandBuffer(ctx->cmd_buffer, 0);
 
     vk_try$(vkBeginCommandBuffer(ctx->cmd_buffer, &begin_info));
+    /*
+     VkBufferCopy copy_region = {
+         .size = ctx->computing_image.len,
+         .dstOffset = 0,
+         .srcOffset = 0,
+     };
 
-    /*    VkBufferCopy copy_region = {
-            .size = ctx->computing_image.len,
-            .dstOffset = 0,
-            .srcOffset = 0,
-        };
-
-        //  vkCmdCopyBuffer(ctx->cmd_buffer, ctx->computing_image.buffer, ctx->fragment_image.buffer, 1, &copy_region);
-    */
+     vkCmdCopyBuffer(ctx->cmd_buffer, ctx->comp_targ.mem, ctx->fragment_image.buffer, 1, &copy_region);
+*/
+   
+    //   VkCommandBuffer cmd_buf = vk_start_single_time_command(ctx);
     VkRenderPassBeginInfo render_pass_info = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = ctx->render_pass,

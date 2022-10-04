@@ -131,7 +131,7 @@ void vulkan_pick_physical_device(VulkanCtx *self)
     for (uint32_t i = 0; i < device_count; ++i)
     {
         VkPhysicalDeviceProperties properties;
-        (vkGetPhysicalDeviceProperties(devices.data[i], &properties));
+        vkGetPhysicalDeviceProperties(devices.data[i], &properties);
         printf("device[%u]: %s \n", i, properties.deviceName);
         if (vulkan_is_device_suitable(self, devices.data[i]))
         {

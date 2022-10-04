@@ -50,6 +50,15 @@ typedef struct
     VkPipeline raw_pipeline;
     int32_t pipeline_idx;
 } VulkanCompute;
+
+typedef struct
+{
+    VkDescriptorImageInfo desc_info;
+    VkImage image;
+    VkDeviceMemory mem;
+    int width;
+    int height;
+} VulkanTex;
 typedef struct
 {
     VkApplicationInfo app_info;
@@ -108,12 +117,13 @@ typedef struct
     VulkanBuffer mesh_data_buf;
     VulkanBuffer bvh_buf;
 
-    VkDescriptorImageInfo combined_textures;
-    VkImage combined_textures_image;
-    VkDeviceMemory combined_textures_mem;
-
     VkDescriptorPool descriptor_pool;
     uint32_t frame_id;
+
+    VulkanTex combined_textures;
+    VulkanTex skymap;
+    VulkanTex comp_targ;
+    VulkanTex frag_targ;
 
     Vec3 cam_pos;
     Vec3 cam_look;

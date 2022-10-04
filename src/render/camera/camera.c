@@ -82,7 +82,7 @@ void camera_update(Camera *cam, void *whandle)
 
         cam2 = cam;
 
-        const float cam_speed = 0.0002f;
+        const float cam_speed = 0.02f;
 
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         {

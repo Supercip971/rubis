@@ -35,6 +35,7 @@ layout(std140, binding = 5) readonly buffer BvhBuf
     Bvh bvhs[];
 };
 layout(binding = 6) uniform sampler2DArray textures;
+layout(binding = 7) uniform sampler2D skymap;
 
 #define FROM_SIBLING 1
 #define FROM_PARENT 2
@@ -177,7 +178,7 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
     Mesh current_mesh = meshes[record.mesh_id];
     MaterialRecord result;
     result.emitted = vec3(0, 0, 0);
-    vec3 first = buf_datas[current_mesh.material_data_start].xyz;
+    vec4 first = buf_datas[current_mesh.material_data_start].xyzw;
     /*
     if ((current_mesh.material_type & 1) != 0)
     {
@@ -232,13 +233,135 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
         result.emitted = first;
         result.do_scatter = false;
     }*/
-    if ((current_mesh.material_type & 16) != 0)
+
+    int base = int(first.y);
+
+    int metal = int(first.z);
+    int normal = int(first.x);
+
+    int emitid = int(first.w);
+
+    vec3 emit = buf_datas[current_mesh.material_data_start + 3].xyz;
+
+    if (emitid >= 0)
     {
-        int base = int(first.y);
-        //  result.emitted = vec3(record.uv, 1.0 - (record.uv.x + record.uv.y));
-        result.emitted = texture(textures, vec3(record.uv, base)).xyz;
-        result.do_scatter = false;
+        emit *= texture(textures, vec3(record.uv, emitid)).xyz;
     }
+
+
+
+    vec3 fact = buf_datas[current_mesh.material_data_start + 2].xyz;
+
+    if (normal >= 0)
+    {
+        vec3 normalv = texture(textures, vec3(record.uv * fact.z, normal)).xyz;
+        normalv = (normalv * 2 - vec3(1));
+        record.normal = normalize(record.normal * (normalv));
+    }
+
+    //  result.emitted = vec3(record.uv, 1.0 - (record.uv.x + record.uv.y));
+    // result.emitted = texture(textures, vec3(record.uv, base)).xyz;
+
+    float alpha = 1;
+    if (base < 0)
+    {
+        result.attenuation = buf_datas[current_mesh.material_data_start + 1].xyz;
+        alpha = buf_datas[current_mesh.material_data_start + 1].w;
+    }
+    else
+    {
+        result.attenuation = texture(textures, vec3(record.uv, base)).xyz;
+        alpha = texture(textures, vec3(record.uv, base)).w;
+    }
+
+
+    vec3 metal_roughness = vec3(1, 1, 1);
+    if (metal >= 0)
+    {
+        metal_roughness = texture(textures, vec3(record.uv, metal)).xyz;
+    }
+    metal_roughness.z *= fact.x;
+
+    metal_roughness.y *= fact.y;
+
+    metal_roughness.z = metal_roughness.z;
+
+    metal_roughness.y = metal_roughness.y;
+
+    //  result.attenuation = fact;
+    //  result.attenuation = mix(vec3(1), result.attenuation, 1);
+    // result.do_scatter = false;
+    //    result.scatter = Ray(record.point, reflect(r.direction, record.normal), vec3(1));
+
+    result.emitted = emit;
+
+    // y = metal
+    // z = roughness
+
+    result.emitted += result.attenuation;
+    vec3 dir;
+    {
+        float idx = 1.5;
+
+        float refract_ratio = 1.0 / idx;
+        if (!record.front)
+        {
+            refract_ratio = idx;
+        }
+
+        vec3 unit_direction = vec_unit(r.direction);
+
+        vec3 normalv = vec_unit(record.normal + vec3_random_unit() * metal_roughness.y);
+        vec3 normalg = vec_unit(record.normal + vec3_random_unit());
+
+        float cos_theta = min(abs(dot(-unit_direction, record.normal)), 1.0);
+        //  float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+
+        //  bool cannot_refract = (refract_ratio * sin_theta) > 1.001;
+
+        if (reflectance(cos_theta, refract_ratio) > (random()))
+        {
+
+            dir = reflect(unit_direction, normalv);
+        }
+        else
+        {
+            // 0.04 + (1 - 0.04) * (1 - abs(VdotH))^5
+            //   result.attenuation = mix(result.attenuation, result.attenuation * (1 / M_PI), 0.04 + (1 - 0.04) * pow(1 - abs(cos_theta), 5));
+
+            dir = reflect(unit_direction, normalv);
+        }
+
+        //   result.attenuation.y = metal_roughness.y; // smooth
+        //   result.attenuation.z = metal_roughness.z; // metal
+        //   result.attenuation.x = 0;
+        if (random() > (metal_roughness.z))
+        {
+            dir = vec_unit(reflect(unit_direction, record.normal) + vec3_random_unit());
+        }
+
+        // result.attenuation = result.emitted;
+    }
+
+    result.scatter = Ray(record.point, dir, vec3(1));
+    if(random() > (alpha))
+    {
+        result.attenuation = vec3(1);
+        result.scatter.direction = vec3(r.direction);
+    }
+
+    result.scatter.inv_direction = vec3(1) / result.scatter.direction;
+
+    result.do_scatter = length(emit) < 1.02;
+
+    // result.attenuation.x = result.scatter_factor;
+    // result.emitted.x = result.scatter_factor;
+    // if (record.front)
+    //{
+    //     result.attenuation = vec3(1, 0, 0);
+    //     result.emitted = result.attenuation;
+    //     result.do_scatter = false;
+    // }
     return result;
 }
 HittableRecord world_hit(Ray r, float x, float y)
@@ -246,38 +369,7 @@ HittableRecord world_hit(Ray r, float x, float y)
 
     float cmin = 0.001f;
     float cmax = 1000000.f;
-    /*
-        HittableRecord rec;
-        rec.hitted = false;
-        for (int i = 0; i < meshes.length(); i++)
-        {
-            Mesh current_mesh = meshes[i];
-            Bvh c;
-            c.aabb_min = current_mesh.aabb1;
 
-            c.aabb_max = current_mesh.aabb2;
-            bool hit = aabb_hit(r, c, cmin, cmax);
-
-            if (hit)
-            {
-                HittableRecord res;
-                vec3 pa = buf_datas[current_mesh.mesh_data_start].xyz;
-                vec3 pb = buf_datas[current_mesh.mesh_data_start + 1].xyz;
-                vec3 pc = buf_datas[current_mesh.mesh_data_start + 2].xyz;
-
-                res = hit_triangle(cmin, cmax, r, pa, pb, pc);
-
-                if (res.hitted)
-                {
-                    res.mesh_id = i;
-                    rec = res;
-                    cmax = rec.t;
-                }
-            }
-        }
-
-    return rec;
-        */
     HittableRecord rec = traverse_bvh_stack(r, cmin, cmax);
     if (rec.hitted)
     {
@@ -289,8 +381,18 @@ HittableRecord world_hit(Ray r, float x, float y)
         vec2 uva = buf_datas[current_mesh.mesh_data_start + 3].xy;
         vec2 uvb = vec2(buf_datas[current_mesh.mesh_data_start + 3].z, buf_datas[current_mesh.mesh_data_start + 4].x);
         vec2 uvc = buf_datas[current_mesh.mesh_data_start + 4].yz;
+        vec3 na = buf_datas[current_mesh.mesh_data_start + 5].xyz;
+        vec3 nb = buf_datas[current_mesh.mesh_data_start + 6].xyz;
+        vec3 nc = buf_datas[current_mesh.mesh_data_start + 7].xyz;
 
-        rec = hit_triangle_provide_info(r, pa, pb, pc, uva, uvb, uvc, rec);
+        vec3 edge_1 = pb - pa;
+        vec3 edge_2 = pc - pa;
+
+        rec.normal = na * (1 - rec.uv.x - rec.uv.y) + nb * (rec.uv.x) + nc * (rec.uv.y);
+        vec2 final = uva * (1 - rec.uv.x - rec.uv.y) + uvb * (rec.uv.x) + uvc * (rec.uv.y);
+        rec.uv = final;
+
+        rec = update_face_normal(rec, r, rec.normal);
     }
 
     return rec;
@@ -300,9 +402,20 @@ vec4 sky_color(Ray r)
 {
 
     vec3 unit_direction = vec_unit(r.direction);
-    float t = (unit_direction.y + 1.0f) * 0.5f;
+    // float t = (unit_direction.y + 1.0f) * 0.5f;
+    float t = acos(unit_direction.y);
+    float p = atan(-unit_direction.z, unit_direction.x) + 3.1415;
+    float u = p * (1 / (2 * 3.1415));
+    float v = t * (1 / 3.1415);
 
-    return (1.0 - t) * vec4(1.0) + t * vec4(0.5, 0.7, 1.0, 1.0);
+    vec3 rc = texture(skymap, vec2(u, v)).rgb;
+    if (length(rc) > 0.9)
+    {
+        //      return vec4((rc * 2) * (rc * 2), 1);
+    }
+    return vec4(rc, 1);
+    //  return (1.0 - t) * vec4(1.0) + t * vec4(0.5, 0.7, 1.0, 1.0);
+    //  return vec4(1, 0, 0, 0);
 }
 vec4 ray_color(Ray r, float x, float y, int maxv)
 {
@@ -320,28 +433,37 @@ vec4 ray_color(Ray r, float x, float y, int maxv)
 
         return sky_color(r);
     }
+
     while (true)
     {
         MaterialRecord material = material_hit(rec, r);
+
+        
         /*
             MaterialRecord material;
             material.do_scatter = false;
             */
+
         if (material.do_scatter)
         {
             r = material.scatter;
-            r.inv_direction = vec3(1) / r.direction;
+
             result = result * vec4(material.attenuation, 1.0);
         }
         else
         {
-            return vec4(material.emitted, 1.0);
+            // result = result * mix(vec4(1), vec4(material.emitted, 1.0), sfact);
+            result = result * (vec4(material.emitted, 1.0));
+
+            return result;
         }
 
         rec = world_hit(r, x, y);
         depth += 1;
         if (rec.hitted == false || depth > maxv)
         {
+            result = result * sky_color(r);
+
             return vec4(result);
         }
     }
