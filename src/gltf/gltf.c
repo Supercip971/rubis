@@ -118,25 +118,24 @@ bool parse_gltf_camera(GltfCtx *self, cJSON *node, Matrix4x4 transform)
 {
     cJSON *gltf_cameras_array = cJSON_GetObjectItem(self->root, "cameras"); // root->node
 
-
     int camera_id = cJSON_GetObjectItem(node, "camera")->valueint;
 
     cJSON *camera = cJSON_GetArrayItem(gltf_cameras_array, camera_id);
 
-    if(cJSON_GetObjectItem(camera, "perspective") != NULL)
+    if (cJSON_GetObjectItem(camera, "perspective") != NULL)
     {
-        if(cJSON_GetObjectItem(camera, "yfov") != NULL)
+        if (cJSON_GetObjectItem(camera, "yfov") != NULL)
         {
             self->target->camera_fov = cJSON_GetObjectItem(camera, "yfov")->valuedouble;
         }
 
         self->target->camera_transform = transform;
     }
-    
+
     return true;
 }
 bool parse_gltf_node_family(GltfCtx *self, cJSON *node, Matrix4x4 transform)
-{ 
+{
     cJSON *childs = (cJSON_GetObjectItem(node, "children"));
 
     int child_count = cJSON_GetArraySize(childs);
@@ -156,19 +155,18 @@ bool parse_gltf_node_other(GltfCtx *self, cJSON *node, Matrix4x4 transform)
 {
     cJSON *childs = (cJSON_GetObjectItem(node, "children"));
 
-    if(childs == NULL && cJSON_GetObjectItem(node, "camera"))
+    if (childs == NULL && cJSON_GetObjectItem(node, "camera"))
     {
-        return parse_gltf_camera(self, node, transform);   
+        return parse_gltf_camera(self, node, transform);
     }
-    else if(childs != NULL)
+    else if (childs != NULL)
     {
         parse_gltf_node_family(self, node, transform);
     }
     return true;
 }
 
-
-void parse_gltf_transforms( cJSON *node, Matrix4x4 *result)
+void parse_gltf_transforms(cJSON *node, Matrix4x4 *result)
 {
     Matrix4x4 self_transform;
     Matrix4x4 translation;
@@ -220,13 +218,12 @@ void parse_gltf_transforms( cJSON *node, Matrix4x4 *result)
     matrix_multiply(&self_transform, &rotation, &self_transform);
 
     *result = self_transform;
-
 }
 
 bool parse_gltf_node(GltfCtx *self, cJSON *node, Matrix4x4 transform)
 {
     cJSON *object_mesh_id = (cJSON_GetObjectItem(node, "mesh"));
-  
+
     Matrix4x4 self_transform;
     parse_gltf_transforms(node, &self_transform);
     Matrix4x4 res;
@@ -246,7 +243,6 @@ bool parse_gltf_node(GltfCtx *self, cJSON *node, Matrix4x4 transform)
     }
     return true;
 }
-
 
 // maybe this should be split in 2 function
 bool parse_gltf_scene(GltfCtx *ctx)

@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 // FIXME: add a #ifdef for non simd cpu
 

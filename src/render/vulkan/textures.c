@@ -197,7 +197,7 @@ void vulkan_shader_shared_texture_init(VulkanCtx *ctx, VulkanTex *self, int widt
 
     self->desc_info.imageView = image_view_create(ctx, self->image, 1, true);
     self->desc_info.sampler = image_sampler_create(ctx);
-    self->desc_info.imageLayout =  (fragment) ? (VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) : (VK_IMAGE_LAYOUT_GENERAL);
+    self->desc_info.imageLayout = (fragment) ? (VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) : (VK_IMAGE_LAYOUT_GENERAL);
     self->width = width;
     self->height = height;
 }

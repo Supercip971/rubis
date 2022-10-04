@@ -49,7 +49,7 @@ void vulkan_compute_cmd_buffer_record(VulkanCtx *ctx)
                                 VK_PIPELINE_BIND_POINT_COMPUTE,
                                 ctx->pipeline_layout, 0, 1, &ctx->descriptor_set, 0, 0);
 
-           vkCmdDispatch(ctx->comp_buffer, ctx->comp_targ.width/32, ctx->comp_targ.height/32, 1);
+        vkCmdDispatch(ctx->comp_buffer, ctx->comp_targ.width / 32, ctx->comp_targ.height / 32, 1);
         VkBufferImageCopy region = {
             .bufferImageHeight = 0,
             .bufferOffset = 0,
@@ -57,7 +57,7 @@ void vulkan_compute_cmd_buffer_record(VulkanCtx *ctx)
             .imageSubresource = {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                 .mipLevel = 0,
-                 .baseArrayLayer = 0,
+                .baseArrayLayer = 0,
                 .layerCount = 1,
             },
             .imageOffset = {0, 0, 0},
@@ -109,7 +109,7 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
 
      vkCmdCopyBuffer(ctx->cmd_buffer, ctx->comp_targ.mem, ctx->fragment_image.buffer, 1, &copy_region);
 */
-   
+
     //   VkCommandBuffer cmd_buf = vk_start_single_time_command(ctx);
     VkRenderPassBeginInfo render_pass_info = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,

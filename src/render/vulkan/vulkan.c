@@ -270,7 +270,7 @@ int vulkan_frame(VulkanCtx *self)
             },
         };
         vkCmdCopyImage(cmd, self->comp_targ.image, self->comp_targ.desc_info.imageLayout, self->frag_targ.image, self->frag_targ.desc_info.imageLayout, 1, &region);
-        
+
         vk_end_single_time_command(self, cmd);
         struct timespec cur;
         clock_gettime(CLOCK_REALTIME, &cur);

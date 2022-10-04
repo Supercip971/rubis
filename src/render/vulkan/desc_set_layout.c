@@ -41,7 +41,7 @@ void shader_descriptors_init(VulkanCtx *ctx, ShaderDescriptors *desc)
 
     vec_push(desc, ((ShaderDescriptor){
                        .image = ctx->comp_targ.desc_info,
-                       .flag = VK_SHADER_STAGE_COMPUTE_BIT ,
+                       .flag = VK_SHADER_STAGE_COMPUTE_BIT,
                        .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                    }));
 
@@ -63,12 +63,12 @@ void shader_descriptors_init(VulkanCtx *ctx, ShaderDescriptors *desc)
                        .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                    }));
 
-//    vec_push(desc, ((ShaderDescriptor){
-//                       .image = ctx->frag_targ.desc_info,
-//                       .flag = VK_SHADER_STAGE_FRAGMENT_BIT ,
-//                       .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-//                   }));
-//
+    //    vec_push(desc, ((ShaderDescriptor){
+    //                       .image = ctx->frag_targ.desc_info,
+    //                       .flag = VK_SHADER_STAGE_FRAGMENT_BIT ,
+    //                       .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    //                   }));
+    //
 
     vec_push(desc, ((ShaderDescriptor){
                        .target = &ctx->fragment_image,

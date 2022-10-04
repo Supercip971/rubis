@@ -47,7 +47,7 @@ void gltf_materials_parse(GltfCtx *self)
                 printf("has color %f %f %f %f\n", r, g, b, a);
                 current.alpha = a;
                 current.is_color = true;
-                current.color = vec3$(r, g, b); 
+                current.color = vec3$(r, g, b);
             }
 
             cJSON *metallic_roughness = cJSON_GetObjectItem(pbr, "metallicRoughnessTexture");
