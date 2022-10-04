@@ -63,6 +63,6 @@ float random()
 {
     RandomResult r = fast_rand(seed, state2);
     seed = r.state;
-    return float(r.value / 4294967296);
+    return float(float(r.value) / (4294967296.));
 }
 #endif
