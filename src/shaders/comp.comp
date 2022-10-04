@@ -53,7 +53,7 @@ void main()
     camera cam = camera_init(ubo.camera_pos.xyz, vec3(ubo.camera_target.xyz), vec3(0, 1, 0), 0.1, 10.0);
 
     vec4 prev = vec4(0);
-    if (ubo.t != 0)
+    if (ubo.t >= float(2))
     {
         prev = imageLoad(buf, ivec2(x, y));
     }

@@ -40,11 +40,11 @@ int main(MAYBE_UNUSED int argc, MAYBE_UNUSED char **argv)
     render_engine_init(&curr_window, &scene);
     render_init(&render);
 
-    camera_init(&cam, (void *)window_raw_handle(&curr_window), CAMERA_CONTROLLABLE);
+    camera_init(&cam, (void *)window_raw_handle(&curr_window), CAMERA_CONTROLLABLE, &scene.camera_transform);
     cam.aperture = 8.0;
     cam.focus_disc = (2.0f);
-    cam.pos = vec3$(0, 2, 1);
-    cam.front = vec3_unit(vec3_sub(vec3$(0, 2, 0), cam.pos));
+   // cam.pos = vec3$(0, 2, 1);
+   // cam.front = vec3_unit(vec3_sub(vec3$(0, 2, 0), cam.pos));
     while (!window_should_close(&curr_window))
     {
 

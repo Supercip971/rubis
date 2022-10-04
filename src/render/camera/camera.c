@@ -3,6 +3,7 @@
 #include <render/camera/camera.h>
 #include <stdio.h>
 #include <utils.h>
+#include "math/mat4.h"
 Camera *cam2;
 
 void mouse_callback(GLFWwindow *window, double xpos, double ypos)
@@ -43,7 +44,7 @@ void camera_key_fun(GLFWwindow *window, int key, int scancode, int action, int m
     (void)scancode;
     (void)window;
 }
-void camera_init(Camera *cam, void *whandle, bool enable_control)
+void camera_init(Camera *cam, void *whandle, bool enable_control, Matrix4x4 *mod)
 {
     GLFWwindow *window = whandle;
 
@@ -56,11 +57,16 @@ void camera_init(Camera *cam, void *whandle, bool enable_control)
         glfwSetCursorPosCallback(window, mouse_callback);
     }
     cam2 = cam;
-    cam->pos = vec3$(0, 0, 1.0);
 
+    cam->pos = vec3$(0, 0, 0);
+
+    matrix_apply_point(mod, &cam->pos);
     cam->front = vec3$(0, 0, -1.0f);
+    matrix_apply_vector(mod, &cam->front);
 
     cam->up = vec3$(0, 1.0f, 0);
+    matrix_apply_vector(mod, &cam->up);
+
     cam->yaw = 0;
     cam->pitch = 0;
     cam->denoise = true;

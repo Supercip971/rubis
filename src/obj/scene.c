@@ -1,11 +1,13 @@
 #include <obj/material.h>
 #include <obj/scene.h>
+#include "math/mat4.h"
 
 void scene_init(Scene *self)
 {
     vec_init(&self->data);
     vec_init(&self->meshes);
     vec_init(&self->textures);
+    create_matrix_identity(&self->camera_transform);
     // just add the entry n°0 so we can avoid to use this number
     vec_push(&self->data, (Vec3){});
 }

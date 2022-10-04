@@ -116,7 +116,7 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
 bool parse_gltf_node(GltfCtx *self, cJSON *node, Matrix4x4 transform);
 bool parse_gltf_camera(GltfCtx *self, cJSON *node, Matrix4x4 transform)
 {
-    cJSON *gltf_cameras_array = cJSON_GetObjectItem(self->root, "cameras"); // root->node
+    cJSON *gltf_cameras_array = cJSON_GetObjectItem(self->root, "cameras"); // root->cameras
 
     int camera_id = cJSON_GetObjectItem(node, "camera")->valueint;
 
@@ -126,8 +126,11 @@ bool parse_gltf_camera(GltfCtx *self, cJSON *node, Matrix4x4 transform)
     {
         if (cJSON_GetObjectItem(camera, "yfov") != NULL)
         {
+
             self->target->camera_fov = cJSON_GetObjectItem(camera, "yfov")->valuedouble;
         }
+
+        printf("VALID CAMERA\n");
 
         self->target->camera_transform = transform;
     }
@@ -157,6 +160,7 @@ bool parse_gltf_node_other(GltfCtx *self, cJSON *node, Matrix4x4 transform)
 
     if (childs == NULL && cJSON_GetObjectItem(node, "camera"))
     {
+        printf("HAS CAMERA\n");
         return parse_gltf_camera(self, node, transform);
     }
     else if (childs != NULL)

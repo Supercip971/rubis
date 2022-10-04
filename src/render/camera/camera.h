@@ -1,6 +1,7 @@
 #pragma once
 
 #include <math/vec3.h>
+#include "math/mat4.h"
 
 typedef struct
 {
@@ -18,6 +19,6 @@ typedef struct
     bool denoise;
 } Camera;
 
-void camera_init(Camera *cam, void *whandle, bool enable_control);
+void camera_init(Camera *cam, void *whandle, bool enable_control, Matrix4x4* mod);
 
 void camera_update(Camera *cam, void *whandle);
