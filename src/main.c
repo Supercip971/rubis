@@ -6,10 +6,42 @@
 #include <utils.h>
 #include <utils/file.h>
 #include <window/window.h>
+#include <arg-parse/arg-parse.h>
+
+struct muarg_argument_config arg_list[] = {
+    MUARG_HELP(),
+    MUARG_BOOL("camera-control", 'c', "make the camera controllable", NULL),
+    MUARG_STRING("model", 'm', "select the object to use for rendering", NULL),
+};
+
+struct muarg_header header = {
+    .app_name = "feather", 
+    .usage = "feather -m {model}", 
+    .help_info = "You may need to download a .glb file",
+    .version = "0.0.0",
+    .argument_count = sizeof(arg_list) / sizeof(arg_list[0]),
+    .argument_list =arg_list,
+};
 
 #define randomf() (((float)random()) / (float)RAND_MAX)
 int main(MAYBE_UNUSED int argc, MAYBE_UNUSED char **argv)
 {
+    struct muarg_result res = muarg_eval(&header, argc, argv); 
+    if(res.has_error == MUARG_ERROR)
+    {
+        return res.has_error;
+    }
+    if(muarg_status_from_name(&res, "help")->is_called)
+    {
+        return 0;
+    }
+    struct muarg_argument_status* status = muarg_status_from_name(&res, "model");
+    if(!status->is_called)
+    {
+        printf("invalid usage, please use a model path, see --help for more information\n");
+        return -1;
+    }
+
     Render render = {};
 
     Window curr_window = {};
@@ -23,7 +55,7 @@ int main(MAYBE_UNUSED int argc, MAYBE_UNUSED char **argv)
 
     printf("loading scene...\n");
     // Buffer fbuf = read_file("obj/light-spheres.glb");
-    Buffer fbuf = read_file("obj/sponza.glb");
+    Buffer fbuf = read_file(status->input);
 
     // Buffer fbuf = read_file("obj/bedroom.glb");
 
