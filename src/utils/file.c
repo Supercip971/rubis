@@ -6,6 +6,7 @@ Buffer read_file(const char *path)
 
     if (f == NULL)
     {
+        printf("(warn) can't open: %s\n", path);
         return (Buffer){};
     }
 
