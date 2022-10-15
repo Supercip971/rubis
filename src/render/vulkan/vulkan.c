@@ -253,28 +253,28 @@ int vulkan_frame(VulkanCtx *self)
     {
         compute_refresh = true;
 
-        VkCommandBuffer cmd = vk_start_single_time_command(self);
-        VkImageCopy region = {
+        //     VkCommandBuffer cmd = vk_start_single_time_command(self);
+        /*  VkImageCopy region = {
 
-            .srcSubresource = {
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .layerCount = 1,
-            },
-            .srcOffset = {},
-            .dstSubresource = {
-                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                .layerCount = 1,
-            },
-            .dstOffset = {},
-            .extent = {
-                .width = self->comp_targ.width,
-                .height = self->comp_targ.height,
-                .depth = 1,
-            },
-        };
-        vkCmdCopyImage(cmd, self->comp_targ.image, self->comp_targ.desc_info.imageLayout, self->frag_targ.image, self->frag_targ.desc_info.imageLayout, 1, &region);
+              .srcSubresource = {
+                  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                  .layerCount = 1,
+              },
+              .srcOffset = {},
+              .dstSubresource = {
+                  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                  .layerCount = 1,
+              },
+              .dstOffset = {},
+              .extent = {
+                  .width = self->comp_targ.width,
+                  .height = self->comp_targ.height,
+                  .depth = 1,
+              },
+          };*/
+        //  vkCmdCopyImage(cmd, self->comp_targ.image, self->comp_targ.desc_info.imageLayout, self->frag_targ.image, self->frag_targ.desc_info.imageLayout, 1, &region);
 
-        vk_end_single_time_command(self, cmd);
+        //    vk_end_single_time_command(self, cmd);
         struct timespec cur;
         clock_gettime(CLOCK_REALTIME, &cur);
         double accum;
