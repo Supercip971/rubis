@@ -460,10 +460,14 @@ vec4 ray_color(Ray r, float x, float y, int maxv)
 
         rec = world_hit(r, x, y);
         depth += 1;
-        if (rec.hitted == false || depth > maxv)
+        if (rec.hitted == false)
         {
             result = result * sky_color(r);
 
+            return vec4(result);
+        }
+        else if(depth > maxv)
+        {
             return vec4(result);
         }
     }
