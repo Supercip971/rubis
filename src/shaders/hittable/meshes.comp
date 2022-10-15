@@ -367,7 +367,7 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
 HittableRecord world_hit(Ray r, float x, float y)
 {
 
-    float cmin = 0.001f;
+    float cmin = 0.000001f;
     float cmax = 1000000.f;
 
     HittableRecord rec = traverse_bvh_stack(r, cmin, cmax);
