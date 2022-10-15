@@ -13,17 +13,23 @@ void gltf_materials_parse(GltfCtx *self)
 
     for (int i = 0; i < materials_count; i++)
     {
+        printf("parsing material %i\n", i);
         cJSON *material = cJSON_GetArrayItem(materials_array, i);
-        GltfMaterial current = {};
+        GltfMaterial current = {
+            .base = -1,
+        };
 
         cJSON *pbr = cJSON_GetObjectItem(material, "pbrMetallicRoughness");
 
         current.metallic_fact = 1;
+        current.rougness_fact = 1;
 
         current.metallic_roughness = -1;
 
-        current.rougness_fact = 1;
         current.normal = -1;
+
+        current.alpha = 1.0;
+        current.emit = -1;
         current.normal_mul = 1;
         if (pbr != 0)
         {
