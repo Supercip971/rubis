@@ -28,8 +28,8 @@ static void scene_buf_init(VulkanCtx *ctx)
 
 static void vulkan_descriptor_buffer_init(VulkanCtx *ctx)
 {
-    ctx->computing_image = vk_buffer_alloc(ctx, 4 * sizeof(float) * WINDOW_WIDTH * WINDOW_HEIGHT, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    ctx->fragment_image = vk_buffer_alloc(ctx, 4 * sizeof(float) * WINDOW_WIDTH * WINDOW_HEIGHT, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    ctx->computing_image = vk_buffer_alloc(ctx, 4 * sizeof(float) * ctx->aligned_width * ctx->aligned_height, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    ctx->fragment_image = vk_buffer_alloc(ctx, 4 * sizeof(float) * ctx->aligned_width * ctx->aligned_height, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     ctx->config_buf = vk_buffer_alloc(ctx, sizeof(ctx->config_buf) * 2, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     scene_buf_init(ctx);
@@ -264,8 +264,8 @@ void scene_buf_value_init(VulkanCtx *ctx)
 
     volatile VulkanConfig *cfg = vk_buffer_map(ctx, ctx->config_buf);
     *cfg = (VulkanConfig){};
-    cfg->width = WINDOW_WIDTH;
-    cfg->height = WINDOW_HEIGHT;
+    cfg->width = ctx->aligned_width;
+    cfg->height = ctx->aligned_height;
     cfg->cam_up = vec3_create(0, 1, 0);
 
     cfg->cam_pos = vec3_create(0, 0, -2);

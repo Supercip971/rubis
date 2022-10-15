@@ -128,6 +128,7 @@ typedef struct
     Vec3 cam_pos;
     Vec3 cam_look;
     Vec3 cam_up;
+
     bool enable_denoise;
 
     float cam_aperture;
@@ -135,6 +136,11 @@ typedef struct
     Scene scene;
     BvhList bvh_data;
     VkQueryPool qpool;
+
+
+    int aligned_width;
+    int aligned_height;
+    int threads_size;
 
     vec_t(VkQueue) submitting;
     volatile VulkanConfig *cfg;

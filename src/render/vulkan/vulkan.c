@@ -141,6 +141,7 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
         },
         .instance = 0,
         .frame_id = 0,
+        .threads_size = 8,
         .scene = *scene};
 
     printf("loading bvh %i...\n", scene->meshes.length);
@@ -149,6 +150,8 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
 
     int width = 0, height = 0;
     vulkan_render_surface_target_size(self, window_handle, &width, &height);
+    self->aligned_width = (int)(floor((float)width / (float)self->threads_size) * self->threads_size);
+    self->aligned_height = (int)(floor((float)height / (float)self->threads_size) * self->threads_size);
 
     vulkan_dump_extension();
 
@@ -173,8 +176,8 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
     vulkan_cmd_buffer_init(self);
     vulkan_scene_textures_init(self);
 
-    vulkan_shader_shared_texture_init(self, &self->comp_targ, width, height, false);
-    vulkan_shader_shared_texture_init(self, &self->frag_targ, width, height, true);
+    vulkan_shader_shared_texture_init(self, &self->comp_targ, self->aligned_width, self->aligned_height, false);
+    vulkan_shader_shared_texture_init(self, &self->frag_targ, self->aligned_width, self->aligned_height, true);
 
     vulkan_desc_set_layout(self);
 
@@ -238,8 +241,8 @@ int vulkan_frame(VulkanCtx *self)
     self->cfg->aperture = self->cam_aperture;
     self->cfg->cam_look = cam_look;
 
-    self->cfg->width = WINDOW_WIDTH;
-    self->cfg->height = WINDOW_HEIGHT;
+    self->cfg->width = self->aligned_width;
+    self->cfg->height = self->aligned_height;
     self->cfg->t = self->frame_id;
 
     self->cfg->denoise = self->enable_denoise;

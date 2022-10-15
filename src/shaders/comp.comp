@@ -7,7 +7,7 @@
 #define M_PI 3.1415926535897932384626433832795
 
 #define WORKGROUP_SIZE 16
-layout(local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 struct Pixel
 {
@@ -48,7 +48,7 @@ void main()
     const float window_height = (ubo.height);
     const uint x = gl_GlobalInvocationID.x;
     const uint y = gl_GlobalInvocationID.y;
-    const vec2 cc = vec2(x + 1, y + ubo.t + 1);
+    const vec2 cc = vec2(x + ubo.t + 1, y + ubo.t + 1);
     random_init(cc);
     camera cam = camera_init(ubo.camera_pos.xyz, vec3(ubo.camera_target.xyz), vec3(0, 1, 0), 0.1, 10.0);
 

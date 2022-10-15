@@ -49,7 +49,7 @@ void vulkan_compute_cmd_buffer_record(VulkanCtx *ctx)
                                 VK_PIPELINE_BIND_POINT_COMPUTE,
                                 ctx->pipeline_layout, 0, 1, &ctx->descriptor_set, 0, 0);
 
-        vkCmdDispatch(ctx->comp_buffer, ctx->comp_targ.width / 32, ctx->comp_targ.height / 32, 1);
+        vkCmdDispatch(ctx->comp_buffer, ctx->comp_targ.width / ctx->threads_size, ctx->comp_targ.height / ctx->threads_size, 1);
         VkBufferImageCopy region = {
             .bufferImageHeight = 0,
             .bufferOffset = 0,
