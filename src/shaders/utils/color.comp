@@ -1,0 +1,38 @@
+#ifndef COLOR_COMP
+#define COLOR_COMP
+
+float srgb_to_linear_v(float srgb)
+{
+    if(srgb <= 0.04045f)
+    {
+        srgb = srgb / 12.92f;
+    }
+    else
+    {
+        srgb = pow((srgb + 0.055f) / 1.055f, 2.4f);
+    }
+    return srgb;
+}
+
+vec3 srgb_to_linear(vec3 v)
+{
+    return vec3(srgb_to_linear_v(v.x), srgb_to_linear_v(v.y), srgb_to_linear_v(v.z));
+}
+float linear_v_to_srgb(float linear)
+{
+    if(linear <= 0.0031308f)
+    {
+        linear = linear * 12.92f;
+    }
+    else
+    {
+        linear = 1.055 * pow(linear, 1.f/2.4f) - 0.055;
+    }
+    return linear;
+}
+
+vec3 linear_to_srgb(vec3 v)
+{
+    return vec3(linear_v_to_srgb(v.x), linear_v_to_srgb(v.y), linear_v_to_srgb(v.z));
+}
+#endif
