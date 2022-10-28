@@ -22,7 +22,7 @@ HittableRecord update_face_normal(HittableRecord record, Ray r, vec3 outward)
     return record;
 }
 
-#define is_near_zero(_val) ((_val > -0.0001f) && (_val < 0.0001f))
+#define is_near_zero(_val) ((float(_val*10000) > -0.000001) && (float(_val*10000) < 0.000001))
 
 HittableRecord hit_triangle_provide_info(Ray r, vec3 posa, vec3 posb, vec3 posc, vec2 uva, vec2 uvb, vec2 uvc, HittableRecord from)
 {
