@@ -21,6 +21,9 @@
  *  3. This notice may not be removed or altered from any source distribution.
  */
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow"
+
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
@@ -1203,6 +1206,7 @@ static tbool GenerateTSpaces(STSpace psTspace[], const STriInfo pTriInfos[], con
 	SSubGroup * pUniSubGroups = NULL;
 	int * pTmpMembers = NULL;
 	int iMaxNrFaces=0, iUniqueTspaces=0, g=0, i=0;
+	(void)iUniqueTspaces;
 	for (g=0; g<iNrActiveGroups; g++)
 		if (iMaxNrFaces < pGroups[g].iNrFaces)
 			iMaxNrFaces = pGroups[g].iNrFaces;
@@ -1897,3 +1901,5 @@ static void DegenEpilogue(STSpace psTspace[], STriInfo pTriInfos[], int piTriLis
 		}
 	}
 }
+
+#pragma GCC diagnostic pop
