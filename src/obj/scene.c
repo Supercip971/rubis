@@ -1,6 +1,7 @@
 #include <obj/material.h>
 #include <obj/scene.h>
 #include "math/mat4.h"
+#include "obj/img.h"
 
 void scene_init(Scene *self)
 {
@@ -101,8 +102,14 @@ void scene_push_tri2(Scene *self, Triangle triangle, Material material)
     scene_data_reference_push(self, &mesh.vertices, triangle.nb);
     scene_data_reference_push(self, &mesh.vertices, triangle.nc);
 
+    // Tangent
+    scene_data_reference_push(self, &mesh.vertices, triangle.ta);
+    scene_data_reference_push(self, &mesh.vertices, triangle.tb);
+    scene_data_reference_push(self, &mesh.vertices, triangle.tc);
+
     vec_push(&self->meshes, mesh);
 }
+
 Material scene_push_lambertian(Scene *self, Vec3 color)
 {
     Material mat = {

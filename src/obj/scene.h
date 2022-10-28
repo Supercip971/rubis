@@ -42,10 +42,18 @@ typedef struct
         float tex_coords[3][2];
         TriangleTexPos tex_pos[3];
     };
+    float _pad;
 
     Vec3 na;
     Vec3 nb;
     Vec3 nc;
+
+    // tangent 
+    Vec3 ta;
+    Vec3 tb;
+    Vec3 tc;
+
+
 
 } Triangle;
 
@@ -56,6 +64,8 @@ void scene_push_circle(Scene *self, Vec3 pos, float r, Material material);
 void scene_push_tri(Scene *self, Vec3 posa, Vec3 posb, Vec3 posc, Material material);
 
 void scene_push_tri2(Scene *self, Triangle triangle, Material material);
+
+bool scene_generate_tangent(Scene* self);
 
 imageID scene_push_texture(Scene *self, Image image);
 
