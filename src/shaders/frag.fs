@@ -9,7 +9,6 @@ void main() {
 }*/
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
-
 struct Pixel
 {
     vec4 value;
@@ -44,6 +43,8 @@ layout(location = 0) out vec4 outColor;
 uint width = uint(ubo.width);
 uint height = uint(ubo.height);
 #define NO_DENOISE
+
+#include "utils/color.comp"
 void main()
 {
     
@@ -51,7 +52,7 @@ void main()
     int ox = int(fragCoord.x * width);
     int oy = int((1 - fragCoord.y) * height);
     vec4 v = image[(oy)*width + ox].value;
-       outColor = vec4(v.x, v.y, v.z, 1.0f);
+    outColor = vec4(linear_to_srgb((v.xyz)), 1.0f);
     //
     //    {
     //        vec4 color = vec4(0.0);
