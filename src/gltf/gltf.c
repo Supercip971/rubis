@@ -5,6 +5,7 @@
 #include <gltf/textures.h>
 #include <math/mat4.h>
 #include <stdio.h>
+#include "obj/scene.h"
 
 typedef struct __attribute__((packed))
 {
@@ -217,7 +218,6 @@ void parse_gltf_transforms(cJSON *node, Matrix4x4 *result)
     create_matrix_identity(&self_transform);
 
     matrix_multiply(&self_transform, &translation, &self_transform);
-
     matrix_multiply(&self_transform, &scale, &self_transform);
     matrix_multiply(&self_transform, &rotation, &self_transform);
 
@@ -313,5 +313,17 @@ bool parse_gltf(void *data, Scene *target)
 
     gltf_materials_parse(&ctx);
 
-    return parse_gltf_scene(&ctx);
+    bool v = parse_gltf_scene(&ctx);
+
+    if(!v)
+    {
+        return v;
+    }
+
+    v = scene_generate_tangent(ctx.target);
+    if(!v)
+    {
+        return v;
+    }
+    return true;
 }
