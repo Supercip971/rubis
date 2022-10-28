@@ -7,6 +7,7 @@ typedef struct
 {
     Vec3 pos;
     Vec3 front;
+    float speed;
     Vec3 up;
 
     float lastx;

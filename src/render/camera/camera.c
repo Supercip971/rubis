@@ -44,6 +44,13 @@ void camera_key_fun(GLFWwindow *window, int key, int scancode, int action, int m
     (void)scancode;
     (void)window;
 }
+
+void camera_scroll_mouse_fun(GLFWwindow *window, double xpos, double ypos)
+{
+    (void)xpos;
+    ctx2->speed = clamp(ctx2->speed + ypos * 0.01f, 0.01f, 10.0f);
+    (void)window;
+}
 void camera_init(Camera *cam, void *whandle, bool enable_control, Matrix4x4 *mod)
 {
     GLFWwindow *window = whandle;
@@ -72,9 +79,11 @@ void camera_init(Camera *cam, void *whandle, bool enable_control, Matrix4x4 *mod
     cam->denoise = true;
     cam->lastx = 0;
     cam->lasty = 0;
+    cam->speed = 0.002f;
     cam->controllable = enable_control;
     ctx2 = cam;
     glfwSetKeyCallback(window, camera_key_fun);
+    glfwSetScrollCallback(window, camera_scroll_mouse_fun);
 }
 
 // FIXME: use the window api
@@ -88,23 +97,27 @@ void camera_update(Camera *cam, void *whandle)
 
         cam2 = cam;
 
-        const float cam_speed = 0.02f;
+        //const float cam_speed = 0.002f;
 
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         {
-            cam->pos = vec3_add(cam->pos, vec3_mul_val(cam->front, cam_speed));
+            cam->pos = vec3_add(cam->pos, vec3_mul_val(cam->front, cam->speed));
         }
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
         {
-            cam->pos = vec3_sub(cam->pos, vec3_mul_val(cam->front, cam_speed));
+            cam->pos = vec3_sub(cam->pos, vec3_mul_val(cam->front, cam->speed));
         }
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         {
-            cam->pos = vec3_add(cam->pos, vec3_mul_val(vec3_cross(cam->front, cam->up), cam_speed));
+            cam->pos = vec3_add(cam->pos, vec3_mul_val(vec3_cross(cam->front, cam->up), cam->speed));
         }
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
         {
-            cam->pos = vec3_sub(cam->pos, vec3_mul_val(vec3_cross(cam->front, cam->up), cam_speed));
+            cam->pos = vec3_sub(cam->pos, vec3_mul_val(vec3_cross(cam->front, cam->up), cam->speed));
         }
+     //   if(glfwGetKey(window, GLFW_MOUSE) == GLFW_PRESS)
+     //   {
+     //       cam->pos = vec3_add(cam->pos, vec3_mul_val(cam->up, cam_speed));
+     //   }
     }
 }
