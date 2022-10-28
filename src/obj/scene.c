@@ -1,7 +1,9 @@
 #include <obj/material.h>
 #include <obj/scene.h>
 #include "math/mat4.h"
+#include "math/vec3.h"
 #include "obj/img.h"
+#include "obj/mesh.h"
 
 void scene_init(Scene *self)
 {
@@ -108,6 +110,76 @@ void scene_push_tri2(Scene *self, Triangle triangle, Material material)
     scene_data_reference_push(self, &mesh.vertices, triangle.tc);
 
     vec_push(&self->meshes, mesh);
+}
+
+MeshCreation scene_start_mesh(Scene *self, Material material)
+{
+    (void)self;
+     Mesh mesh = {
+        .material_type = material.type,
+        .material = material.data,
+        .type = MESH_TRIANGLES,
+        .aabb = {
+            .min = vec3_create(0, 0, 0),
+            .max = vec3_create(0, 0, 0),
+        },
+    };
+
+    MeshTriangles d;
+    vec_init(&d);
+    return (MeshCreation){
+        .mesh = mesh,
+        .data = d,
+    };
+}
+
+Triangle scene_mesh_triangle(Scene *self, int mesh_index, int triangle_index)
+{
+    Mesh *mesh = &self->meshes.data[mesh_index];
+    Vec3 *data = &self->data.data[mesh->vertices.start + triangle_index * MESH_VERTICE_COUNT];
+    Triangle t  = triangle_unpack(data);
+
+    return t;
+}
+void mesh_push_triangle( MeshCreation *mesh, Triangle triangle)
+{
+
+    if(mesh->data.length == 0)
+    {
+        mesh->mesh.aabb.min = vec3_min(triangle.pa, vec3_min(triangle.pb, triangle.pc));
+        mesh->mesh.aabb.max = vec3_max(triangle.pa, vec3_max(triangle.pb, triangle.pc));
+    }
+    else
+    {
+        // TODO: this is so dumb, we should add a AABB library
+        mesh->mesh.aabb.min = vec3_min(mesh->mesh.aabb.min, vec3_min(triangle.pa, vec3_min(triangle.pb, triangle.pc)));
+        mesh->mesh.aabb.max = vec3_max(mesh->mesh.aabb.max, vec3_max(triangle.pa, vec3_max(triangle.pb, triangle.pc)));
+    }
+
+    vec_push(&mesh->data, triangle);
+}
+
+void scene_end_mesh(Scene *self, MeshCreation* mesh)
+{
+    MeshTriangles *d = &mesh->data;
+
+    for (int i = 0; i < d->length; i++)
+    {
+        Triangle triangle = d->data[i];
+
+        Vec3 raw[MESH_VERTICE_COUNT];
+
+        triangle_pack(raw, triangle);
+
+        for(int c = 0;c < MESH_VERTICE_COUNT; c++)
+        {
+
+            scene_data_reference_push(self, &mesh->mesh.vertices, raw[c]);
+        }
+    }
+
+    vec_push(&self->meshes, mesh->mesh);
+    vec_deinit(&mesh->data);
 }
 
 Material scene_push_lambertian(Scene *self, Vec3 color)

@@ -1,5 +1,7 @@
 #include <obj/bvh.h>
 #include <stdio.h>
+#include "obj/mesh.h"
+#include "obj/scene.h"
 typedef struct
 {
     BvhEntry entry;
@@ -55,12 +57,12 @@ void bvh_update_parents(BvhList *self, BvhEntry *entry, int parent_idx)
     }
 }
 */
-static inline bool aabb_intersect(const AABB *a, const AABB *b)
+/*static inline bool aabb_intersect(const AABB *a, const AABB *b)
 {
     return (a->min.x <= b->max.x && a->max.x >= b->min.x) &&
            (a->min.y <= b->max.y && a->max.y >= b->min.y) &&
            (a->min.z <= b->max.z && a->max.z >= b->min.z);
-}
+}*/
 
 BvhEntry bvh_make_mesh_fusion(BvhEntry left, BvhEntry right)
 {
@@ -80,21 +82,21 @@ BvhEntry bvh_make_from_temp_list(BvhList *self, ElementOnList *element)
 {
     if (!element->entry.is_next_a_bvh)
     {
-        element->entry.r = 0;
+   //     element->entry.r = 0;
         return element->entry;
     }
 
     BvhEntry left = bvh_make_from_temp_list(self, element->next_l);
     BvhEntry right = bvh_make_from_temp_list(self, element->next_r);
 
-    if (!left.is_next_a_bvh && !right.is_next_a_bvh && left.r == 0 && right.r == 0)
+  /*  if (!left.is_next_a_bvh && !right.is_next_a_bvh && left.r == 0 && right.r == 0)
     {
         if (aabb_intersect(&left.box, &right.box))
         {
 
             return bvh_make_mesh_fusion(left, right);
         }
-    }
+    }*/
 
     int l = self->length;
 
@@ -131,7 +133,7 @@ void bvh_dump(BvhList *self, BvhEntry *entry, int depth)
     TAB();
     if (!entry->is_next_a_bvh)
     {
-        printf("bvh: %i\n", entry->l);
+        printf("bvh: %i|%i\n", entry->l, entry->r);
     }
     else
     {
@@ -147,7 +149,7 @@ void bvh_dump(BvhList *self, BvhEntry *entry, int depth)
 void sbvh_init(BvhList *self, int entry_id, Scene *scene)
 {
     BvhEntry *entry = &self->data[entry_id];
-    if (!entry->is_next_a_bvh && entry->r != 0)
+    if (!entry->is_next_a_bvh)
     {
         BvhEntry left = self->data[entry->l];
 
@@ -305,17 +307,31 @@ void bvh_init(BvhList *self, Scene *target)
     for (int i = 0; i < target->meshes.length; i++)
     {
         Mesh m = target->meshes.data[i];
-        BvhEntry entry = {
-            .box = m.aabb,
-            .is_next_a_bvh = false,
-            .l = i,
-        };
 
-        ElementOnList on_list = {
-            .entry = entry,
-        };
+        if (m.type == MESH_TRIANGLES)
+        {
+            int count = mesh_count_faces(&m);
+            for (int c = 0; c < count; c++)
+            {
+                Triangle t = scene_mesh_triangle(target, i, c);
+                
+                BvhEntry entry = {
+                    .box = {
+                        .min = vec3_min(vec3_min(t.pa, t.pb), t.pc),
+                        .max = vec3_max(vec3_max(t.pa, t.pb), t.pc),
+                    },
+                    .is_next_a_bvh = false,
+                    .l = i,
+                    .r = c,
+                };
 
-        vec_push(&curr, on_list);
+                ElementOnList on_list = {
+                    .entry = entry,
+                };
+
+                vec_push(&curr, on_list);
+            }
+        }
     }
 
     // int ii = 0;
@@ -410,5 +426,5 @@ void bvh_init(BvhList *self, Scene *target)
 
     printf("bvh size: %lu \n", self->length * sizeof(BvhEntry));
 
-    // bvh_dump(self, self->data, 0);
+ //    bvh_dump(self, self->data, 0);
 }

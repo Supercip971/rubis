@@ -24,38 +24,10 @@ typedef struct
     DataReference data;
 } Material;
 
-typedef struct
-{
-    float x, y;
-} TriangleTexPos;
-
-typedef struct
-{
-    Vec3 pa;
-
-    Vec3 pb;
-    Vec3 pc;
-
-    union
-    {
-
-        float tex_coords[3][2];
-        TriangleTexPos tex_pos[3];
-    };
-    float _pad;
-
-    Vec3 na;
-    Vec3 nb;
-    Vec3 nc;
-
-    // tangent 
-    Vec3 ta;
-    Vec3 tb;
-    Vec3 tc;
 
 
 
-} Triangle;
+Triangle scene_mesh_triangle(Scene *self, int mesh_index, int triangle_index);
 
 void scene_init(Scene *self);
 
@@ -63,7 +35,22 @@ void scene_push_circle(Scene *self, Vec3 pos, float r, Material material);
 
 void scene_push_tri(Scene *self, Vec3 posa, Vec3 posb, Vec3 posc, Material material);
 
-void scene_push_tri2(Scene *self, Triangle triangle, Material material);
+//void scene_push_tri2(Scene *self, Triangle triangle, Material material);
+
+typedef vec_t(Triangle) MeshTriangles;
+typedef struct 
+{
+    Mesh mesh; 
+    MeshTriangles data;
+} MeshCreation;
+
+
+MeshCreation scene_start_mesh(Scene* self, Material material);
+
+void mesh_push_triangle( MeshCreation* mesh, Triangle triangle);
+
+void scene_end_mesh(Scene* self, MeshCreation*  mesh);
+
 
 bool scene_generate_tangent(Scene* self);
 

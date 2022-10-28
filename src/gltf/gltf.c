@@ -24,6 +24,7 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
     int primitive_count = cJSON_GetArraySize(mesh_primitives_array);
     for (int i = 0; i < primitive_count; i++)
     {
+        // as each primitive can have different material / texture, we parse them as different meshes 
         cJSON *primitive = cJSON_GetArrayItem(mesh_primitives_array, i);
         cJSON *attributes = cJSON_GetObjectItem(primitive, "attributes");
         GltfAccessorPtr indicies = gltf_read_accessor(self, cJSON_GetObjectItem(primitive, "indices")->valueint);
@@ -33,6 +34,9 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
 
             material = cJSON_GetObjectItem(primitive, "material")->valueint;
         }
+
+
+        MeshCreation mesh_creation = scene_start_mesh(self->target, self->materials.data[material].final );
 
         printf("primitives: %i (%i) %i \n", cJSON_GetObjectItem(primitive, "indices")->valueint, indicies.count, i);
         printf("pos: %i\n", cJSON_GetObjectItem(attributes, "POSITION")->valueint);
@@ -108,8 +112,9 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
                 final.tex_pos[1] = (TriangleTexPos){gltftex[idx1].x, gltftex[idx1].y};
                 final.tex_pos[2] = (TriangleTexPos){gltftex[idx2].x, gltftex[idx2].y};
             }
-            scene_push_tri2(self->target, final, self->materials.data[material].final);
+            mesh_push_triangle(&mesh_creation, final);
         }
+        scene_end_mesh(self->target, &mesh_creation);
     }
 
     return true;

@@ -16,6 +16,7 @@ struct HittableRecord
     float t;
     bool front;
     int mesh_id;
+    int vert_id;
 };
 
 HittableRecord update_face_normal(HittableRecord record, Ray r, vec3 outward)
