@@ -1,5 +1,6 @@
 #include <obj/bvh.h>
 #include <stdio.h>
+#include "math/vec3.h"
 #include "obj/mesh.h"
 #include "obj/scene.h"
 typedef struct
@@ -57,20 +58,22 @@ void bvh_update_parents(BvhList *self, BvhEntry *entry, int parent_idx)
     }
 }
 */
-/*static inline bool aabb_intersect(const AABB *a, const AABB *b)
+static inline bool aabb_intersect(const AABB *a, const AABB *b)
 {
     return (a->min.x <= b->max.x && a->max.x >= b->min.x) &&
            (a->min.y <= b->max.y && a->max.y >= b->min.y) &&
            (a->min.z <= b->max.z && a->max.z >= b->min.z);
-}*/
+}
 
 BvhEntry bvh_make_mesh_fusion(BvhEntry left, BvhEntry right)
 {
 
     BvhEntry curr = {
         .is_next_a_bvh = false,
-        .l = left.l,
-        .r = right.l,
+        .la = left.la,
+        .lb = left.lb,
+        .ra = right.la,
+        .rb = right.lb,
         //    .parent = 0,
         .box = aabb_surrounding(&left.box, &right.box),
     };
@@ -89,14 +92,14 @@ BvhEntry bvh_make_from_temp_list(BvhList *self, ElementOnList *element)
     BvhEntry left = bvh_make_from_temp_list(self, element->next_l);
     BvhEntry right = bvh_make_from_temp_list(self, element->next_r);
 
-  /*  if (!left.is_next_a_bvh && !right.is_next_a_bvh && left.r == 0 && right.r == 0)
+    if (!left.is_next_a_bvh && !right.is_next_a_bvh && left.ra == 0 && right.ra == 0)
     {
         if (aabb_intersect(&left.box, &right.box))
         {
 
             return bvh_make_mesh_fusion(left, right);
         }
-    }*/
+    }
 
     int l = self->length;
 
@@ -110,8 +113,10 @@ BvhEntry bvh_make_from_temp_list(BvhList *self, ElementOnList *element)
     // bvh_update_parents(self, &self->data[r], r);
     BvhEntry curr = {
         .is_next_a_bvh = true,
-        .l = l,
-        .r = r,
+        .la = l,
+        .lb = 0,
+        .ra = r,
+        .rb = 0,
         //    .parent = 0,
         .box = aabb_surrounding(&left.box, &right.box),
     };
@@ -133,17 +138,17 @@ void bvh_dump(BvhList *self, BvhEntry *entry, int depth)
     TAB();
     if (!entry->is_next_a_bvh)
     {
-        printf("bvh: %i|%i\n", entry->l, entry->r);
+        printf("bvh: %i (%i) |%i (%i) \n", entry->la, entry->lb, entry->ra, entry->rb);
     }
     else
     {
 
-        printf("- l: %i \n", entry->l);
-        bvh_dump(self, &self->data[entry->l], depth + 1);
+        printf("- l: %i \n", entry->la);
+        bvh_dump(self, &self->data[entry->la], depth + 1);
 
         TAB();
-        printf("- r: %i \n", entry->r);
-        bvh_dump(self, &self->data[entry->r], depth + 1);
+        printf("- r: %i \n", entry->ra);
+        bvh_dump(self, &self->data[entry->ra], depth + 1);
     }
 }
 void sbvh_init(BvhList *self, int entry_id, Scene *scene)
@@ -151,16 +156,16 @@ void sbvh_init(BvhList *self, int entry_id, Scene *scene)
     BvhEntry *entry = &self->data[entry_id];
     if (!entry->is_next_a_bvh)
     {
-        BvhEntry left = self->data[entry->l];
-
-        BvhEntry right = self->data[entry->r];
-        (void)left;
-        (void)right;
+        //BvhEntry left = self->data[entry->l];
+//
+        //BvhEntry right = self->data[entry->r];
+        //(void)left;
+        //(void)right;
     }
     else
     {
-        sbvh_init(self, entry->l, scene);
-        sbvh_init(self, entry->r, scene);
+        sbvh_init(self, entry->la, scene);
+        sbvh_init(self, entry->ra, scene);
     }
 }
 // probably don't know what this does in 1 month
@@ -296,6 +301,21 @@ ElementOnList bvh_init_rec(tempBvhList *list, BvhList *tlist, int depth)
 
     return res;
 }
+
+int bvh_depth(BvhList *self, int entry_id)
+{
+    BvhEntry *entry = &self->data[entry_id];
+    if (!entry->is_next_a_bvh)
+    {
+        return 1;
+    }
+    else
+    {
+        int l = bvh_depth(self, entry->la);
+        int r = bvh_depth(self, entry->ra);
+        return 1 + (l > r ? l : r);
+    }
+}
 void bvh_init(BvhList *self, Scene *target)
 {
     vec_init(self);
@@ -317,12 +337,17 @@ void bvh_init(BvhList *self, Scene *target)
                 
                 BvhEntry entry = {
                     .box = {
-                        .min = vec3_min(vec3_min(t.pa, t.pb), t.pc),
-                        .max = vec3_max(vec3_max(t.pa, t.pb), t.pc),
+//         .min = vec3_sub(vec3_min(vec3_min(t.pa, t.pb), t.pc), vec3_create(0.1, 0.1, 0.1)),
+//                        .max = vec3_add(vec3_max(vec3_max(t.pa, t.pb), t.pc), vec3_create(0.1, 0.1, 0.1)),
+              
+                        .min = (vec3_min(vec3_min(t.pa, t.pb), t.pc)),
+                        .max = (vec3_max(vec3_max(t.pa, t.pb), t.pc)),
                     },
                     .is_next_a_bvh = false,
-                    .l = i,
-                    .r = c,
+                    .la = i,
+                    .lb = c,
+                    .ra = 0,
+                    .rb = 0,
                 };
 
                 ElementOnList on_list = {
@@ -425,6 +450,6 @@ void bvh_init(BvhList *self, Scene *target)
     self->data[0] = start;
 
     printf("bvh size: %lu \n", self->length * sizeof(BvhEntry));
-
+    printf("bvh depth: %i \n", bvh_depth(self, 0));
  //    bvh_dump(self, self->data, 0);
 }

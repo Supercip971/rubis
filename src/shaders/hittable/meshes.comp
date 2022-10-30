@@ -42,17 +42,18 @@ layout(binding = 7) uniform sampler2D skymap;
 #define FROM_PARENT 2
 #define FROM_CHILD 3
 
-HittableRecord process_leaf(Ray r, int id, float cmin, float cmax)
+HittableRecord process_leaf(Ray r, int id, int vert, float cmin, float cmax)
 {
     Mesh current_mesh = meshes[id];
 
-    vec3 pa = buf_datas[current_mesh.mesh_data_start].xyz;
-    vec3 pb = buf_datas[current_mesh.mesh_data_start + 1].xyz;
-    vec3 pc = buf_datas[current_mesh.mesh_data_start + 2].xyz;
+    vec3 pa = buf_datas[current_mesh.mesh_data_start + vert * VERTICES_SIZE].xyz;
+    vec3 pb = buf_datas[current_mesh.mesh_data_start + vert * VERTICES_SIZE + 1].xyz;
+    vec3 pc = buf_datas[current_mesh.mesh_data_start + vert * VERTICES_SIZE + 2].xyz;
 
     HittableRecord res = hit_triangle(cmin, cmax, r, pa, pb, pc);
 
     res.mesh_id = id;
+    res.vert_id = vert;
 
     return res;
 }
@@ -112,13 +113,13 @@ bool aabb_hit2(Ray r, Bvh cur, float t_min, float t_max)
     return vec3_min_comp(tmax) >= vec3_max_comp(tmin);
 }
 
-#define STACK_SIZE 32
+#define STACK_SIZE 64
 
 HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
 {
     int stack[STACK_SIZE];
 
-    int current = bvhs[0].l;
+    int current = bvhs[0].la;
     float cmin = cmin_f;
     float cmax = cmax_f;
     int i = 0;
@@ -135,37 +136,45 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
         Bvh cur = bvhs[stack[sp]];
         if (cur.is_next_a_bvh == 0)
         {
-            HittableRecord rec2 = process_leaf(r, cur.l, cmin, cmax);
+            
+            HittableRecord rec2 = process_leaf(r, cur.la, cur.lb, cmin, cmax);
             if (rec2.hitted)
             {
                 cmax = rec2.t;
                 res = rec2;
             }
-            if (cur.r != 0)
+            if (cur.ra != 0)
             {
-                rec2 = process_leaf(r, cur.r, cmin, cmax);
+                rec2 = process_leaf(r, cur.ra, cur.rb , cmin, cmax);
                 if (rec2.hitted)
                 {
                     cmax = rec2.t;
                     res = rec2;
                 }
             }
+            /*
+            HittableRecord rec2 = process_leaf(r, cur.la, cur.r, cmin, cmax);
+            if (rec2.hitted)
+            {
+                cmax = rec2.t;
+                res = rec2;
+            }*/
         }
         else
         {
-            Bvh lb = bvhs[cur.l];
-            Bvh rb = bvhs[cur.r];
+            Bvh lb = bvhs[cur.la];
+            Bvh rb = bvhs[cur.ra];
 
             if (aabb_hit(r, lb, cmin, cmax))
             {
-                stack[sp] = cur.l;
+                stack[sp] = cur.la;
 
                 sp++;
             }
             if (aabb_hit(r, rb, cmin, cmax))
             {
 
-                stack[sp] = cur.r;
+                stack[sp] = cur.ra;
 
                 sp++;
             }
@@ -177,10 +186,10 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
 MaterialRecord material_hit(HittableRecord record, Ray r)
 {
     Mesh current_mesh = meshes[record.mesh_id];
+
     MaterialRecord result;
     result.emitted = vec3(0, 0, 0);
     vec4 first = buf_datas[current_mesh.material_data_start].xyzw;
-  
 
     int base = int(first.y);
 
@@ -212,28 +221,35 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
         //        alpha = texture(textures, vec3(record.uv, base)).w;
     }
 
+    vec3 T = normalize((record.tangent));
+    vec3 N = normalize((record.normal));
+
+    vec3 og_normal = record.normal;
+    vec3 B = normalize(record.bittangent);
+    if (dot(r.direction, record.normal) > 0.0f)
+    {
+  //      record.normal = -record.normal;
+        N = -N;
+        T = -T;
+        B = -B;
+    }
     if (normal >= 0)
     {
 
         vec3 normalv = vec3(1);
-        vec3 T = normalize((record.tangent));
-        vec3 N = normalize((record.normal));
-        vec3 B = normalize(record.bittangent);
 
         normalv = texture(textures, vec3((record.uv), int(normal))).rgb * 2.0 - vec3(1.0);
         normalv = normalize(normalv);
-
-        if (dot(r.direction, record.normal) > 0.0f)
-        {
-            N = -N;
-            T = -T;
-            B = -B;
-        }
 
         mat3 TBN = (mat3(T, B, N));
 
         record.normal = normalize(((normalv * TBN)));
     }
+
+  //  result.emitted = (record.normal + vec3(1)) / 2.0;
+
+  //  result.do_scatter = false;
+  //  return result;
 
     vec3 metal_roughness = vec3(1, 1, 1);
     if (metal >= 0)
@@ -253,7 +269,7 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
     // y = roughtness
     // z = metalness
 
-    result.emitted += result.attenuation;
+       result.emitted += result.attenuation;
 
     vec3 dir;
     {
@@ -284,13 +300,16 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
 
             if (random() > (metal_roughness.z))
             {
-                dir = vec_unit(reflect(unit_direction, random_in_hemisphere(record.normal)));
+                dir = (reflect(unit_direction, random_in_hemisphere(record.normal)));
             }
         }
     }
 
     dir = vec_unit(dir);
-
+   // if (dot(dir, og_normal) < 0.0f)
+   // {
+   //     dir = -dir;
+   // }
     result.scatter = Ray(record.point, dir, vec3(1));
 
     if (random() > (alpha))
@@ -316,32 +335,33 @@ HittableRecord world_hit(Ray r, float x, float y)
     if (rec.hitted)
     {
         Mesh current_mesh = meshes[rec.mesh_id];
+        uint start = current_mesh.mesh_data_start + rec.vert_id * VERTICES_SIZE;
 
-        vec3 pa = buf_datas[current_mesh.mesh_data_start].xyz;
-        vec3 pb = buf_datas[current_mesh.mesh_data_start + 1].xyz;
-        vec3 pc = buf_datas[current_mesh.mesh_data_start + 2].xyz;
-        vec2 uva = buf_datas[current_mesh.mesh_data_start + 3].xy;
-        vec2 uvb = vec2(buf_datas[current_mesh.mesh_data_start + 3].z, buf_datas[current_mesh.mesh_data_start + 4].x);
-        vec2 uvc = buf_datas[current_mesh.mesh_data_start + 4].yz;
-        vec3 na = buf_datas[current_mesh.mesh_data_start + 5].xyz;
-        vec3 nb = buf_datas[current_mesh.mesh_data_start + 6].xyz;
-        vec3 nc = buf_datas[current_mesh.mesh_data_start + 7].xyz;
-        vec3 ta = buf_datas[current_mesh.mesh_data_start + 8].xyz;
-        vec3 tb = buf_datas[current_mesh.mesh_data_start + 9].xyz;
-        vec3 tc = buf_datas[current_mesh.mesh_data_start + 10].xyz;
+        vec3 pa = buf_datas[start].xyz;
+        vec3 pb = buf_datas[start + 1].xyz;
+        vec3 pc = buf_datas[start + 2].xyz;
+        vec2 uva = buf_datas[start + 3].xy;
+        vec2 uvb = vec2(buf_datas[start + 3].z, buf_datas[start + 4].x);
+        vec2 uvc = buf_datas[start + 4].yz;
+        vec3 na = buf_datas[start + 5].xyz;
+        vec3 nb = buf_datas[start + 6].xyz;
+        vec3 nc = buf_datas[start + 7].xyz;
+        vec3 ta = buf_datas[start + 8].xyz;
+        vec3 tb = buf_datas[start + 9].xyz;
+        vec3 tc = buf_datas[start + 10].xyz;
 
         vec3 edge_1 = pb - pa;
         vec3 edge_2 = pc - pa;
 
-        //     rec.normal = (normalize(cross(edge_1, edge_2)));
         rec.normal = normalize((na * (1 - rec.uv.x - rec.uv.y) + nb * (rec.uv.x) + nc * (rec.uv.y)));
+
+        //         rec.normal = (normalize(cross(edge_1, edge_2)));
         rec.tangent = normalize((ta * (1 - rec.uv.x - rec.uv.y) + tb * (rec.uv.x) + tc * (rec.uv.y)));
-        rec.tangent_sign = buf_datas[current_mesh.mesh_data_start + 8].w;
+        rec.tangent_sign = buf_datas[start + 8].w;
         vec2 final = (uva * (1.0 - rec.uv.x - rec.uv.y) + uvb * (rec.uv.x) + uvc * (rec.uv.y));
         rec.uv = final;
 
-       rec.bittangent = rec.tangent_sign * cross(rec.normal, rec.tangent);
-
+        rec.bittangent = rec.tangent_sign * cross(rec.normal, rec.tangent);
     }
 
     return rec;
@@ -357,6 +377,7 @@ vec4 sky_color(Ray r)
 
     vec3 rc = texture(skymap, vec2(u, v)).rgb;
 
+   // return vec4(1, 0, 0, 1);
     return vec4(srgb_to_linear(rc), 1);
 }
 
@@ -374,7 +395,7 @@ vec4 ray_color(Ray r, float x, float y, int maxv)
 #endif
     if (!rec.hitted)
     {
-
+      //  return vec4(0, 1, 0, 1);
         return sky_color(r);
     }
 
@@ -393,19 +414,21 @@ vec4 ray_color(Ray r, float x, float y, int maxv)
 
             return result;
         }
-
         rec = world_hit(r, x, y);
+
         depth += 1;
         if (rec.hitted == false)
         {
             result = result * sky_color(r);
 
-            return vec4(result);
+            return result;
         }
         else if (depth > maxv)
         {
-            return vec4(result);
+            return vec4(result) ;
         }
+
+
     }
 }
 

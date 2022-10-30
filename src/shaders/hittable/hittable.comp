@@ -26,7 +26,8 @@ HittableRecord update_face_normal(HittableRecord record, Ray r, vec3 outward)
     return record;
 }
 
-#define is_near_zero(_val) ((float(_val*10000) > -0.000001) && (float(_val*10000) < 0.000001))
+//#define is_near_zero(_val) ((float(_val*100) > -0.00001) && (float(_val*100) < 0.00001))
+#define is_near_zero(_val) (abs(_val * 10000) < 0.000001)
 
 HittableRecord hit_triangle_provide_info(Ray r, vec3 posa, vec3 posb, vec3 posc, vec2 uva, vec2 uvb, vec2 uvc, HittableRecord from)
 {
@@ -55,7 +56,7 @@ HittableRecord hit_triangle(float tmin, float tmax, Ray r, vec3 posa, vec3 posb,
     {
         return record;
     }
-    float inv_a = 1.0 / a;
+    float inv_a = 1.0f / a;
     vec3 s = r.origin - v0;
     float u = inv_a * dot(s, h);
     if (u < 0.0 || u > 1.0)
