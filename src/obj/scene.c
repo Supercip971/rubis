@@ -4,7 +4,7 @@
 #include "math/vec3.h"
 #include "obj/img.h"
 #include "obj/mesh.h"
-
+#include <stdio.h>
 void scene_init(Scene *self)
 {
     vec_init(&self->data);
@@ -21,6 +21,38 @@ imageID scene_push_texture(Scene *self, Image image)
     return self->textures.length - 1;
 }
 
+void scene_resize_textures(Scene* self)
+{
+    size_t maxw = 0;
+    size_t maxh = 0;
+   for(int i = 0; i < self->textures.length; i++)
+    {
+        Image img = self->textures.data[i];
+        if(img.width > maxw)
+        {
+            maxw = img.width;
+        }
+        if(img.height > maxh)
+        {
+            maxh = img.height;
+        }
+    }
+    printf("resizing images for: %zux%zu\n", maxw, maxh);
+
+    for(int i = 0; i < self->textures.length; i++)
+    {
+        Image old = self->textures.data[i];
+
+        if(old.width == maxw && old.height == maxh)
+        {
+            continue;
+        }
+        Image new = image_resize(old, maxw,maxh);
+        self->textures.data[i] = new;
+        image_unload(&old);
+    }
+    
+}
 void scene_data_reference_push(Scene *self, DataReference *dat, Vec3 value)
 {
     if (dat->start == 0)

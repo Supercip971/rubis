@@ -31,6 +31,7 @@ Triangle scene_mesh_triangle(Scene *self, int mesh_index, int triangle_index);
 
 void scene_init(Scene *self);
 
+void scene_resize_textures(Scene* self);
 void scene_push_circle(Scene *self, Vec3 pos, float r, Material material);
 
 void scene_push_tri(Scene *self, Vec3 posa, Vec3 posb, Vec3 posc, Material material);

@@ -1,5 +1,7 @@
 #include <gltf/accessor.h>
 #include <gltf/textures.h>
+#include <stdio.h>
+#include "obj/img.h"
 
 void gltf_textures_parse(GltfCtx *self)
 {
@@ -21,8 +23,10 @@ void gltf_textures_parse(GltfCtx *self)
 
         gltf_get_buffer_from_view(self, view_id->valueint, &view, 0, 0);
 
-        imageID id = scene_push_texture(self->target, image_load(view.data, view.len));
+        Image img_data = image_load(view.data, view.len);
+        imageID id = scene_push_texture(self->target, img_data);
 
+        printf("added texture: %i (%ix%i)\n", id, img_data.width, img_data.height);
         vec_push(&self->textures, id);
     }
 }
