@@ -17,4 +17,16 @@ typedef struct __attribute__((packed))
 
 typedef vec_t(BvhEntry) BvhList;
 
+typedef struct
+{
+    BvhEntry entry;
+    void *next_l;
+    void *next_r;
+
+} ElementOnList;
+
+typedef vec_t(ElementOnList) tempBvhList;
+
+tempBvhList sort_on_axis(const tempBvhList *list, VecDimension axis, bool sign);
+
 void bvh_init(BvhList *self, Scene *target);

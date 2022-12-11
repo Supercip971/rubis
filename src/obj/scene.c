@@ -1,5 +1,6 @@
 #include <obj/material.h>
 #include <obj/scene.h>
+#include "math/aabb.h"
 #include "math/mat4.h"
 #include "math/vec3.h"
 #include "obj/img.h"
@@ -89,10 +90,9 @@ void scene_push_tri(Scene *self, Vec3 posa, Vec3 posb, Vec3 posc, Material mater
         .material_type = material.type,
         .material = material.data,
         .type = MESH_TRIANGLES,
-        .aabb = {
-            .min = vec3_min(posa, vec3_min(posb, posc)),
-            .max = vec3_max(posa, vec3_max(posb, posc)),
-        },
+        .aabb = 
+            aabb_create_triangle(posa, posb, posc)
+        ,
     };
 
     scene_data_reference_push(self, &mesh.vertices, posa);
@@ -108,10 +108,8 @@ void scene_push_tri2(Scene *self, Triangle triangle, Material material)
         .material_type = material.type,
         .material = material.data,
         .type = MESH_TRIANGLES,
-        .aabb = {
-            .min = vec3_min(triangle.pa, vec3_min(triangle.pb, triangle.pc)),
-            .max = vec3_max(triangle.pa, vec3_max(triangle.pb, triangle.pc)),
-        },
+        .aabb =             aabb_create_triangle(triangle.pa, triangle.pb, triangle.pc),
+
     };
 
     scene_data_reference_push(self, &mesh.vertices, triangle.pa);
@@ -178,14 +176,15 @@ void mesh_push_triangle( MeshCreation *mesh, Triangle triangle)
 
     if(mesh->data.length == 0)
     {
-        mesh->mesh.aabb.min = vec3_min(triangle.pa, vec3_min(triangle.pb, triangle.pc));
-        mesh->mesh.aabb.max = vec3_max(triangle.pa, vec3_max(triangle.pb, triangle.pc));
+        mesh->mesh.aabb = aabb_create_triangle(triangle.pa, triangle.pb, triangle.pc);
     }
     else
     {
         // TODO: this is so dumb, we should add a AABB library
-        mesh->mesh.aabb.min = vec3_min(mesh->mesh.aabb.min, vec3_min(triangle.pa, vec3_min(triangle.pb, triangle.pc)));
-        mesh->mesh.aabb.max = vec3_max(mesh->mesh.aabb.max, vec3_max(triangle.pa, vec3_max(triangle.pb, triangle.pc)));
+        AABB next = aabb_create_triangle(triangle.pa, triangle.pb, triangle.pc);
+    
+        mesh->mesh.aabb.min = vec3_min(mesh->mesh.aabb.min, next.min);
+        mesh->mesh.aabb.max = vec3_max(mesh->mesh.aabb.max, next.max);
     }
 
     vec_push(&mesh->data, triangle);

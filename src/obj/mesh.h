@@ -1,6 +1,7 @@
 #pragma once
 #include <ds/vec.h>
 #include <math/vec3.h>
+#include <math/aabb.h>
 
 #define MESH_NONE 0
 #define MESH_CIRCLE 1
@@ -14,11 +15,6 @@ typedef struct __attribute__((packed))
     _Alignas(4) int end;
 } DataReference;
 
-typedef struct __attribute__((packed))
-{
-    _Alignas(16) Vec3 min;
-    _Alignas(16) Vec3 max;
-} AABB;
 typedef struct __attribute__((packed))
 {
     _Alignas(4) int type;

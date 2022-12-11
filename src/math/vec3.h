@@ -10,6 +10,7 @@ typedef struct vec3_t
     float z;
     float _padding;
 } __attribute__((packed)) Vec3;
+
 static inline Vec3 vec3_create(float x, float y, float z)
 {
     Vec3 res;
@@ -17,6 +18,24 @@ static inline Vec3 vec3_create(float x, float y, float z)
     res.y = y;
     res.z = z;
     return res;
+}
+
+typedef enum
+{
+    VDIM_X,
+    VDIM_Y,
+    VDIM_Z,
+} VecDimension;
+
+static inline float vec3_dim(Vec3 self, VecDimension dim)
+{
+    switch(dim)
+    {
+        case VDIM_X: return self.x;
+        case VDIM_Y: return self.y;
+        case VDIM_Z: return self.z;
+    }
+    return 0;
 }
 
 #define vec3$(X, Y, Z) (vec3_create((X), (Y), (Z)))

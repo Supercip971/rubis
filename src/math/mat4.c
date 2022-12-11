@@ -75,7 +75,12 @@ void create_matrix_rotate_q(Matrix4x4 *matrix, double x, double y, double z, dou
     {
         return;
     }
+
     double inv_q = 1.0 / (sx + sy + sz + sw);
+    if (fabs(sx + sy + sz + sw - 1.0) <= 0.0001f)
+    {
+        inv_q = 1.0;
+    }
 
     Matrix4x4 val = {{{(sx - sy - sz + sw) * inv_q, (2 * (x * y - z * w)) * inv_q, (2 * (x * z + y * w)) * inv_q, 0},
                       {(2 * (x * y + z * w)) * inv_q, (sy - sx - sz + sw) * inv_q, (2 * (y * z - x * w)) * inv_q, 0},
