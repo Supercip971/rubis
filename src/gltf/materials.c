@@ -3,6 +3,7 @@
 #include <gltf/accessor.h>
 #include <gltf/materials.h>
 #include <stdio.h>
+#include "gltf/gltf.h"
 #include "math/vec3.h"
 
 void gltf_materials_parse(GltfCtx *self)
@@ -40,8 +41,9 @@ void gltf_materials_parse(GltfCtx *self)
 
             if (base != NULL)
             {
-                printf("has base\n");
                 int id = cJSON_GetObjectItem(base, "index")->valueint;
+
+                printf("has base: %i\n", id);
                 current.base = self->textures.data[id];
             }
             else if (base_col != NULL)
@@ -144,4 +146,27 @@ void gltf_materials_parse(GltfCtx *self)
 
         vec_push(&self->materials, current);
     }
+
+    self->null_material_id = self->materials.length;
+
+    Pbrt final = {
+        .base = -1,
+        .is_color = true,
+        .color = vec3$(1, 1, 1),
+        .normal = -1,
+        .emit = -1,
+        .roughness = -1,
+        .metallic_fact = 0,
+        .rougness_fact = 0.5,
+        .alpha = 1.0,
+        .normal_mul = 1,
+        .emmisive_fact = vec3$(0, 0, 0),
+    };
+
+    GltfMaterial material = {
+        .base = -1,
+    };
+    material.final = scene_push_pbrt(self->target, final);
+
+    vec_push(&self->materials, material);
 }

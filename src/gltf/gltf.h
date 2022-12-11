@@ -63,6 +63,7 @@ typedef struct
     GltfChunkHeader *binary;
     GltfTextures textures;
     GltfMaterials materials;
+    int null_material_id;
 } GltfCtx;
 
 bool parse_gltf(void *data, Scene *target);

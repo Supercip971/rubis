@@ -24,19 +24,23 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
     int primitive_count = cJSON_GetArraySize(mesh_primitives_array);
     for (int i = 0; i < primitive_count; i++)
     {
-        // as each primitive can have different material / texture, we parse them as different meshes 
+        // as each primitive can have different material / texture, we parse them as different meshes
         cJSON *primitive = cJSON_GetArrayItem(mesh_primitives_array, i);
         cJSON *attributes = cJSON_GetObjectItem(primitive, "attributes");
         GltfAccessorPtr indicies = gltf_read_accessor(self, cJSON_GetObjectItem(primitive, "indices")->valueint);
-        int material = 0;
+        int material = -1;
+        MeshCreation mesh_creation;
         if (cJSON_GetObjectItem(primitive, "material") != NULL)
         {
 
             material = cJSON_GetObjectItem(primitive, "material")->valueint;
         }
+        else
+        {
+            material = self->null_material_id;
+        }
 
-
-        MeshCreation mesh_creation = scene_start_mesh(self->target, self->materials.data[material].final );
+        mesh_creation = scene_start_mesh(self->target, self->materials.data[material].final);
 
         printf("primitives: %i (%i) %i \n", cJSON_GetObjectItem(primitive, "indices")->valueint, indicies.count, i);
         printf("pos: %i\n", cJSON_GetObjectItem(attributes, "POSITION")->valueint);
@@ -46,7 +50,15 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
         if (has_texcoord)
         {
 
+            
             texcoords = gltf_read_accessor(self, cJSON_GetObjectItem(attributes, "TEXCOORD_0")->valueint);
+        }
+
+
+        if(cJSON_GetObjectItem(attributes, "NORMAL") == NULL)
+        {
+            printf("MISSING NORMALS\n");
+            abort();
         }
         GltfAccessorPtr normals = gltf_read_accessor(self, cJSON_GetObjectItem(attributes, "NORMAL")->valueint);
 
@@ -316,17 +328,19 @@ bool parse_gltf(void *data, Scene *target)
 
     gltf_textures_parse(&ctx);
 
+    
+
     gltf_materials_parse(&ctx);
 
     bool v = parse_gltf_scene(&ctx);
 
-    if(!v)
+    if (!v)
     {
         return v;
     }
 
     v = scene_generate_tangent(ctx.target);
-    if(!v)
+    if (!v)
     {
         return v;
     }
