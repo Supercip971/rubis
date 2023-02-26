@@ -42,11 +42,12 @@ vec3 vec3_random_unit()
 vec3 random_in_hemisphere(vec3 normal)
 {
     vec3 in_unit_sphere = vec3_random_unit();
-    if (dot(in_unit_sphere, normal) > 0.0)
+    if (dot(in_unit_sphere, normal) <= 0.0)
     {
-        return in_unit_sphere;
+        return -in_unit_sphere;
     }
-    return -in_unit_sphere;
+    
+    return  in_unit_sphere;
 }
 
 bool is_vec_near_zero(vec3 v)
