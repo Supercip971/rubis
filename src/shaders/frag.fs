@@ -45,6 +45,16 @@ uint height = uint(ubo.height);
 #define NO_DENOISE
 
 #include "utils/color.comp"
+
+
+vec3 aces(vec3 x) {
+  const float a = 2.51;
+  const float b = 0.03;
+  const float c = 2.43;
+  const float d = 0.59;
+  const float e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
 void main()
 {
     
@@ -52,8 +62,9 @@ void main()
     int ox = int(fragCoord.x * width);
     int oy = int((1 - fragCoord.y) * height);
     vec4 v = image[(oy)*width + ox].value;
-    outColor = vec4(linear_to_srgb((v.xyz)), 1.0f);
-    //
+    outColor = vec4(  linear_to_srgb(aces(vec3((v.xyz)))), 1.0f);
+
+    // 
     //    {
     //        vec4 color = vec4(0.0);
     //        float total = 0.0;
