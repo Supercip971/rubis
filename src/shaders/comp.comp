@@ -1,10 +1,12 @@
-#version 450
+#version 450 core
+
+#extension GL_ARB_gpu_shader5 : require 
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_EXT_debug_printf : enable
 #extension GL_EXT_spirv_intrinsics : enable
 #extension GL_GOOGLE_include_directive : enable
 
-#define M_PI 3.1415926535897932384626433832795
+#define M_PI 3.14159265f
 
 #define WORKGROUP_SIZE 16
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
