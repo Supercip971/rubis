@@ -7,6 +7,7 @@
 #include <obj/scene.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "obj/img.h"
 
 #define GLTF_MAGIC 0x46546C67
 
@@ -35,18 +36,26 @@ typedef struct
     float rotate[4];
     Matrix4x4 raw;
 } GltfTransforms;
+
+typedef struct 
+{
+    imageID id; 
+    int tex_coord;
+} ImageMatRef;
+    
 typedef struct
 {
-    imageID normal;
-    imageID base;
-    imageID metallic_roughness;
-    imageID emit;
+    ImageMatRef normal;
+    ImageMatRef base;
+    ImageMatRef metallic_roughness;
+    ImageMatRef emit;
     bool is_color;
     Vec3 color;
     float alpha;
     float rougness_fact; // if -1 none
     float metallic_fact; // if -1 none
     float normal_mul;
+    
     Material final;
     Vec3 emissive_fact;
 } GltfMaterial;

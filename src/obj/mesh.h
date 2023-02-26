@@ -7,7 +7,7 @@
 #define MESH_CIRCLE 1
 #define MESH_TRIANGLES 2
 
-#define MESH_VERTICE_COUNT 11
+#define MESH_VERTICE_COUNT 13
 
 typedef struct __attribute__((packed))
 {
@@ -41,8 +41,17 @@ typedef struct
 
         float tex_coords[3][2];
         TriangleTexPos tex_pos[3];
-    };
+    } tc1;
     float _pad;
+
+    union
+    {
+
+        float tex_coords[3][2];
+        TriangleTexPos tex_pos[3];
+    } tc2;
+    float _pad2;
+
 
     Vec3 na;
     Vec3 nb;

@@ -6,18 +6,32 @@
 #include "gltf/gltf.h"
 #include "math/vec3.h"
 
+int read_texcoord(cJSON* v)
+{
+    cJSON* v2 = cJSON_GetObjectItem(v, "texCoord");
+    if(v2 == NULL)
+    {
+        return 0;
+    }
+    return v->valueint;
+}
 void gltf_materials_parse(GltfCtx *self)
 {
     vec_init(&self->materials);
     cJSON *materials_array = (cJSON_GetObjectItem(self->root, "materials"));
     int materials_count = cJSON_GetArraySize(materials_array);
+    ImageMatRef default_img = {
+            .id = -1,
+            .tex_coord = 0,
+    };
 
     for (int i = 0; i < materials_count; i++)
     {
         printf("parsing material %i\n", i);
         cJSON *material = cJSON_GetArrayItem(materials_array, i);
+        
         GltfMaterial current = {
-            .base = -1,
+            .base = default_img,
         };
 
         cJSON *pbr = cJSON_GetObjectItem(material, "pbrMetallicRoughness");
@@ -25,12 +39,12 @@ void gltf_materials_parse(GltfCtx *self)
         current.metallic_fact = 1;
         current.rougness_fact = 1;
 
-        current.metallic_roughness = -1;
+        current.metallic_roughness = default_img;
 
-        current.normal = -1;
+        current.normal = default_img;
 
         current.alpha = 1.0;
-        current.emit = -1;
+        current.emit = default_img;
         current.normal_mul = 1;
         if (pbr != 0)
         {
@@ -42,9 +56,11 @@ void gltf_materials_parse(GltfCtx *self)
             if (base != NULL)
             {
                 int id = cJSON_GetObjectItem(base, "index")->valueint;
-
+                int tid = read_texcoord(base);
+                
                 printf("has base: %i\n", id);
-                current.base = self->textures.data[id];
+                current.base.tex_coord = tid;
+                current.base.id = self->textures.data[id];
             }
             else if (base_col != NULL)
             {
@@ -65,7 +81,8 @@ void gltf_materials_parse(GltfCtx *self)
             {
                 printf("has metallic roughness\n");
                 int id = cJSON_GetObjectItem(metallic_roughness, "index")->valueint;
-                current.metallic_roughness = self->textures.data[id];
+                current.metallic_roughness.id = self->textures.data[id];
+                current.metallic_roughness.tex_coord = read_texcoord(metallic_roughness);
             }
             cJSON *rougness_fact = cJSON_GetObjectItem(pbr, "roughnessFactor");
             if (rougness_fact != NULL)
@@ -92,8 +109,8 @@ void gltf_materials_parse(GltfCtx *self)
         {
 
             int id = cJSON_GetObjectItem(normal, "index")->valueint;
-            current.normal = self->textures.data[id];
-
+            current.normal.id = self->textures.data[id];
+            current.normal.tex_coord = read_texcoord(normal);
             cJSON *normal_scale = cJSON_GetObjectItem(normal, "scale");
             if (normal_scale)
             {
@@ -104,12 +121,14 @@ void gltf_materials_parse(GltfCtx *self)
         if (emit != NULL)
         {
             int id = cJSON_GetObjectItem(emit, "index")->valueint;
-            current.emit = self->textures.data[id];
+            current.emit.id = self->textures.data[id];
+             current.emit.tex_coord = read_texcoord(emit);
+        
         }
 
         else
         {
-            current.emit = -1;
+            current.emit.id = -1;
         }
 
         cJSON *emit_fact = cJSON_GetObjectItem(material, "emissiveFactor");
@@ -130,12 +149,15 @@ void gltf_materials_parse(GltfCtx *self)
         }
 
         Pbrt final = {
-            .base = current.base,
+            .base = current.base.id,
+            .base_tid = current.base.tex_coord,
             .is_color = current.is_color,
             .color = current.color,
-            .normal = current.normal,
-            .emit = current.emit,
-            .roughness = current.metallic_roughness,
+            .normal = current.normal.id,
+            .normal_tid = current.normal.tex_coord,
+            .emit = current.emit.id,
+            .roughness = current.metallic_roughness.id,
+            .roughness_tid = current.metallic_roughness.tex_coord,
             .metallic_fact = current.metallic_fact,
             .rougness_fact = current.rougness_fact,
             .alpha = current.alpha,
@@ -164,7 +186,7 @@ void gltf_materials_parse(GltfCtx *self)
     };
 
     GltfMaterial material = {
-        .base = -1,
+        .base = default_img
     };
     material.final = scene_push_pbrt(self->target, final);
 

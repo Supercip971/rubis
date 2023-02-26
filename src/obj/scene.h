@@ -67,6 +67,9 @@ typedef struct
 {
     bool is_color;
     Vec3 color;
+    int normal_tid;
+    int base_tid;
+    int roughness_tid;
     imageID normal;
     imageID base; // only if is_color == false
     imageID roughness;

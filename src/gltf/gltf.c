@@ -45,14 +45,22 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
         printf("primitives: %i (%i) %i \n", cJSON_GetObjectItem(primitive, "indices")->valueint, indicies.count, i);
         printf("pos: %i\n", cJSON_GetObjectItem(attributes, "POSITION")->valueint);
         GltfAccessorPtr position = gltf_read_accessor(self, cJSON_GetObjectItem(attributes, "POSITION")->valueint);
-        bool has_texcoord = cJSON_GetObjectItem(attributes, "TEXCOORD_0") != NULL;
-        GltfAccessorPtr texcoords;
-        if (has_texcoord)
+        bool has_texcoord1 = cJSON_GetObjectItem(attributes, "TEXCOORD_0") != NULL;
+        GltfAccessorPtr texcoords1;
+        if (has_texcoord1)
+        {
+            texcoords1 = gltf_read_accessor(self, cJSON_GetObjectItem(attributes, "TEXCOORD_0")->valueint);
+        }
+
+        bool has_texcoord2 = cJSON_GetObjectItem(attributes, "TEXCOORD_1") != NULL;
+        GltfAccessorPtr texcoords2;
+        if (has_texcoord2)
         {
 
             
-            texcoords = gltf_read_accessor(self, cJSON_GetObjectItem(attributes, "TEXCOORD_0")->valueint);
+            texcoords2 = gltf_read_accessor(self, cJSON_GetObjectItem(attributes, "TEXCOORD_1")->valueint);
         }
+
 
 
         if(cJSON_GetObjectItem(attributes, "NORMAL") == NULL)
@@ -111,18 +119,31 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
                 .nc = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx2])),
             };
 
-            if (has_texcoord)
+            if (has_texcoord1)
             {
-                if (texcoords.componen_type != GLTF_COMP_FLOAT)
+                if (texcoords1.componen_type != GLTF_COMP_FLOAT)
                 {
                     printf("not supported normal type: %i \n", position.componen_type);
                     abort();
                 }
 
-                GltfVec2 *gltftex = texcoords.view.data;
-                final.tex_pos[0] = (TriangleTexPos){gltftex[idx0].x, gltftex[idx0].y};
-                final.tex_pos[1] = (TriangleTexPos){gltftex[idx1].x, gltftex[idx1].y};
-                final.tex_pos[2] = (TriangleTexPos){gltftex[idx2].x, gltftex[idx2].y};
+                GltfVec2 *gltftex = texcoords1.view.data;
+                final.tc1.tex_pos[0] = (TriangleTexPos){gltftex[idx0].x, gltftex[idx0].y};
+                final.tc1.tex_pos[1] = (TriangleTexPos){gltftex[idx1].x, gltftex[idx1].y};
+                final.tc1.tex_pos[2] = (TriangleTexPos){gltftex[idx2].x, gltftex[idx2].y};
+            }
+        if (has_texcoord2)
+            {
+                if (texcoords2.componen_type != GLTF_COMP_FLOAT)
+                {
+                    printf("not supported normal type: %i \n", position.componen_type);
+                    abort();
+                }
+
+                GltfVec2 *gltftex = texcoords2.view.data;
+                final.tc2.tex_pos[0] = (TriangleTexPos){gltftex[idx0].x, gltftex[idx0].y};
+                final.tc2.tex_pos[1] = (TriangleTexPos){gltftex[idx1].x, gltftex[idx1].y};
+                final.tc2.tex_pos[2] = (TriangleTexPos){gltftex[idx2].x, gltftex[idx2].y};
             }
             mesh_push_triangle(&mesh_creation, final);
         }

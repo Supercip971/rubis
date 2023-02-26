@@ -37,9 +37,9 @@ void scene_get_normal(const SMikkTSpaceContext *pContext, float fvNormOut[], int
 {
     TengantGenCtx *ctx = pContext->m_pUserData;
     Mesh *mesh = &ctx->scene->meshes.data[ctx->mesh_id];
-    fvNormOut[0] = ctx->scene->data.data[mesh->vertices.start + iVert + 5+ iFace * MESH_VERTICE_COUNT].x;
-    fvNormOut[1] = ctx->scene->data.data[mesh->vertices.start + iVert + 5+ iFace * MESH_VERTICE_COUNT].y;
-    fvNormOut[2] = ctx->scene->data.data[mesh->vertices.start + iVert + 5+ iFace * MESH_VERTICE_COUNT].z;
+    fvNormOut[0] = ctx->scene->data.data[mesh->vertices.start + iVert + 7 + iFace * MESH_VERTICE_COUNT].x;
+    fvNormOut[1] = ctx->scene->data.data[mesh->vertices.start + iVert + 7 + iFace * MESH_VERTICE_COUNT].y;
+    fvNormOut[2] = ctx->scene->data.data[mesh->vertices.start + iVert + 7 + iFace * MESH_VERTICE_COUNT].z;
 }
 
 void scene_get_texCoord(const SMikkTSpaceContext *pContext, float fvTexOut[], int iFace, int iVert)
@@ -70,10 +70,10 @@ void scene_set_tangent_basic(const SMikkTSpaceContext *pContext, const float fvT
     TengantGenCtx *ctx = pContext->m_pUserData;
     Mesh *mesh = &ctx->scene->meshes.data[ctx->mesh_id];
     
-    ctx->scene->data.data[mesh->vertices.start + 8 + iVert + iFace * MESH_VERTICE_COUNT].x = fvTangent[0];
-    ctx->scene->data.data[mesh->vertices.start + 8 + iVert + iFace * MESH_VERTICE_COUNT].y = fvTangent[1];
-    ctx->scene->data.data[mesh->vertices.start + 8 + iVert + iFace * MESH_VERTICE_COUNT].z = fvTangent[2];
-    ctx->scene->data.data[mesh->vertices.start + 8 + iVert + iFace * MESH_VERTICE_COUNT]._padding = fSign;
+    ctx->scene->data.data[mesh->vertices.start + 10 + iVert + iFace * MESH_VERTICE_COUNT].x = fvTangent[0];
+    ctx->scene->data.data[mesh->vertices.start + 10 + iVert + iFace * MESH_VERTICE_COUNT].y = fvTangent[1];
+    ctx->scene->data.data[mesh->vertices.start + 10 + iVert + iFace * MESH_VERTICE_COUNT].z = fvTangent[2];
+    ctx->scene->data.data[mesh->vertices.start + 10 + iVert + iFace * MESH_VERTICE_COUNT]._padding = fSign;
 }
 
 bool scene_generate_tangent(Scene* self)
@@ -98,7 +98,9 @@ bool scene_generate_tangent(Scene* self)
     for(int i = 0; i < self->meshes.length; i++)
     {
 
-        printf("generating tengant [%i]...\n", i);
+        int count = mesh_count_faces(&self->meshes.data[i]);
+
+        printf("generating tengant [%i:%i]...\n", i, count);
         TengantGenCtx ctx = {
             .scene = self,
             .mesh_id = i,

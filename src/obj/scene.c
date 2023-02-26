@@ -4,6 +4,7 @@
 #include "math/mat4.h"
 #include "math/vec3.h"
 #include "obj/img.h"
+#include <config.h>
 #include "obj/mesh.h"
 #include <stdio.h>
 void scene_init(Scene *self)
@@ -26,7 +27,8 @@ void scene_resize_textures(Scene* self)
 {
     size_t maxw = 0;
     size_t maxh = 0;
-   for(int i = 0; i < self->textures.length; i++)
+    printf("texture count: %u \n", self->textures.length);
+    for(int i = 0; i < self->textures.length; i++)
     {
         Image img = self->textures.data[i];
         if(img.width > maxw)
@@ -38,11 +40,18 @@ void scene_resize_textures(Scene* self)
             maxh = img.height;
         }
     }
+
+
     printf("resizing images for: %zux%zu\n", maxw, maxh);
 
+    
     for(int i = 0; i < self->textures.length; i++)
     {
+
         Image old = self->textures.data[i];
+        printf(" %ux%u -> %zux%zu \n", old.width, old.height, maxw, maxh);
+
+
 
         if(old.width == maxw && old.height == maxh)
         {
@@ -120,15 +129,29 @@ void scene_push_tri2(Scene *self, Triangle triangle, Material material)
     Vec3 tcoord1;
     Vec3 tcoord2;
 
-    tcoord1.x = triangle.tex_coords[0][0]; // pa.x
-    tcoord1.y = triangle.tex_coords[0][1]; // pa.y
-    tcoord1.z = triangle.tex_coords[1][0]; // pb.x
-    tcoord2.x = triangle.tex_coords[1][1]; // pb.y
-    tcoord2.y = triangle.tex_coords[2][0]; // pc.x
-    tcoord2.z = triangle.tex_coords[2][1]; // pc.y
+    // TEXCOORD_0
+    tcoord1.x = triangle.tc1.tex_coords[0][0]; // pa.x
+    tcoord1.y = triangle.tc1.tex_coords[0][1]; // pa.y
+    tcoord1.z = triangle.tc1.tex_coords[1][0]; // pb.x
+    tcoord2.x = triangle.tc1.tex_coords[1][1]; // pb.y
+    tcoord2.y = triangle.tc1.tex_coords[2][0]; // pc.x
+    tcoord2.z = triangle.tc1.tex_coords[2][1]; // pc.y
 
     scene_data_reference_push(self, &mesh.vertices, tcoord1);
     scene_data_reference_push(self, &mesh.vertices, tcoord2);
+
+    // TEXCOORD_1
+    tcoord1.x = triangle.tc2.tex_coords[0][0]; // pa.x
+    tcoord1.y = triangle.tc2.tex_coords[0][1]; // pa.y
+    tcoord1.z = triangle.tc2.tex_coords[1][0]; // pb.x
+    tcoord2.x = triangle.tc2.tex_coords[1][1]; // pb.y
+    tcoord2.y = triangle.tc2.tex_coords[2][0]; // pc.x
+    tcoord2.z = triangle.tc2.tex_coords[2][1]; // pc.y
+
+    scene_data_reference_push(self, &mesh.vertices, tcoord1);
+    scene_data_reference_push(self, &mesh.vertices, tcoord2);
+
+
     scene_data_reference_push(self, &mesh.vertices, triangle.na);
 
     scene_data_reference_push(self, &mesh.vertices, triangle.nb);
@@ -254,11 +277,14 @@ Material scene_push_pbrt(Scene *self, Pbrt pbrt)
     {
         bret = -1;
     }
+    
     scene_data_reference_push(self, &mat.data, (Vec3){pbrt.normal, bret, pbrt.roughness, pbrt.emit});
     pbrt.color._padding = pbrt.alpha;
     scene_data_reference_push(self, &mat.data, pbrt.color);
     scene_data_reference_push(self, &mat.data, vec3$(pbrt.metallic_fact, pbrt.rougness_fact, pbrt.normal_mul));
     scene_data_reference_push(self, &mat.data, pbrt.emmisive_fact);
+
+    scene_data_reference_push(self, &mat.data, (Vec3){pbrt.base_tid, pbrt.normal_tid, pbrt.roughness_tid, 0});
 
     return mat;
 }
