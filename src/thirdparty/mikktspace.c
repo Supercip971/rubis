@@ -731,7 +731,7 @@ static void MergeVertsSlow(int piTriList_in_and_out[], const SMikkTSpaceContext 
 
 static void GenerateSharedVerticesIndexListSlow(int piTriList_in_and_out[], const SMikkTSpaceContext * pContext, const int iNrTrianglesIn)
 {
-	int iNumUniqueVerts = 0, t=0, i=0;
+	int t=0, i=0;
 	for (t=0; t<iNrTrianglesIn; t++)
 	{
 		for (i=0; i<3; i++)
@@ -765,7 +765,6 @@ static void GenerateSharedVerticesIndexListSlow(int piTriList_in_and_out[], cons
 
 			assert(bFound);
 			// if we found our own
-			if (index2rec == index) { ++iNumUniqueVerts; }
 
 			piTriList_in_and_out[offs] = index2rec;
 		}
