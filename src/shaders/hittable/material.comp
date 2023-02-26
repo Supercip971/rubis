@@ -19,60 +19,117 @@ struct MaterialRecord
 
 // note: this is inaccurate but fast :tm:
 
-float v_ggx_correlated(float HdotL, float HdotV, float NdotL, float NdotV, float roughness)
+struct brdf_impl 
 {
-
-    float nl_l = NdotL * (NdotV * (1.0 - roughness) + roughness);
-    float nv_r = NdotV * (NdotL * (1.0 - roughness) + roughness);
-
-    return 0.5 / (nl_l + nv_r);
-    /*
-        const float squarred_r = roughness * roughness;
-
-        float nlu = max(HdotL, 0.0);
-        float nld = abs(NdotL) + sqrt(squarred_r + (1 - squarred_r) * (NdotL * NdotL));
-        float nru = max(HdotV, 0.0);
-        float nrd = abs(NdotV) + sqrt(squarred_r + (1 - squarred_r) * (NdotV * NdotV));
-
-        return (nlu / nld) * (nru / nrd);*/
-    // float l = 2 * (NdotL)*NdotV;
-    // float r = NdotL + NdotV;
-    // return 0.5 / (mix(l, r, roughness));
+    vec3 n;
+    vec3 h;
+    vec3 l;
+    vec3 v;
+    float roughness;
+    float metallic;
+    float a;
+};
+float heaviside(float x)
+{
+    return x <= 0.0 ? 0.0 : 1.0;
 }
 
-float d_ggx(float NdotH, float roughness)
+float g1_ggx(brdf_impl s, vec3 c, float k)
 {
+    float n_dot_c = max(dot(s.n, c), 0.0);
+    return n_dot_c / (n_dot_c * (1.0 - k) + k);
+}
+float g_ggx(brdf_impl s)
+{
+    float k = ((s.a +1.0 )* (s.a+1.0)) / 8.0 ;
+    return g1_ggx(s, s.l, k) * g1_ggx(s, s.v, k);
+}
+
+
+float ga_ggx(brdf_impl s)
+{
+    float n_dot_l = dot(s.n, s.l);
+    float n_dot_v = dot(s.n, s.v);
+    float h_dot_l = dot(s.h, s.l);
+    float h_dot_v = dot(s.h, s.v);
+    float sq_a = s.a*s.a;
+
+    float lu = 2 * abs(n_dot_l) * heaviside(h_dot_l);
+    float ru = 2 * abs(n_dot_v) * heaviside(h_dot_v);
+
+
+    float ld = abs(n_dot_l) + sqrt(sq_a + (1 - sq_a) * (n_dot_l * n_dot_l));
+    float rd = abs(n_dot_v) + sqrt(sq_a + (1 - sq_a) * (n_dot_v * n_dot_v));
+
+    return (lu / ld) * (ru / rd);
+}
+float d_ggx(brdf_impl s)
+{
+    float n_dot_h = dot(s.n, s.h);
+
+
+    float up = s.a*s.a;
+
+    float down =  ((n_dot_h * n_dot_h) * (s.a*s.a - 1.0f) + 1.0f);
+
+    return (up / (M_PI * down * down));
+
+/*
     const float squarred_r = roughness * roughness;
-    const float up = (squarred_r)*max(NdotH, 0);
-    const float da = ((NdotH * NdotH) * (squarred_r - 1) + 1);
-    const float db = (M_PI)*da * da;
+    const float up = (squarred_r)*max(n_dot_h, 0);
+    const float da = ((n_dot_h * n_dot_h) * (squarred_r - 1) + 1);
+    const float db = (M_PI)*da * da;*/
 
-    return up / db;
+ //   return up / db;
 }
 
-float specular(Ray r, HittableRecord hit, float roughness)
+
+float v_ggx(brdf_impl s)
 {
-    const vec3 v = normalize(r.origin - hit.point);
-    const vec3 l = vec3_random_unit();
-    const vec3 n = hit.normal;
-    const vec3 h = normalize(l + n);
-    const float NdotV = dot(n, v);
-    const float HdotV = dot(h, v);
-    const float NdotL = dot(n, l);
-    const float NdotH = dot(n, h);
-    const float HdotL = dot(h, l);
-    const float sq_roughness = roughness * roughness;
-    return v_ggx_correlated(HdotL, HdotV, NdotL, NdotV, sq_roughness) * d_ggx(NdotH, sq_roughness);
+
+    float n_dot_l = dot(s.n, s.l);
+    float n_dot_v = dot(s.n, s.v);
+    float h_dot_l = dot(s.h, s.l);
+    float h_dot_v = dot(s.h, s.v);
+    float sq_a = s.a*s.a;
+
+    float lu =  heaviside(h_dot_l);
+    float ru =  heaviside(h_dot_v);
+
+
+    float ld = abs(n_dot_l) + sqrt(sq_a + (1.0 - sq_a) * (n_dot_l * n_dot_l));
+    float rd = abs(n_dot_v) + sqrt(sq_a + (1.0 - sq_a) * (n_dot_v * n_dot_v));
+
+    return (lu / ld) * (ru / rd);
 }
+
+float specular(brdf_impl s)
+{
+   // float g = g_ggx(s);
+    float d = d_ggx(s);
+    float v = v_ggx(s);
+    return  d * v;
+}
+
 
 vec3 diffuse(vec3 color)
 {
-    return (1 / M_PI) * color;
+    return (1.0 / M_PI) * color;
 }
+
+
+vec3 conductor_fresnell(brdf_impl s, vec3 col, float f0)
+{
+    float f = f0 + (1 - f0) * pow(1.0 - abs(dot(s.v, s.h)), 5);
+    return f * col;
+}
+
+/*
 vec3 fresnell(float VdH, vec3 f, float bsdf)
 {
     return bsdf * (f + (1 - f) * pow(1 - abs(VdH), 5));
 }
+*/
 
 vec3 fresnel_mix(float ior, vec3 base, vec3 layer, float VdH)
 {
@@ -85,15 +142,26 @@ vec3 fresnel_mix(float ior, vec3 base, vec3 layer, float VdH)
 vec3 brdf_col(Ray r, HittableRecord hit, float roughness, float metallic, vec3 base)
 {
 
+/*
+//    return mix(dieletric_brdf(base, roughness, r, hit.normal), metallic_brdf(base, metallic, r, hit.normal, roughness), metallic);
+
     const vec3 v = normalize(r.origin - hit.point);
-    const vec3 l = vec3_random_unit();
+    const vec3 l =  reflect(r.direction, hit.normal);
     const vec3 n = normalize(hit.normal);
-    const vec3 h = normalize(l + n);
+    const vec3 h = normalize(l + v);
 
     float NdotV = abs(dot(n, v)) + 1e-5;
     float VdotH = clamp(dot(v, h), 0, 1);
     float NdotH = clamp(dot(n, h), 0, 1);
     float NdotL = clamp(dot(n, l), 0, 1);
+    */
+
+    vec3 v = normalize(r.origin - hit.point);
+    vec3 l =  reflect(r.direction, hit.normal);
+    vec3 n = normalize(hit.normal);
+    vec3 h = normalize(l + v);
+
+    brdf_impl s = brdf_impl(n, h, l, v, roughness, metallic, roughness * roughness);
     /*
     const float HdotV = dot(h, v);
     const float HdotL = dot(h, l);
@@ -110,10 +178,183 @@ vec3 brdf_col(Ray r, HittableRecord hit, float roughness, float metallic, vec3 b
     vec3 f_specullar = abs(F * (d * v2));
     return f_specullar;*/
 
-    vec3 metal_brdf = specular(r, hit, roughness * roughness) * (base + (1 - base) * pow(1 - abs(VdotH), 5));
-    vec3 diel_brdf = mix(diffuse(base), specular(r, hit, roughness * roughness) * base, 0.04 + (1 - 0.04) * pow(1 - abs(VdotH), 5));
-    vec3 mat = mix(diel_brdf, metal_brdf, metallic);
+    vec3 metal = specular(s) * (base + (1 - base) * pow(1 - abs(dot(s.v, s.h)), 5));
 
-    return mat;
+    vec3 diel = mix( diffuse(base), vec3(specular(s)), 0.04 + (1 - 0.04) * pow(1 - abs(dot(s.v, s.h)), 5) );
+   // vec3 metal_brdf = specular(r, hit, roughness * roughness) * (base + (1 - base) * pow(1 - abs(VdotH), 5));
+   // vec3 diel_brdf = mix(diffuse(base), specular(r, hit, roughness * roughness) * base, 0.04 + (1 - 0.04) * pow(1 - abs(VdotH), 5));
+   // vec3 mat = mix(diel_brdf, metal_brdf, metallic);
+
+    return mix(diel, metal, metallic);
+}
+
+float smith_g_1(vec3 h, vec3 s, vec3 so, float alpha)
+{
+
+    
+    float h_dot_s = clamp((dot(h,s)), 0.000001, 1);
+    float h_dot_so = clamp((dot(h,so)), 0.000001, 1);
+
+
+    float sq_alpha = alpha * alpha;
+    return h_dot_so * sqrt(sq_alpha + h_dot_s * (h_dot_s - sq_alpha * h_dot_s));
+
+//    float a = h_dot_s / (max(0.00001f,alpha) * sqrt(1 - min(0.9999999f,h_dot_s * h_dot_s)));
+
+    // \dfraf{-1 + \sqrt{1 + \dfrac{1}{a^2}}}{2}
+//    return  (-1 + sqrt(1 + (1 / (a*a)))) / 2;
+
+}
+
+vec3 fresnel(vec3 f_0, float f90, float ndotv)
+{
+    return f_0 + (vec3(f90) - f_0) * (pow(1.0-ndotv, 5.0)); 
+}
+
+float ggx_smith_lambda(float a)
+{
+    return (-1 + sqrt(1 + (1 / (a*a)))) / 2;
+}
+float clamp_01_1(float v)
+{
+    return clamp(v, 0.00001f, 1);
+}
+
+float luminance(vec3 c)
+{
+    return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+}
+
+vec3 dumb_brdf(Ray r, HittableRecord hit, float roughness, float metallic, vec3 base, vec3 next, vec3 mnormal)
+{
+
+    roughness = clamp(roughness, 0.0001, 0.9999);
+    metallic = clamp(metallic, 0.0001, 0.9999);
+    vec3 n = normalize(mnormal);
+    vec3 v = normalize(r.origin - hit.point);
+    vec3 l = normalize(next);
+    // l = wI
+    // v = wO 
+
+    vec3 wO = v;
+    vec3 wI = l;
+    vec3 h = normalize(l + v);
+   // vec3 r = reflect(-l, n);
+
+    float NdotH = clamp(dot(n, h), 0.001,0.99999);
+
+    float NdotV = clamp_01_1(dot(n, v)) ;
+ 
+    float VdotH = clamp_01_1(dot(v, h)) ;
+ 
+      float NdotL = clamp_01_1(dot(n, l)) ;
+      float LdotH = clamp_01_1(dot(l, h));
+      
+
+   
+    float u = VdotH;
+
+    roughness = max(roughness, 0.01);
+    float alpha = roughness * roughness;
+
+    float alpha_sq = float(alpha) * float(alpha);
+
+
+
+
+    // D
+    float ggx_d_denom = (alpha_sq - 1) * (NdotH) * (NdotH) + 1;
+   // double cos_theta = NdotH*NdotH;
+   // double ggx_d_num = exp(float((cos_theta - 1) / (alpha_sq * cos_theta)));
+    
+  //  double ggx_d_denom = M_PI * (alpha_sq * cos_theta * cos_theta);
+
+   // double ggx_d =  ggx_d_num/ggx_d_denom;
+
+
+    float ggx_d =  ( alpha_sq ) / (M_PI *  ggx_d_denom * ggx_d_denom);
+  // # G
+
+    float ggx_g = 0.5 / ( smith_g_1(n, l,v, alpha) + smith_g_1(n, v,l, alpha));
+    
+    // ## Fresnel 
+
+    vec3 f0 = mix(vec3(0.04), base, metallic);
+
+
+    vec3 F = fresnel(f0,min(60 * luminance(f0), 1.0),  LdotH); 
+
+    // Wo = L
+    // Wi = V ??
+
+    vec3 diffuse_reflectance = base * (1.0-metallic);
+
+  //  float VdotH = clamp(dot(v, h), 0, 1);
+  //  float NdotL = clamp(dot(n, l), 0, 1);
+
+  //  vec3 c_diff = mix(base, vec3(0), metallic);
+  //  vec3 F = f0 + (1 - f0) * (1-pow(abs(VdotH), 5));
+   // vec3 f_diffuse = (1 - F) * (1 / M_PI) * c_diff;
+   // float d = d_ggx(NdotH, alpha);
+  // brdf_impl s = brdf_impl(n, h, l, v, roughness, metallic, roughness * roughness);
+
+
+
+   //vec3 f_specullar = abs(F * (d_ggx(s)  * ga_ggx(s)));
+   vec3 specular = vec3(clamp(((F * ggx_g * ggx_d )/(NdotV * NdotL * 4)), vec3(0), vec3(1)) * NdotL);
+   // vec3 specular = ((F *ggx_d * ggx_g)*( NdotL ));
+   
+   // float fd90 = 0.5 + 2 * LdotH * LdotH * roughness;
+   // float fd90m1 = fd90 - 1;
+   // float lp5 = pow(1 - (NdotL), 5);
+   // float vp5 = pow(1 - (NdotV), 5);
+
+
+  //  vec3 diffuse = (base / M_PI) * (1 + fd90m1 * lp5) * (1 + fd90m1 * vp5) * NdotL;
+    vec3 diffuse = base * ((1/M_PI));
+
+    vec3 res = (vec3(1) - F) * diffuse + specular;
+
+    if (squared_len(res) > 1)
+    {
+        res = normalize(res);
+    }
+    return res;
+}
+vec3 brdf_col2(Ray r, HittableRecord hit, float roughness, float metallic, vec3 base, vec3 mnormal)
+{
+
+    vec3 n = normalize(hit.normal);
+ 
+    vec3 v = normalize( -r.direction);
+  //  vec3 v = n;
+    vec3 l = normalize(reflect(r.direction, mnormal));
+    vec3 h = normalize(l + v);
+
+
+    if(dot(n,l) <= 0.0f || dot(n,v) <= 0.0f)
+    {
+        return vec3(0,0,0);
+    }
+
+ //   roughness = -roughness;
+    brdf_impl s = brdf_impl(n, h, l, v, roughness, metallic, roughness * roughness);
+
+
+    const vec3 black = vec3(0);
+
+    vec3 c_diff = mix(base, black, metallic);
+
+    vec3 f0 = mix(vec3(0.04), base, metallic);
+
+    vec3 F = f0 + (1.0f - f0) * pow(1.0f - abs(dot(s.v, s.n)), 5.0f);
+
+    vec3 f_diffuse = (1.0f - F) * (1.0f / M_PI) * c_diff;
+
+    vec3 f_specular = (F 
+    * d_ggx(s)  * ga_ggx(s)) / (4.0f * abs(dot(s.n, s.v)) * abs(dot(s.n, s.l)));
+
+    
+    return clamp(f_diffuse + f_specular, vec3(0), vec3(1));
 }
 #endif
