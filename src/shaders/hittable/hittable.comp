@@ -13,9 +13,13 @@ struct HittableRecord
     vec3 bittangent;
     float tangent_sign;
     vec2 uv;
+    vec2 uv2;
     float t;
     bool front;
     int mesh_id;
+    #ifdef SHOW_DEPTH
+    int depth;
+    #endif
     int vert_id;
 };
 
@@ -28,7 +32,7 @@ HittableRecord update_face_normal(HittableRecord record, Ray r, vec3 outward)
 }
 
 //#define is_near_zero(_val) ((float(_val*100) > -0.00001) && (float(_val*100) < 0.00001))
-#define is_near_zero(_val) (abs(_val * 10000) < 0.000001)
+#define is_near_zero(_val) (abs(_val * 1000) < 0.0001)
 
 HittableRecord hit_triangle_provide_info(Ray r, vec3 posa, vec3 posb, vec3 posc, vec2 uva, vec2 uvb, vec2 uvc, HittableRecord from)
 {
@@ -66,7 +70,7 @@ HittableRecord hit_triangle(float tmin, float tmax, Ray r, vec3 posa, vec3 posb,
     }
     vec3 q = cross(s, edge_1);
     float v = inv_a * dot(r.direction, q);
-    if (v < 0 || u + v > 1.0)
+    if (v < 0.0 || u + v > 1.0)
     {
         return record;
     }

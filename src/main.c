@@ -7,6 +7,7 @@
 #include <utils/file.h>
 #include <window/window.h>
 #include <arg-parse/arg-parse.h>
+#include "obj/scene.h"
 
 struct muarg_argument_config arg_list[] = {
     MUARG_HELP(),

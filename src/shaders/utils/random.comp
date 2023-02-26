@@ -15,54 +15,93 @@ rubo;
 
 struct RandomResult
 {
-    uvec2 state;
-    uint value;
+    
+    vec2 state;
+    float value;
 };
+
+uint hash( uint x ) {
+    x += ( x << 10u );
+    x ^= ( x >>  6u );
+    x += ( x <<  3u );
+    x ^= ( x >> 11u );
+    x += ( x << 15u );
+    return x;
+}
+uint hash( uvec2 v ) { return hash( v.x ^ hash(v.y)                         ); }
+uint hash( uvec3 v ) { return hash( v.x ^ hash(v.y) ^ hash(v.z)             ); }
+uint hash( uvec4 v ) { return hash( v.x ^ hash(v.y) ^ hash(v.z) ^ hash(v.w) ); }
+
+float floatConstruct( uint m ) {
+    const uint ieeeMantissa = 0x007FFFFFu; // binary32 mantissa bitmask
+    const uint ieeeOne      = 0x3F800000u; // 1.0 in IEEE binary32
+
+    m &= ieeeMantissa;                     // Keep only mantissa bits (fractional part)
+    m |= ieeeOne;                          // Add fractional part to 1.0
+
+    float  f = uintBitsToFloat( m );       // Range [1:2]
+    return f - 1.0;                        // Range [0:1]
+}
+
+//float Arandom( float x ) { return floatConstruct(hash(floatBitsToUint(x))); }
+float Arandom( vec2  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
+//float Arandom( vec3  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
+//float Arandom( vec4  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
+
+
 float rand(vec2 co)
 {
     return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
-RandomResult fast_rand(uvec2 state, vec2 state2)
+
+RandomResult fast_rand(vec2 state)
 {
-    uint s1 = state.x + int(state2.x);
-    uint s0 = state.y + int(state2.y);
-    /* uint r = (s0 + s1) * (uint(rubo.t + 16) * 8);
-     state.x = s0 ^ (((int(sin(rubo.t / 10.f) * 100))));
-     s1 ^= s1 << 11;
-     state.y = s1 ^ s0 ^ (s1 >> 9) ^ (s0 >> 5);
- */
-
-    s1 ^= s1 << 16;
-    s1 ^= s1 >> 5;
-    s1 ^= s1 << 1;
-
     RandomResult result;
-    result.state = uvec2(s1, s0);
-    result.value = s1;
+    result.value = Arandom(state);
+    
+    result.state = vec2(
+        state.x + 1,
+        state.y + result.value
+    );
     return result;
 }
 
-uvec2 seed = uvec2(0);
+vec2 seed = vec2(0);
 bool loaded = false;
-vec2 state2 = vec2(0);
 void seed_random_init(vec2 v)
 {
-    seed.xy = uvec2(2419050644 * ((rubo.t + 1) * 69), 343247216 * ((rubo.t + 1) * 69));
+    seed += vec2( ((rubo.t )));
 
+    if(seed.x > 1000.0)
+    {
+        seed.x -= 1000.0;
+        seed.y += 1;
+    }
+    if(seed.x > 10000.0)
+    {
+        seed.x -= 10000.0;
+        seed.y += 1;
+    }
+     if(seed.x > 100000.0)
+    {
+        seed.x -= 100000.0;
+        seed.y += 1;
+    }
+    
     //   seed.y = float(rubo.t) * 13.f + 256.f;
 }
 void random_init(vec2 v)
 {
-    state2 = v * 64 + vec2(v.x * v.y, int(v.y * v.x) ^ int(v.y));
+    seed = vec2(v.x , v.y);
 
     seed_random_init(v);
 }
 
 float random()
 {
-    RandomResult r = fast_rand(seed, state2);
+    RandomResult r = fast_rand(seed);
     seed = r.state;
-    return float(float(r.value) / (4294967296.));
+    return r.value;
 }
 #endif

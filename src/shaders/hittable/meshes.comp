@@ -124,11 +124,22 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
     float cmax = cmax_f;
     int i = 0;
     int sp = 0;
+    int depth = 0;
     stack[sp] = 0;
     sp++;
     HittableRecord res;
     res.hitted = false;
+    
+    
+    #ifdef SHOW_DEPTH
+    Bvh dcur = bvhs[stack[0]];
+   
 
+    if(aabb_hit(r, bvhs[0], cmin, cmax))
+    {
+        depth++;
+    }
+    #endif
     while (sp > 0 && sp < STACK_SIZE)
     {
         sp--; // pop
@@ -142,6 +153,10 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
             {
                 cmax = rec2.t;
                 res = rec2;
+
+                #ifdef SHOW_DEPTH 
+                depth = max(depth, sp + 4);
+                #endif
             }
             if (cur.ra != 0)
             {
@@ -150,6 +165,10 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
                 {
                     cmax = rec2.t;
                     res = rec2;
+ 
+                    #ifdef SHOW_DEPTH 
+                    depth = max(depth, sp + 4);
+                    #endif                   
                 }
             }
             /*
@@ -170,6 +189,11 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
                 stack[sp] = cur.la;
 
                 sp++;
+
+                #ifdef SHOW_DEPTH 
+                depth = max(depth, sp + 2);
+                #endif
+
             }
             if (aabb_hit(r, rb, cmin, cmax))
             {
@@ -177,9 +201,17 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
                 stack[sp] = cur.ra;
 
                 sp++;
+                #ifdef SHOW_DEPTH 
+                depth = max(depth, sp + 2);
+                #endif
+
             }
         }
     }
+
+    #ifdef SHOW_DEPTH 
+    res.depth = depth;
+    #endif
     return res;
 }
 
@@ -390,9 +422,9 @@ vec4 ray_color(Ray r, float x, float y, int maxv)
 
     int depth = 0;
 
-#ifdef SHOW_BVH
-    return vec4(float(rec.tcount), float(rec.tcount) / 256, float(rec.tcount) / 512, 1);
-#endif
+    #ifdef SHOW_DEPTH
+    return vec4(float(rec.depth) / 32, float(rec.depth) / 256, float(rec.depth) / 512, 1);
+    #endif
     if (!rec.hitted)
     {
       //  return vec4(0, 1, 0, 1);
