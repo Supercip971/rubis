@@ -49,9 +49,9 @@ void main()
     const float window_height = (ubo.height);
     const uint x = gl_GlobalInvocationID.x;
     const uint y = gl_GlobalInvocationID.y;
-    const vec2 cc = vec2(x + ubo.t + 1, y + ubo.t + 1);
+    const vec2 cc = vec2(x / window_width , y / window_height );
     random_init(cc);
-    camera cam = camera_init(ubo.camera_pos.xyz, vec3(ubo.camera_target.xyz), vec3(0, 1, 0), 0.1, 10.0);
+    camera cam = camera_init(ubo.camera_pos.xyz, vec3(ubo.camera_target.xyz), vec3(0, 1, 0), 0, 9.3);
 
     vec4 prev = vec4(0);
     if (ubo.t >= float(2))

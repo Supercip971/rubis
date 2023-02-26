@@ -215,6 +215,13 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
     return res;
 }
 
+
+//# Temporary way of getting the normal vector from a reflection and a input vector
+vec3 inverse_reflection(vec3 dir, vec3 reflected)
+{
+    return (reflected - 2.0 * dot(reflected, -dir) * (-dir));
+}
+
 MaterialRecord material_hit(HittableRecord record, Ray r)
 {
     Mesh current_mesh = meshes[record.mesh_id];
@@ -222,11 +229,20 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
     MaterialRecord result;
     result.emitted = vec3(0, 0, 0);
     vec4 first = buf_datas[current_mesh.material_data_start].xyzw;
+    vec4 tid = buf_datas[current_mesh.material_data_start+4].xyzw;
+
 
     int base = int(first.y);
+   int base_tid = int(tid.x);
+
 
     int metal = int(first.z);
+   int metal_tid = int(tid.z);
+
+
     int normal = int(first.x);
+   int normal_tid = int(tid.y);
+
 
     int emitid = int(first.w);
 
@@ -235,6 +251,13 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
     if (emitid >= 0)
     {
         emit *= texture(textures, vec3(record.uv, emitid)).xyz;
+        
+    }
+
+    result.do_scatter  = true;
+    if(length(emit) > 0.9)
+    {
+        result.do_scatter = false; 
     }
 
     vec3 fact = buf_datas[current_mesh.material_data_start + 2].xyz;
@@ -244,10 +267,18 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
     {
         result.attenuation = buf_datas[current_mesh.material_data_start + 1].xyz;
         alpha = buf_datas[current_mesh.material_data_start + 1].w;
+
     }
     else
     {
-        result.attenuation = srgb_to_linear(texture(textures, vec3(record.uv, base)).xyz);
+        vec2 fuv = record.uv;
+        if(base_tid == 1)
+        {
+            fuv = record.uv2;
+        }
+        result.attenuation = (texture(textures, vec3(fuv, base)).xyz);
+
+  //     result.attenuation = linear_to_srgb(result.attenuation);
         alpha = 1.0;
 
         //        alpha = texture(textures, vec3(record.uv, base)).w;
@@ -258,19 +289,24 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
 
     vec3 og_normal = record.normal;
     vec3 B = normalize(record.bittangent);
-    if (dot(r.direction, record.normal) > 0.0f)
+
+    vec3 unit_direction = vec_unit(r.direction);
+    if (record.front)
     {
-  //      record.normal = -record.normal;
-        N = -N;
         T = -T;
         B = -B;
+
     }
     if (normal >= 0)
     {
 
         vec3 normalv = vec3(1);
-
-        normalv = texture(textures, vec3((record.uv), int(normal))).rgb * 2.0 - vec3(1.0);
+        vec2 fuv = record.uv;
+        if(normal_tid >= 0.5)
+        {
+            fuv = record.uv2;
+        }
+        normalv = texture(textures, vec3((fuv), int(normal))).rgb * 2.0 - vec3(1.0);
         normalv = normalize(normalv);
 
         mat3 TBN = (mat3(T, B, N));
@@ -286,74 +322,138 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
     vec3 metal_roughness = vec3(1, 1, 1);
     if (metal >= 0)
     {
-        metal_roughness = texture(textures, vec3(record.uv, metal)).xyz;
+vec2 fuv = record.uv;
+        if(metal_tid == 1)
+        {
+            fuv = record.uv2;
+        }
+        metal_roughness = texture(textures, vec3(fuv, metal)).xyz;
     }
+
+
+
     metal_roughness.z *= fact.x;
 
     metal_roughness.y *= fact.y;
 
-    metal_roughness.z = metal_roughness.z;
+    vec3 nref = reflect(unit_direction, record.normal);
+     vec3 ndir = vec_unit(nref + (vec3_random_unit() * (random())) *  clamp(metal_roughness.y, 0, 1));
 
-    metal_roughness.y = metal_roughness.y;
+     vec3 normalv = vec_unit(inverse_reflection(ndir, unit_direction));
+
+
+       normalv = record.normal;
+   if(dot(normalv, r.direction) > 0)
+   {
+         normalv = -normalv;
+   }
+
+    // metal_roughness.z *= (metal_roughness.z);
+
+   // metal_roughness.y *= (metal_roughness.y);
 
     result.emitted = emit;
 
     // y = roughtness
     // z = metalness
-
-       result.emitted += result.attenuation;
+    vec3 oattenuation = result.attenuation;
 
     vec3 dir;
     {
         const float idx = 1.5;
 
         float refract_ratio = 1.0 / idx;
-        if (!record.front)
+       // if (!record.front)
+       // {
+       //     refract_ratio = idx;
+       // }
+
+
+        
+
+     vec3 nnorm = vec_unit(record.normal + (vec3_random_unit() * (random())) *  clamp(metal_roughness.y, 0, 1));
+        float cos_theta = min((dot(-unit_direction, nnorm)), 1.0);
+
+        float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+
+
+
+
+        
+        if (((reflectance(cos_theta, refract_ratio) > random())) )
         {
-            refract_ratio = idx;
-        }
+     //       result.emitted= vec3(1);
+     //       result.do_scatter = false;
+     //       return result;
+//https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf
 
-        vec3 unit_direction = vec_unit(r.direction);
+            dir = reflect(unit_direction, record.normal);
+            dir = vec_unit(dir + (vec3_random_unit() * (random())) *  clamp(metal_roughness.y, 0, 1));
 
-        vec3 normalv = vec_unit(record.normal + random_in_hemisphere(record.normal) * clamp(metal_roughness.y, 0, 1) * (random() + 0.5));
-
-        float cos_theta = min(abs(dot(-unit_direction, normalv)), 1.0);
-
-        if (reflectance(cos_theta, refract_ratio) > (random()))
-        {
-
-            dir = reflect(unit_direction, normalv);
-            vec3 f0 = mix(vec3((idx - 1) / (idx + 1)), result.attenuation, metal_roughness.z);
-            result.attenuation = f0;
+            result.attenuation = dumb_brdf(r, record, clamp(metal_roughness.y, 0, 1), clamp(metal_roughness.z, 0,1), result.attenuation, dir, normalv) * result.attenuation;
+         //   result.attenuation = vec3(1,1,1);
+         //   vec3 f0 = mix(vec3(refract_ratio), result.attenuation, metal_roughness.z);
+        //    result.attenuation = f0;
+   //result.attenuation = vec3(0,0,0);
+  //          result.do_scatter = false;
+         
         }
         else
         {
-            dir = reflect(unit_direction, normalv);
+     //   result.emitted= vec3(0);
+     //   result.do_scatter = false;
+     //   return result;
 
+            dir = ndir;
+            vec3 fnormal = normalv;
             if (random() > (metal_roughness.z))
             {
-                dir = (reflect(unit_direction, random_in_hemisphere(record.normal)));
+                fnormal = random_in_hemisphere(record.normal);
+
+
+                dir = fnormal;
             }
+            dir = vec_unit(dir);
+  
+            result.attenuation =(dumb_brdf(r, record, clamp(metal_roughness.y, 0, 1), clamp(metal_roughness.z, 0,1), result.attenuation, dir, normalv));
+          //  result.attenuation = vec3(0,0,0);
         }
+
+
     }
+
+
+
+   // result.emitted += result.attenuation;
 
     dir = vec_unit(dir);
-   // if (dot(dir, og_normal) < 0.0f)
-   // {
-   //     dir = -dir;
-   // }
+  //  if (dot(dir, og_normal) < 0.0f)
+  //  {
+  //      result.emitted = vec3(1,0,0);
+  //      result.do_scatter = false;
+  //      return result;
+  //      dir = -dir;
+  //  }
+
+   //     result.emitted = vec3(0,0,1);
+   //     result.do_scatter = false;
+   //     return result;
     result.scatter = Ray(record.point, dir, vec3(1));
 
+  //  result.emitted = result.attenuation;
+  //  result.do_scatter = false; 
     if (random() > (alpha))
     {
-        result.attenuation = vec3(1, 1, 1);
+        result.attenuation = vec3(1,1,1);
+        result.emitted = vec3(0);
         result.scatter.direction = vec3(r.direction);
+        result.do_scatter = true;
     }
+    
 
     result.scatter.inv_direction = vec3(1) / result.scatter.direction;
 
-    result.do_scatter = length(emit) < 1.02;
-
+  //  result.do_scatter = length(emit) < 1.02;
     return result;
 }
 
@@ -372,28 +472,37 @@ HittableRecord world_hit(Ray r, float x, float y)
         vec3 pa = buf_datas[start].xyz;
         vec3 pb = buf_datas[start + 1].xyz;
         vec3 pc = buf_datas[start + 2].xyz;
-        vec2 uva = buf_datas[start + 3].xy;
-        vec2 uvb = vec2(buf_datas[start + 3].z, buf_datas[start + 4].x);
-        vec2 uvc = buf_datas[start + 4].yz;
-        vec3 na = buf_datas[start + 5].xyz;
-        vec3 nb = buf_datas[start + 6].xyz;
-        vec3 nc = buf_datas[start + 7].xyz;
-        vec3 ta = buf_datas[start + 8].xyz;
-        vec3 tb = buf_datas[start + 9].xyz;
-        vec3 tc = buf_datas[start + 10].xyz;
+        vec2 uv1a = buf_datas[start + 3].xy;
+        vec2 uv1b = vec2(buf_datas[start + 3].z, buf_datas[start + 4].x);
+        vec2 uv1c = buf_datas[start + 4].yz;
+
+        vec2 uv2a = buf_datas[start + 5].xy;
+        vec2 uv2b = vec2(buf_datas[start + 5].z, buf_datas[start + 6].x);
+        vec2 uv2c = buf_datas[start + 6].yz;
+ 
+        vec3 na = buf_datas[start + 7].xyz;
+        vec3 nb = buf_datas[start + 8].xyz;
+        vec3 nc = buf_datas[start + 9].xyz;
+        vec3 ta = buf_datas[start + 10].xyz;
+        vec3 tb = buf_datas[start + 11].xyz;
+        vec3 tc = buf_datas[start + 12].xyz;
 
         vec3 edge_1 = pb - pa;
         vec3 edge_2 = pc - pa;
 
         rec.normal = normalize((na * (1 - rec.uv.x - rec.uv.y) + nb * (rec.uv.x) + nc * (rec.uv.y)));
 
-        //         rec.normal = (normalize(cross(edge_1, edge_2)));
+     //         rec.normal = (normalize(cross(edge_1, edge_2)));
         rec.tangent = normalize((ta * (1 - rec.uv.x - rec.uv.y) + tb * (rec.uv.x) + tc * (rec.uv.y)));
-        rec.tangent_sign = buf_datas[start + 8].w;
-        vec2 final = (uva * (1.0 - rec.uv.x - rec.uv.y) + uvb * (rec.uv.x) + uvc * (rec.uv.y));
+        rec.tangent_sign = buf_datas[start + 10].w;
+        vec2 final = (uv1a * (1.0 - rec.uv.x - rec.uv.y) + uv1b * (rec.uv.x) + uv1c * (rec.uv.y));
         rec.uv = final;
+        vec2 final2 = (uv2a * (1.0 - rec.uv.x - rec.uv.y) + uv2b * (rec.uv.x) + uv2c * (rec.uv.y));
+        rec.uv2 = final;
+
 
         rec.bittangent = rec.tangent_sign * cross(rec.normal, rec.tangent);
+        rec = update_face_normal(rec, r, rec.normal);
     }
 
     return rec;
@@ -431,7 +540,7 @@ vec4 ray_color(Ray r, float x, float y, int maxv)
         return sky_color(r);
     }
 
-    while (true)
+    while (depth <= maxv)
     {
         MaterialRecord material = material_hit(rec, r);
 
@@ -446,22 +555,31 @@ vec4 ray_color(Ray r, float x, float y, int maxv)
 
             return result;
         }
-        rec = world_hit(r, x, y);
 
         depth += 1;
+       
+
+        rec = world_hit(r, x, y);
+      
         if (rec.hitted == false)
         {
             result = result * sky_color(r);
 
             return result;
         }
-        else if (depth > maxv)
-        {
-            return vec4(result) ;
-        }
-
 
     }
+//    r.direction = -light_off;
+//    rec = world_hit(r, x, y);
+      
+//    if(!rec.hitted)
+//    {
+//        result = result * sky_color(r);
+//        return result;
+//        
+//    } 
+    return result;
+
 }
 
 #endif
