@@ -21,7 +21,6 @@ VulkanBuffer vulkan_scene_texture_data_init(VulkanCtx *ctx, uint32_t *final_size
     tsize = maxw * maxh * sizeof(uint32_t) * texs.length;
 
     printf("textures sizes: %zu  \n", tsize);
-
     VulkanBuffer staging_buf = vk_buffer_alloc(ctx, tsize + 16, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     void *data = vk_buffer_map(ctx, staging_buf);
@@ -37,7 +36,9 @@ VulkanBuffer vulkan_scene_texture_data_init(VulkanCtx *ctx, uint32_t *final_size
         {
             for (size_t j = 0; j < dst_size; j += src_size)
             {
+
                 memcpy(data + off + j, c.data, src_size);
+           
             }
         }
         off += dst_size;
@@ -123,7 +124,7 @@ VkImageView image_view_create(VulkanCtx *ctx, VkImage image, int layers, bool us
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .image = image,
         .viewType = (layers == 1) ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_2D_ARRAY,
-        .format = (!use_float) ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R32G32B32A32_SFLOAT,
+        .format = (!use_float) ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R32G32B32A32_SFLOAT,
         .subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
         .subresourceRange.baseMipLevel = 0,
         .subresourceRange.levelCount = 1,
@@ -150,6 +151,7 @@ VkSampler image_sampler_create(VulkanCtx *ctx)
         .mipLodBias = 0.0f,
         .minLod = 0.0f,
         .maxLod = 0.0f,
+        .maxAnisotropy = 1.0f,
 
     };
 
@@ -213,7 +215,7 @@ void vulkan_scene_texture_load(VulkanCtx *ctx, VulkanTex *self, VulkanBuffer *bu
         .extent.depth = 1,
         .mipLevels = 1,
         .arrayLayers = depth,
-        .format = VK_FORMAT_R8G8B8A8_SRGB,
+        .format = VK_FORMAT_R8G8B8A8_UNORM,
         .tiling = VK_IMAGE_TILING_OPTIMAL,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
