@@ -29,6 +29,15 @@ struct brdf_impl
     float metallic;
     float a;
 };
+
+struct PbrtTexture 
+{
+    int id;
+    int tid; 
+    vec4 factor;
+    vec2 offset;
+    vec2 scale;
+};
 float heaviside(float x)
 {
     return x <= 0.0 ? 0.0 : 1.0;

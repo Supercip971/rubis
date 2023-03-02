@@ -37,27 +37,17 @@ typedef struct
     Matrix4x4 raw;
 } GltfTransforms;
 
-typedef struct 
-{
-    imageID id; 
-    int tex_coord;
-} ImageMatRef;
-    
 typedef struct
 {
-    ImageMatRef normal;
-    ImageMatRef base;
-    ImageMatRef metallic_roughness;
-    ImageMatRef emit;
     bool is_color;
-    Vec3 color;
     float alpha;
-    float rougness_fact; // if -1 none
-    float metallic_fact; // if -1 none
-    float normal_mul;
+
+    PbrtMaterialImage normal;
+    PbrtMaterialImage base;
+    PbrtMaterialImage metallic_roughness;
+    PbrtMaterialImage emit;
     
     Material final;
-    Vec3 emissive_fact;
 } GltfMaterial;
 
 typedef vec_t(imageID) GltfTextures;

@@ -266,28 +266,49 @@ Material scene_push_metal(Scene *self, Vec3 color, float fuzzy)
     return mat;
 }
 
+
+void scene_ref_push_material_texture(Scene* self, Material* mat, PbrtMaterialImage image)
+{
+    scene_data_reference_push(self, &mat->data, (Vec3){image.id, image.tid, 0, 0});
+    scene_data_reference_push(self, &mat->data, image.factor);
+    scene_data_reference_push(self, &mat->data, (Vec3){image.offx, image.offy, image.scalex, image.scaley});
+}
+
+PbrtMaterialImage scene_get_pbrt(Scene* self, int offset)
+{
+    PbrtMaterialImage image = {
+        .id = self->data.data[offset].x,
+        .tid = self->data.data[offset].y,
+        .factor = self->data.data[offset + 1],
+        .offx = self->data.data[offset + 2].x,
+        .offy = self->data.data[offset + 2].y,
+        .scalex = self->data.data[offset + 2].z,
+        .scaley = self->data.data[offset + 2]._padding,
+    };
+
+    return image;
+}
+
 Material scene_push_pbrt(Scene *self, Pbrt pbrt)
 {
     Material mat = {
         .type = MATERIAL_PBRT,
         .data = {}};
 
-    float bret = pbrt.base;
     if (pbrt.is_color)
     {
-        bret = -1;
+        pbrt.base.id = -1; 
     }
     
-    scene_data_reference_push(self, &mat.data, (Vec3){pbrt.normal, bret, pbrt.roughness, pbrt.emit});
-    pbrt.color._padding = pbrt.alpha;
-    scene_data_reference_push(self, &mat.data, pbrt.color);
-    scene_data_reference_push(self, &mat.data, vec3$(pbrt.metallic_fact, pbrt.rougness_fact, pbrt.normal_mul));
-    scene_data_reference_push(self, &mat.data, pbrt.emmisive_fact);
-
-    scene_data_reference_push(self, &mat.data, (Vec3){pbrt.base_tid, pbrt.normal_tid, pbrt.roughness_tid, 0});
+    pbrt.base.factor._padding = pbrt.alpha;
+    scene_ref_push_material_texture(self, &mat, pbrt.base);
+    scene_ref_push_material_texture(self, &mat, pbrt.normal);
+    scene_ref_push_material_texture(self, &mat, pbrt.metallic_roughness);
+    scene_ref_push_material_texture(self, &mat, pbrt.emit);
 
     return mat;
 }
+
 Material scene_push_dieletric(Scene *self, float r)
 {
     Material mat = {

@@ -5,39 +5,113 @@
 #include <stdio.h>
 #include "gltf/gltf.h"
 #include "math/vec3.h"
+#include "obj/scene.h"
 
-int read_texcoord(cJSON* v)
+int read_texcoord(cJSON *v)
 {
-    cJSON* v2 = cJSON_GetObjectItem(v, "texCoord");
-    if(v2 == NULL)
+    cJSON *v2 = cJSON_GetObjectItem(v, "texCoord");
+    if (v2 == NULL)
     {
         return 0;
     }
     return v->valueint;
 }
+
+int read_texture(PbrtMaterialImage *img, cJSON *v, GltfCtx *self)
+{
+    cJSON *v2 = cJSON_GetObjectItem(v, "index");
+    if (v2 == NULL)
+    {
+        img->id = -1;
+        return 0;
+    }
+
+
+    img->id = self->textures.data[v2->valueint];
+
+    cJSON* tcoord = cJSON_GetObjectItem(v, "texCoord");
+    if(tcoord)
+    {
+        img->tid = tcoord->valueint;
+    }
+    else
+    {
+        img->tid = 0;
+    }
+
+
+    img->offx = 0;
+    img->offy = 0;
+
+    img->scalex = 1;
+    img->scaley = 1;
+
+    cJSON *exts = cJSON_GetObjectItem(v, "extensions");
+    if (!exts)
+    {
+        return 0;
+    }
+
+    cJSON *trans = cJSON_GetObjectItem(exts, "KHR_texture_transform");
+    if (!trans)
+    {
+        return 0;
+    }
+
+    cJSON *scale = cJSON_GetObjectItem(trans, "scale");
+
+    if (scale)
+    {
+        
+        img->scalex = cJSON_GetArrayItem(scale, 0)->valuedouble;
+        img->scaley = cJSON_GetArrayItem(scale, 1)->valuedouble;
+        printf("img scale %f %f \n", img->scalex, img->scaley);
+
+    }
+
+    cJSON *off = cJSON_GetObjectItem(trans, "offset");
+
+    if (off)
+    {
+        img->offx = cJSON_GetArrayItem(off, 0)->valuedouble;
+        img->offy = cJSON_GetArrayItem(off, 1)->valuedouble;
+        printf("img offset %f %f \n", img->offx, img->offy);
+
+
+    }
+
+    return 1;
+}
+
 void gltf_materials_parse(GltfCtx *self)
 {
     vec_init(&self->materials);
     cJSON *materials_array = (cJSON_GetObjectItem(self->root, "materials"));
     int materials_count = cJSON_GetArraySize(materials_array);
-    ImageMatRef default_img = {
-            .id = -1,
-            .tex_coord = 0,
+    PbrtMaterialImage default_img = {
+        .id = -1,
+        .tid = 0,
+        .factor = vec3$(1, 1, 1),
+        .offx = 0,
+        .offy = 0,
+        .scalex = 1,
+        .scaley = 1,
     };
 
     for (int i = 0; i < materials_count; i++)
     {
         printf("parsing material %i\n", i);
         cJSON *material = cJSON_GetArrayItem(materials_array, i);
-        
+
         GltfMaterial current = {
             .base = default_img,
         };
 
         cJSON *pbr = cJSON_GetObjectItem(material, "pbrMetallicRoughness");
 
-        current.metallic_fact = 1;
-        current.rougness_fact = 1;
+        current.metallic_roughness = default_img;
+
+        current.normal = default_img;
 
         current.metallic_roughness = default_img;
 
@@ -45,7 +119,7 @@ void gltf_materials_parse(GltfCtx *self)
 
         current.alpha = 1.0;
         current.emit = default_img;
-        current.normal_mul = 1;
+        current.normal.factor = vec3$(1, 1, 1);
         if (pbr != 0)
         {
             printf("has pbr\n");
@@ -55,14 +129,15 @@ void gltf_materials_parse(GltfCtx *self)
 
             if (base != NULL)
             {
-                int id = cJSON_GetObjectItem(base, "index")->valueint;
-                int tid = read_texcoord(base);
-                
-                printf("has base: %i\n", id);
-                current.base.tex_coord = tid;
-                current.base.id = self->textures.data[id];
+
+                read_texture(&current.base, base, self);
+
+                printf("has base: %i\n", current.base.id);
             }
-            else if (base_col != NULL)
+            else {
+                current.is_color = true;
+            }
+            if (base_col != NULL)
             {
                 float r = cJSON_GetArrayItem(base_col, 0)->valuedouble;
 
@@ -72,31 +147,36 @@ void gltf_materials_parse(GltfCtx *self)
 
                 printf("has color %f %f %f %f\n", r, g, b, a);
                 current.alpha = a;
-                current.is_color = true;
-                current.color = vec3$(r, g, b);
+                current.base.factor = vec3$(r, g, b);
+            }
+            else  
+            {
+                current.base.factor = vec3$(1, 1, 1);
             }
 
             cJSON *metallic_roughness = cJSON_GetObjectItem(pbr, "metallicRoughnessTexture");
             if (metallic_roughness != NULL)
             {
                 printf("has metallic roughness\n");
-                int id = cJSON_GetObjectItem(metallic_roughness, "index")->valueint;
-                current.metallic_roughness.id = self->textures.data[id];
-                current.metallic_roughness.tex_coord = read_texcoord(metallic_roughness);
+                read_texture(&current.metallic_roughness, metallic_roughness, self);
+
+                //      int id = cJSON_GetObjectItem(metallic_roughness, "index")->valueint;
+                //      current.metallic_roughness.id = self->textures.data[id];
+                //      current.metallic_roughness.tid = read_texcoord(metallic_roughness);
             }
             cJSON *rougness_fact = cJSON_GetObjectItem(pbr, "roughnessFactor");
             if (rougness_fact != NULL)
             {
-                current.rougness_fact = rougness_fact->valuedouble;
+                current.metallic_roughness.factor.y = rougness_fact->valuedouble;
 
-                printf("has metallic roughness factor %f \n", current.rougness_fact);
+                printf("has metallic roughness factor %f \n", current.metallic_roughness.factor.y);
             }
             cJSON *metallic_fact = cJSON_GetObjectItem(pbr, "metallicFactor");
             if (metallic_fact != NULL)
             {
-                current.metallic_fact = metallic_fact->valuedouble;
+                current.metallic_roughness.factor.z = metallic_fact->valuedouble;
 
-                printf("has metallic metal factor %f \n", current.metallic_fact);
+                printf("has metallic metal factor %f \n", current.metallic_roughness.factor.z);
             }
         }
         else
@@ -108,33 +188,33 @@ void gltf_materials_parse(GltfCtx *self)
         if (normal != NULL)
         {
 
-            int id = cJSON_GetObjectItem(normal, "index")->valueint;
-            current.normal.id = self->textures.data[id];
-            current.normal.tex_coord = read_texcoord(normal);
+            read_texture(&current.normal, normal, self);
+
+            //            current.normal.id = self->textures.data[id];
+            //            current.normal.tid = read_texcoord(normal);
             cJSON *normal_scale = cJSON_GetObjectItem(normal, "scale");
             if (normal_scale)
             {
-                current.normal_mul = normal_scale->valuedouble;
+                current.normal.factor = vec3$(normal_scale->valuedouble, normal_scale->valuedouble, 1.0);
             }
         }
+
         cJSON *emit = cJSON_GetObjectItem(material, "emissiveTexture");
         if (emit != NULL)
         {
-            int id = cJSON_GetObjectItem(emit, "index")->valueint;
-            current.emit.id = self->textures.data[id];
-             current.emit.tex_coord = read_texcoord(emit);
-        
+            read_texture(&current.emit, emit, self);
         }
 
         else
         {
             current.emit.id = -1;
+            current.emit.factor = vec3$(0, 0, 0);
         }
 
         cJSON *emit_fact = cJSON_GetObjectItem(material, "emissiveFactor");
         if (emit_fact != NULL)
         {
-            current.emissive_fact = vec3$(cJSON_GetArrayItem(emit_fact, 0)->valuedouble, cJSON_GetArrayItem(emit_fact, 1)->valuedouble, cJSON_GetArrayItem(emit_fact, 2)->valuedouble);
+            current.emit.factor = vec3$(cJSON_GetArrayItem(emit_fact, 0)->valuedouble, cJSON_GetArrayItem(emit_fact, 1)->valuedouble, cJSON_GetArrayItem(emit_fact, 2)->valuedouble);
 
             cJSON *emissive_stren = cJSON_GetObjectItem(
                 cJSON_GetObjectItem(
@@ -144,25 +224,17 @@ void gltf_materials_parse(GltfCtx *self)
 
             if (emissive_stren != NULL)
             {
-                current.emissive_fact = vec3_mul_val(current.emissive_fact, emissive_stren->valuedouble);
+                current.emit.factor = vec3_mul_val(current.emit.factor, emissive_stren->valuedouble);
             }
         }
 
-        Pbrt final = {
-            .base = current.base.id,
-            .base_tid = current.base.tex_coord,
+        Pbrt final = (Pbrt){
+            .base = current.base,
             .is_color = current.is_color,
-            .color = current.color,
-            .normal = current.normal.id,
-            .normal_tid = current.normal.tex_coord,
-            .emit = current.emit.id,
-            .roughness = current.metallic_roughness.id,
-            .roughness_tid = current.metallic_roughness.tex_coord,
-            .metallic_fact = current.metallic_fact,
-            .rougness_fact = current.rougness_fact,
+            .normal = current.normal,
+            .emit = current.emit,
+            .metallic_roughness = current.metallic_roughness,
             .alpha = current.alpha,
-            .normal_mul = current.normal_mul,
-            .emmisive_fact = current.emissive_fact,
         };
         current.final = scene_push_pbrt(self->target, final);
 
@@ -172,22 +244,28 @@ void gltf_materials_parse(GltfCtx *self)
     self->null_material_id = self->materials.length;
 
     Pbrt final = {
-        .base = -1,
+        .base = {
+            .id = -1,
+            .factor = vec3$(1, 1, 1),
+        },
         .is_color = true,
-        .color = vec3$(1, 1, 1),
-        .normal = -1,
-        .emit = -1,
-        .roughness = -1,
-        .metallic_fact = 0,
-        .rougness_fact = 0.5,
+        .normal = {
+            .id = -1,
+            .factor = vec3$(1, 1, 1),
+        },
+        .emit = {
+            .id = -1,
+            .factor = vec3$(0, 0, 0),
+        },
+        .metallic_roughness = {
+            .id = -1,
+            .factor = vec3$(0, 0, 0.5),
+        },
         .alpha = 1.0,
-        .normal_mul = 1,
-        .emmisive_fact = vec3$(0, 0, 0),
     };
 
     GltfMaterial material = {
-        .base = default_img
-    };
+        .base = default_img};
     material.final = scene_push_pbrt(self->target, final);
 
     vec_push(&self->materials, material);
