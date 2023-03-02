@@ -41,6 +41,14 @@ void scene_resize_textures(Scene* self)
         }
     }
 
+    if(maxw > 4096)
+    {
+        maxw = 4096;
+    }
+    if(maxh > 4096)
+    {
+        maxh = 4096;
+    }
 
     printf("resizing images for: %zux%zu\n", maxw, maxh);
 
