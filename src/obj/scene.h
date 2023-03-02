@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include "math/mat4.h"
 
+#define PBRT_SIZE_IMAGE 3
 typedef vec_t(Image) TexLists;
 typedef struct
 {
@@ -41,6 +42,7 @@ void scene_push_tri(Scene *self, Vec3 posa, Vec3 posb, Vec3 posc, Material mater
 typedef vec_t(Triangle) MeshTriangles;
 typedef struct 
 {
+    bool has_tangent;
     Mesh mesh; 
     MeshTriangles data;
 } MeshCreation;
@@ -63,25 +65,31 @@ Material scene_push_metal(Scene *self, Vec3 color, float fuzzy);
 
 Material scene_push_dieletric(Scene *self, float r);
 
+
+typedef struct 
+{
+    float scalex, scaley; 
+    float offx, offy; 
+    Vec3 factor;
+    int id;  // if id == -1 use factor instead
+    int tid;
+} PbrtMaterialImage;
+
+#define DEFAULT_PBRT_IMAGE {1, 1, 0, 0, -1, -1}
 typedef struct
 {
     bool is_color;
-    Vec3 color;
-    int normal_tid;
-    int base_tid;
-    int roughness_tid;
-    imageID normal;
-    imageID base; // only if is_color == false
-    imageID roughness;
-    imageID emit;
-    float rougness_fact; // if -1 none
+    PbrtMaterialImage normal;
+    PbrtMaterialImage base; // only if is_color == false
+    PbrtMaterialImage metallic_roughness;
+    PbrtMaterialImage emit;
     float alpha;
-    float metallic_fact; // if -1 none
-    float normal_mul;
-    Vec3 emmisive_fact;
+
 } Pbrt;
 
 Material scene_push_pbrt(Scene *self, Pbrt pbrt);
+
+PbrtMaterialImage scene_get_pbrt(Scene* self, int offset);
 
 void scene_deinit(Scene *self);
 
