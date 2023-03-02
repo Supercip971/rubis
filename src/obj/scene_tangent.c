@@ -1,5 +1,6 @@
 #include <obj/scene.h>
 #include <thirdparty/mikktspace.h>
+#include "math/vec3.h"
 #include "obj/mesh.h"
 
 #include <stdio.h>
@@ -42,25 +43,39 @@ void scene_get_normal(const SMikkTSpaceContext *pContext, float fvNormOut[], int
     fvNormOut[2] = ctx->scene->data.data[mesh->vertices.start + iVert + 7 + iFace * MESH_VERTICE_COUNT].z;
 }
 
+int scene_texture_id_normal(Scene *scene, int material_d)
+{
+    PbrtMaterialImage img = scene_get_pbrt(scene, material_d + 3);
+
+    if(img.id == -1)
+    {
+        return 0;
+    }
+    else {
+        return img.tid;
+    }
+}
+
 void scene_get_texCoord(const SMikkTSpaceContext *pContext, float fvTexOut[], int iFace, int iVert)
 {
     TengantGenCtx *ctx = pContext->m_pUserData;
     Mesh *mesh = &ctx->scene->meshes.data[ctx->mesh_id];
     
-
+    int offset = scene_texture_id_normal(ctx->scene, mesh->material.start) * 2;
+    // see:  https://github.com/KhronosGroup/glTF-Sample-Models/issues/174
     switch(iVert)
     {
         case 0:
-            fvTexOut[0] = ctx->scene->data.data[mesh->vertices.start + 3 + iFace * MESH_VERTICE_COUNT].x;
-            fvTexOut[1] = ctx->scene->data.data[mesh->vertices.start + 3 + iFace * MESH_VERTICE_COUNT].y;
+            fvTexOut[0] = ctx->scene->data.data[mesh->vertices.start + 3 + offset + iFace * MESH_VERTICE_COUNT].x;
+            fvTexOut[1] = ctx->scene->data.data[mesh->vertices.start + 3 + offset + iFace * MESH_VERTICE_COUNT].y;
             break;
         case 1:
-            fvTexOut[0] = ctx->scene->data.data[mesh->vertices.start + 3 + iFace * MESH_VERTICE_COUNT].z;
-            fvTexOut[1] = ctx->scene->data.data[mesh->vertices.start + 4 + iFace * MESH_VERTICE_COUNT].x;
+            fvTexOut[0] = ctx->scene->data.data[mesh->vertices.start + 3 + offset + iFace * MESH_VERTICE_COUNT].z;
+            fvTexOut[1] = ctx->scene->data.data[mesh->vertices.start + 4 + offset + iFace * MESH_VERTICE_COUNT].x;
             break;
         case 2:
-            fvTexOut[0] = ctx->scene->data.data[mesh->vertices.start + 4 + iFace * MESH_VERTICE_COUNT].y;
-            fvTexOut[1] = ctx->scene->data.data[mesh->vertices.start + 4 + iFace * MESH_VERTICE_COUNT].z;
+            fvTexOut[0] = ctx->scene->data.data[mesh->vertices.start + 4 + offset + iFace * MESH_VERTICE_COUNT].y;
+            fvTexOut[1] = ctx->scene->data.data[mesh->vertices.start + 4 + offset + iFace * MESH_VERTICE_COUNT].z;
             break;
     }
 }
@@ -69,11 +84,12 @@ void scene_set_tangent_basic(const SMikkTSpaceContext *pContext, const float fvT
 {
     TengantGenCtx *ctx = pContext->m_pUserData;
     Mesh *mesh = &ctx->scene->meshes.data[ctx->mesh_id];
+      // see:  https://github.com/KhronosGroup/glTF-Sample-Models/issues/174
     
     ctx->scene->data.data[mesh->vertices.start + 10 + iVert + iFace * MESH_VERTICE_COUNT].x = fvTangent[0];
     ctx->scene->data.data[mesh->vertices.start + 10 + iVert + iFace * MESH_VERTICE_COUNT].y = fvTangent[1];
     ctx->scene->data.data[mesh->vertices.start + 10 + iVert + iFace * MESH_VERTICE_COUNT].z = fvTangent[2];
-    ctx->scene->data.data[mesh->vertices.start + 10 + iVert + iFace * MESH_VERTICE_COUNT]._padding = fSign;
+    ctx->scene->data.data[mesh->vertices.start + 10 + iVert + iFace * MESH_VERTICE_COUNT]._padding = -fSign;
 }
 
 bool scene_generate_tangent(Scene* self)
