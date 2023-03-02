@@ -220,7 +220,7 @@ void matrix_apply_vector(const Matrix4x4 *matrix, Vec3 *vector)
     temp.x = vector->x * matrix->value[0][0] + vector->y * matrix->value[0][1] + vector->z * matrix->value[0][2];
     temp.y = vector->x * matrix->value[1][0] + vector->y * matrix->value[1][1] + vector->z * matrix->value[1][2];
     temp.z = vector->x * matrix->value[2][0] + vector->y * matrix->value[2][1] + vector->z * matrix->value[2][2];
-
+    temp._padding = vector->_padding;
     *vector = temp;
 }
 
