@@ -17,6 +17,16 @@ typedef struct __attribute__((packed))
 } GltfVec2;
 
 #define gltvec2vec(v) vec3$(v.x, v.y, v.z)
+void gen_triangle_normals(Triangle* input)
+{
+    Vec3 u = vec3_sub(input->pb, input->pa);
+    Vec3 v = vec3_sub(input->pc, input->pa);
+
+    Vec3 normal = vec3_unit(vec3_cross(u, v));
+    input->na = normal;
+    input->nb = normal;
+    input->nc = normal;
+}
 
 bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
 {
@@ -24,6 +34,7 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
     int primitive_count = cJSON_GetArraySize(mesh_primitives_array);
     for (int i = 0; i < primitive_count; i++)
     {
+        bool has_normal = false;
         // as each primitive can have different material / texture, we parse them as different meshes
         cJSON *primitive = cJSON_GetArrayItem(mesh_primitives_array, i);
         cJSON *attributes = cJSON_GetObjectItem(primitive, "attributes");
@@ -62,13 +73,15 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
         }
 
 
-
+        GltfAccessorPtr normals;
         if(cJSON_GetObjectItem(attributes, "NORMAL") == NULL)
         {
-            printf("MISSING NORMALS\n");
-            abort();
+            has_normal = false;
         }
-        GltfAccessorPtr normals = gltf_read_accessor(self, cJSON_GetObjectItem(attributes, "NORMAL")->valueint);
+        else {
+            has_normal = true;
+            normals = gltf_read_accessor(self, cJSON_GetObjectItem(attributes, "NORMAL")->valueint);
+        }
 
         for (int j = 0; j < indicies.count; j += 3)
         {
@@ -79,7 +92,7 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
                 printf("not supported position type: %i \n", position.componen_type);
                 abort();
             }
-            if (normals.componen_type != GLTF_COMP_FLOAT)
+            if (has_normal && normals.componen_type != GLTF_COMP_FLOAT)
             {
                 printf("not supported normal type: %i \n", position.componen_type);
                 abort();
@@ -114,16 +127,23 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
                 .pa = matrix_apply_point_ret(&transform, gltvec2vec(v[idx0])),
                 .pb = matrix_apply_point_ret(&transform, gltvec2vec(v[idx1])),
                 .pc = matrix_apply_point_ret(&transform, gltvec2vec(v[idx2])),
-                .na = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx0])),
-                .nb = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx1])),
-                .nc = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx2])),
             };
 
+            if(has_normal)
+            {
+                final.na = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx0]));
+                final.nb = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx1]));
+                final.nc = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx2]));
+            
+            }
+            else  {
+                gen_triangle_normals(&final);
+            }
             if (has_texcoord1)
             {
-                if (texcoords1.componen_type != GLTF_COMP_FLOAT)
+                if (texcoords1.componen_type != GLTF_COMP_FLOAT && texcoords1.type != GLTF_VEC2)
                 {
-                    printf("not supported normal type: %i \n", position.componen_type);
+                    printf("not supported texcoord type: %i \n", texcoords1.componen_type);
                     abort();
                 }
 
@@ -134,9 +154,9 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
             }
         if (has_texcoord2)
             {
-                if (texcoords2.componen_type != GLTF_COMP_FLOAT)
+                if (texcoords2.componen_type != GLTF_COMP_FLOAT && texcoords2.type != GLTF_VEC2)
                 {
-                    printf("not supported normal type: %i \n", position.componen_type);
+                    printf("not supported texcoord type: %i \n", texcoords2.componen_type);
                     abort();
                 }
 
