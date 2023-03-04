@@ -53,6 +53,7 @@ typedef struct
     float _pad2;
 
 
+    bool has_normals;
     Vec3 na;
     Vec3 nb;
     Vec3 nc;
@@ -61,6 +62,7 @@ typedef struct
     Vec3 ta;
     Vec3 tb;
     Vec3 tc;
+
 
 
 

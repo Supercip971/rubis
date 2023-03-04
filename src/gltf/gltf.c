@@ -5,7 +5,14 @@
 #include <gltf/textures.h>
 #include <math/mat4.h>
 #include <stdio.h>
+#include "math/vec3.h"
+#include "obj/mesh.h"
 #include "obj/scene.h"
+
+typedef struct __attribute__((packed))
+{
+    float x, y, z, w;
+} GltfVec4;
 
 typedef struct __attribute__((packed))
 {
@@ -17,21 +24,14 @@ typedef struct __attribute__((packed))
 } GltfVec2;
 
 #define gltvec2vec(v) vec3$(v.x, v.y, v.z)
-void gen_triangle_normals(Triangle* input)
-{
-    Vec3 u = vec3_sub(input->pb, input->pa);
-    Vec3 v = vec3_sub(input->pc, input->pa);
+#define gltvec42vec(v) (Vec3){v.x, v.y, v.z, v.w}
 
-    Vec3 normal = vec3_unit(vec3_cross(u, v));
-    input->na = normal;
-    input->nb = normal;
-    input->nc = normal;
-}
 
 bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
 {
     cJSON *mesh_primitives_array = cJSON_GetObjectItem(node, "primitives");
     int primitive_count = cJSON_GetArraySize(mesh_primitives_array);
+    bool has_tangent_all = false;
     for (int i = 0; i < primitive_count; i++)
     {
         bool has_normal = false;
@@ -50,6 +50,12 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
         {
             material = self->null_material_id;
         }
+        bool has_tangent = cJSON_GetObjectItem(attributes, "TANGENT") != NULL;
+        if(has_tangent)
+        {
+            has_tangent_all = true;
+        }
+        
 
         mesh_creation = scene_start_mesh(self->target, self->materials.data[material].final);
 
@@ -83,6 +89,11 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
             normals = gltf_read_accessor(self, cJSON_GetObjectItem(attributes, "NORMAL")->valueint);
         }
 
+        GltfAccessorPtr tangents;
+        if(has_tangent)
+        {
+             tangents = gltf_read_accessor(self, cJSON_GetObjectItem(attributes, "TANGENT")->valueint);
+        }
         for (int j = 0; j < indicies.count; j += 3)
         {
             GltfVec3 *v = position.view.data;
@@ -99,6 +110,8 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
             }
 
             GltfVec3 *n = normals.view.data;
+            GltfVec4 *t = tangents.view.data;
+
 
             int idx0 = 0, idx1 = 0, idx2 = 0;
 
@@ -134,11 +147,20 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
                 final.na = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx0]));
                 final.nb = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx1]));
                 final.nc = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx2]));
-            
+                final.has_normals = true;  
             }
             else  {
-                gen_triangle_normals(&final);
+                final.has_normals = false;
             }
+            if(has_tangent)
+            {
+                final.ta = matrix_apply_vector_ret(&transform, gltvec42vec(t[idx0]));
+                final.tb = matrix_apply_vector_ret(&transform, gltvec42vec(t[idx1]));
+                final.tc = matrix_apply_vector_ret(&transform, gltvec42vec(t[idx2]));
+            
+            }
+
+
             if (has_texcoord1)
             {
                 if (texcoords1.componen_type != GLTF_COMP_FLOAT && texcoords1.type != GLTF_VEC2)
@@ -167,6 +189,9 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
             }
             mesh_push_triangle(&mesh_creation, final);
         }
+        mesh_creation.has_tangent = has_tangent_all;
+        mesh_creation.mesh.type = (has_tangent_all) ? -1 : 2;
+        mesh_gen_normals_if_needed(&mesh_creation);
         scene_end_mesh(self->target, &mesh_creation);
     }
 

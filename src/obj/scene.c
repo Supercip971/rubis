@@ -1,12 +1,12 @@
+#include <config.h>
 #include <obj/material.h>
 #include <obj/scene.h>
+#include <stdio.h>
 #include "math/aabb.h"
 #include "math/mat4.h"
 #include "math/vec3.h"
 #include "obj/img.h"
-#include <config.h>
 #include "obj/mesh.h"
-#include <stdio.h>
 void scene_init(Scene *self)
 {
     vec_init(&self->data);
@@ -23,53 +23,49 @@ imageID scene_push_texture(Scene *self, Image image)
     return self->textures.length - 1;
 }
 
-void scene_resize_textures(Scene* self)
+void scene_resize_textures(Scene *self)
 {
     size_t maxw = 0;
     size_t maxh = 0;
     printf("texture count: %u \n", self->textures.length);
-    for(int i = 0; i < self->textures.length; i++)
+    for (int i = 0; i < self->textures.length; i++)
     {
         Image img = self->textures.data[i];
-        if(img.width > maxw)
+        if (img.width > maxw)
         {
             maxw = img.width;
         }
-        if(img.height > maxh)
+        if (img.height > maxh)
         {
             maxh = img.height;
         }
     }
 
-    if(maxw > 4096)
+    if (maxw > 4096)
     {
         maxw = 4096;
     }
-    if(maxh > 4096)
+    if (maxh > 4096)
     {
         maxh = 4096;
     }
 
     printf("resizing images for: %zux%zu\n", maxw, maxh);
 
-    
-    for(int i = 0; i < self->textures.length; i++)
+    for (int i = 0; i < self->textures.length; i++)
     {
 
         Image old = self->textures.data[i];
         printf(" %ux%u -> %zux%zu \n", old.width, old.height, maxw, maxh);
 
-
-
-        if(old.width == maxw && old.height == maxh)
+        if (old.width == maxw && old.height == maxh)
         {
             continue;
         }
-        Image new = image_resize(old, maxw,maxh);
+        Image new = image_resize(old, maxw, maxh);
         self->textures.data[i] = new;
         image_unload(&old);
     }
-    
 }
 void scene_data_reference_push(Scene *self, DataReference *dat, Vec3 value)
 {
@@ -107,9 +103,8 @@ void scene_push_tri(Scene *self, Vec3 posa, Vec3 posb, Vec3 posc, Material mater
         .material_type = material.type,
         .material = material.data,
         .type = MESH_TRIANGLES,
-        .aabb = 
-            aabb_create_triangle(posa, posb, posc)
-        ,
+        .aabb =
+            aabb_create_triangle(posa, posb, posc),
     };
 
     scene_data_reference_push(self, &mesh.vertices, posa);
@@ -125,7 +120,7 @@ void scene_push_tri2(Scene *self, Triangle triangle, Material material)
         .material_type = material.type,
         .material = material.data,
         .type = MESH_TRIANGLES,
-        .aabb =             aabb_create_triangle(triangle.pa, triangle.pb, triangle.pc),
+        .aabb = aabb_create_triangle(triangle.pa, triangle.pb, triangle.pc),
 
     };
 
@@ -159,7 +154,6 @@ void scene_push_tri2(Scene *self, Triangle triangle, Material material)
     scene_data_reference_push(self, &mesh.vertices, tcoord1);
     scene_data_reference_push(self, &mesh.vertices, tcoord2);
 
-
     scene_data_reference_push(self, &mesh.vertices, triangle.na);
 
     scene_data_reference_push(self, &mesh.vertices, triangle.nb);
@@ -176,7 +170,7 @@ void scene_push_tri2(Scene *self, Triangle triangle, Material material)
 MeshCreation scene_start_mesh(Scene *self, Material material)
 {
     (void)self;
-     Mesh mesh = {
+    Mesh mesh = {
         .material_type = material.type,
         .material = material.data,
         .type = MESH_TRIANGLES,
@@ -198,14 +192,14 @@ Triangle scene_mesh_triangle(Scene *self, int mesh_index, int triangle_index)
 {
     Mesh *mesh = &self->meshes.data[mesh_index];
     Vec3 *data = &self->data.data[mesh->vertices.start + triangle_index * MESH_VERTICE_COUNT];
-    Triangle t  = triangle_unpack(data);
+    Triangle t = triangle_unpack(data);
 
     return t;
 }
-void mesh_push_triangle( MeshCreation *mesh, Triangle triangle)
+void mesh_push_triangle(MeshCreation *mesh, Triangle triangle)
 {
 
-    if(mesh->data.length == 0)
+    if (mesh->data.length == 0)
     {
         mesh->mesh.aabb = aabb_create_triangle(triangle.pa, triangle.pb, triangle.pc);
     }
@@ -213,7 +207,7 @@ void mesh_push_triangle( MeshCreation *mesh, Triangle triangle)
     {
         // TODO: this is so dumb, we should add a AABB library
         AABB next = aabb_create_triangle(triangle.pa, triangle.pb, triangle.pc);
-    
+
         mesh->mesh.aabb.min = vec3_min(mesh->mesh.aabb.min, next.min);
         mesh->mesh.aabb.max = vec3_max(mesh->mesh.aabb.max, next.max);
     }
@@ -221,7 +215,10 @@ void mesh_push_triangle( MeshCreation *mesh, Triangle triangle)
     vec_push(&mesh->data, triangle);
 }
 
-void scene_end_mesh(Scene *self, MeshCreation* mesh)
+
+
+
+void scene_end_mesh(Scene *self, MeshCreation *mesh)
 {
     MeshTriangles *d = &mesh->data;
 
@@ -233,7 +230,7 @@ void scene_end_mesh(Scene *self, MeshCreation* mesh)
 
         triangle_pack(raw, triangle);
 
-        for(int c = 0;c < MESH_VERTICE_COUNT; c++)
+        for (int c = 0; c < MESH_VERTICE_COUNT; c++)
         {
 
             scene_data_reference_push(self, &mesh->mesh.vertices, raw[c]);
@@ -274,15 +271,14 @@ Material scene_push_metal(Scene *self, Vec3 color, float fuzzy)
     return mat;
 }
 
-
-void scene_ref_push_material_texture(Scene* self, Material* mat, PbrtMaterialImage image)
+void scene_ref_push_material_texture(Scene *self, Material *mat, PbrtMaterialImage image)
 {
     scene_data_reference_push(self, &mat->data, (Vec3){image.id, image.tid, 0, 0});
     scene_data_reference_push(self, &mat->data, image.factor);
     scene_data_reference_push(self, &mat->data, (Vec3){image.offx, image.offy, image.scalex, image.scaley});
 }
 
-PbrtMaterialImage scene_get_pbrt(Scene* self, int offset)
+PbrtMaterialImage scene_get_pbrt(Scene *self, int offset)
 {
     PbrtMaterialImage image = {
         .id = self->data.data[offset].x,
@@ -305,9 +301,9 @@ Material scene_push_pbrt(Scene *self, Pbrt pbrt)
 
     if (pbrt.is_color)
     {
-        pbrt.base.id = -1; 
+        pbrt.base.id = -1;
     }
-    
+
     pbrt.base.factor._padding = pbrt.alpha;
     scene_ref_push_material_texture(self, &mat, pbrt.base);
     scene_ref_push_material_texture(self, &mat, pbrt.normal);

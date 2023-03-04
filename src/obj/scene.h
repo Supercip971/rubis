@@ -54,6 +54,7 @@ void mesh_push_triangle( MeshCreation* mesh, Triangle triangle);
 
 void scene_end_mesh(Scene* self, MeshCreation*  mesh);
 
+void mesh_gen_normals_if_needed(MeshCreation *mesh);
 
 bool scene_generate_tangent(Scene* self);
 
