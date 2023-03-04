@@ -129,17 +129,15 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
     sp++;
     HittableRecord res;
     res.hitted = false;
-    
-    
-    #ifdef SHOW_DEPTH
-    Bvh dcur = bvhs[stack[0]];
-   
 
-    if(aabb_hit(r, bvhs[0], cmin, cmax))
+#ifdef SHOW_DEPTH
+    Bvh dcur = bvhs[stack[0]];
+
+    if (aabb_hit(r, bvhs[0], cmin, cmax))
     {
         depth++;
     }
-    #endif
+#endif
     while (sp > 0 && sp < STACK_SIZE)
     {
         sp--; // pop
@@ -147,28 +145,28 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
         Bvh cur = bvhs[stack[sp]];
         if (cur.is_next_a_bvh == 0)
         {
-            
+
             HittableRecord rec2 = process_leaf(r, cur.la, cur.lb, cmin, cmax);
             if (rec2.hitted)
             {
                 cmax = rec2.t;
                 res = rec2;
 
-                #ifdef SHOW_DEPTH 
+#ifdef SHOW_DEPTH
                 depth = max(depth, sp + 4);
-                #endif
+#endif
             }
             if (cur.ra != 0)
             {
-                rec2 = process_leaf(r, cur.ra, cur.rb , cmin, cmax);
+                rec2 = process_leaf(r, cur.ra, cur.rb, cmin, cmax);
                 if (rec2.hitted)
                 {
                     cmax = rec2.t;
                     res = rec2;
- 
-                    #ifdef SHOW_DEPTH 
+
+#ifdef SHOW_DEPTH
                     depth = max(depth, sp + 4);
-                    #endif                   
+#endif
                 }
             }
             /*
@@ -190,10 +188,9 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
 
                 sp++;
 
-                #ifdef SHOW_DEPTH 
+#ifdef SHOW_DEPTH
                 depth = max(depth, sp + 2);
-                #endif
-
+#endif
             }
             if (aabb_hit(r, rb, cmin, cmax))
             {
@@ -201,20 +198,18 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
                 stack[sp] = cur.ra;
 
                 sp++;
-                #ifdef SHOW_DEPTH 
+#ifdef SHOW_DEPTH
                 depth = max(depth, sp + 2);
-                #endif
-
+#endif
             }
         }
     }
 
-    #ifdef SHOW_DEPTH 
+#ifdef SHOW_DEPTH
     res.depth = depth;
-    #endif
+#endif
     return res;
 }
-
 
 //# Temporary way of getting the normal vector from a reflection and a input vector
 vec3 inverse_reflection(vec3 dir, vec3 reflected)
@@ -448,36 +443,29 @@ vec2 fuv = record.uv;
 
 
 
-   // result.emitted += result.attenuation;
 
-    dir = vec_unit(dir);
-  //  if (dot(dir, og_normal) < 0.0f)
-  //  {
-  //      result.emitted = vec3(1,0,0);
-  //      result.do_scatter = false;
-  //      return result;
-  //      dir = -dir;
-  //  }
+// debug
+#if 0
+    if(true)
+    {
+        result.emitted = result.attenuation;
+        result.do_scatter = false;
+        return result;
+    }
+#endif
 
-   //     result.emitted = vec3(0,0,1);
-   //     result.do_scatter = false;
-   //     return result;
     result.scatter = Ray(record.point, dir, vec3(1));
 
-  //  result.emitted = result.attenuation;
-  //  result.do_scatter = false; 
     if (random() > (alpha))
     {
-        result.attenuation = vec3(1,1,1);
+        result.attenuation = vec3(1, 1, 1);
         result.emitted = vec3(0);
         result.scatter.direction = vec3(r.direction);
         result.do_scatter = true;
     }
-    
 
     result.scatter.inv_direction = vec3(1) / result.scatter.direction;
 
-  //  result.do_scatter = length(emit) < 1.02;
     return result;
 }
 
@@ -560,12 +548,12 @@ vec4 ray_color(Ray r, float x, float y, int maxv)
 
     int depth = 0;
 
-    #ifdef SHOW_DEPTH
+#ifdef SHOW_DEPTH
     return vec4(float(rec.depth) / 32, float(rec.depth) / 256, float(rec.depth) / 512, 1);
-    #endif
+#endif
     if (!rec.hitted)
     {
-      //  return vec4(0, 1, 0, 1);
+        //  return vec4(0, 1, 0, 1);
         return sky_color(r);
     }
 
@@ -586,29 +574,26 @@ vec4 ray_color(Ray r, float x, float y, int maxv)
         }
 
         depth += 1;
-       
 
         rec = world_hit(r, x, y);
-      
+
         if (rec.hitted == false)
         {
             result = result * sky_color(r);
 
             return result;
         }
-
     }
-//    r.direction = -light_off;
-//    rec = world_hit(r, x, y);
-      
-//    if(!rec.hitted)
-//    {
-//        result = result * sky_color(r);
-//        return result;
-//        
-//    } 
-    return result;
+    //    r.direction = -light_off;
+    //    rec = world_hit(r, x, y);
 
+    //    if(!rec.hitted)
+    //    {
+    //        result = result * sky_color(r);
+    //        return result;
+    //
+    //    }
+    return result;
 }
 
 #endif

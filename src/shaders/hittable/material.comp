@@ -82,14 +82,6 @@ float d_ggx(brdf_impl s)
     float down =  ((n_dot_h * n_dot_h) * (s.a*s.a - 1.0f) + 1.0f);
 
     return (up / (M_PI * down * down));
-
-/*
-    const float squarred_r = roughness * roughness;
-    const float up = (squarred_r)*max(n_dot_h, 0);
-    const float da = ((n_dot_h * n_dot_h) * (squarred_r - 1) + 1);
-    const float db = (M_PI)*da * da;*/
-
- //   return up / db;
 }
 
 
@@ -146,55 +138,6 @@ vec3 fresnel_mix(float ior, vec3 base, vec3 layer, float VdH)
     f0 = f0 * f0;
     float fr = f0 + (1 - f0) * pow((1 - abs(VdH)), 5);
     return mix(base, layer, fr);
-}
-
-vec3 brdf_col(Ray r, HittableRecord hit, float roughness, float metallic, vec3 base)
-{
-
-/*
-//    return mix(dieletric_brdf(base, roughness, r, hit.normal), metallic_brdf(base, metallic, r, hit.normal, roughness), metallic);
-
-    const vec3 v = normalize(r.origin - hit.point);
-    const vec3 l =  reflect(r.direction, hit.normal);
-    const vec3 n = normalize(hit.normal);
-    const vec3 h = normalize(l + v);
-
-    float NdotV = abs(dot(n, v)) + 1e-5;
-    float VdotH = clamp(dot(v, h), 0, 1);
-    float NdotH = clamp(dot(n, h), 0, 1);
-    float NdotL = clamp(dot(n, l), 0, 1);
-    */
-
-    vec3 v = normalize(r.origin - hit.point);
-    vec3 l =  reflect(r.direction, hit.normal);
-    vec3 n = normalize(hit.normal);
-    vec3 h = normalize(l + v);
-
-    brdf_impl s = brdf_impl(n, h, l, v, roughness, metallic, roughness * roughness);
-    /*
-    const float HdotV = dot(h, v);
-    const float HdotL = dot(h, l);
-
-    vec3 c_diff = mix(base, vec3(0), metallic);
-    vec3 f0 = mix(vec3(0.04), base, metallic);
-    float alpha = roughness * roughness;
-
-    vec3 F = f0 + (1 - f0) * pow(1 - abs(VdotH), 5);
-    vec3 f_diffuse = (1 - F) * (1 / M_PI) * c_diff;
-    float d = d_ggx(NdotH, alpha);
-    float v2 = v_ggx_correlated(HdotL, HdotV, NdotL, NdotV, alpha);
-
-    vec3 f_specullar = abs(F * (d * v2));
-    return f_specullar;*/
-
-    vec3 metal = specular(s) * (base + (1 - base) * pow(1 - abs(dot(s.v, s.h)), 5));
-
-    vec3 diel = mix( diffuse(base), vec3(specular(s)), 0.04 + (1 - 0.04) * pow(1 - abs(dot(s.v, s.h)), 5) );
-   // vec3 metal_brdf = specular(r, hit, roughness * roughness) * (base + (1 - base) * pow(1 - abs(VdotH), 5));
-   // vec3 diel_brdf = mix(diffuse(base), specular(r, hit, roughness * roughness) * base, 0.04 + (1 - 0.04) * pow(1 - abs(VdotH), 5));
-   // vec3 mat = mix(diel_brdf, metal_brdf, metallic);
-
-    return mix(diel, metal, metallic);
 }
 
 float smith_g_1(vec3 h, vec3 s, vec3 so, float alpha)
@@ -298,28 +241,11 @@ vec3 dumb_brdf(Ray r, HittableRecord hit, float roughness, float metallic, vec3 
 
     vec3 diffuse_reflectance = base * (1.0-metallic);
 
-  //  float VdotH = clamp(dot(v, h), 0, 1);
-  //  float NdotL = clamp(dot(n, l), 0, 1);
-
-  //  vec3 c_diff = mix(base, vec3(0), metallic);
-  //  vec3 F = f0 + (1 - f0) * (1-pow(abs(VdotH), 5));
-   // vec3 f_diffuse = (1 - F) * (1 / M_PI) * c_diff;
-   // float d = d_ggx(NdotH, alpha);
-  // brdf_impl s = brdf_impl(n, h, l, v, roughness, metallic, roughness * roughness);
-
 
 
    //vec3 f_specullar = abs(F * (d_ggx(s)  * ga_ggx(s)));
    vec3 specular = vec3(clamp(((F * ggx_g * ggx_d )/(NdotV * NdotL * 4)), vec3(0), vec3(1)) * NdotL);
-   // vec3 specular = ((F *ggx_d * ggx_g)*( NdotL ));
-   
-   // float fd90 = 0.5 + 2 * LdotH * LdotH * roughness;
-   // float fd90m1 = fd90 - 1;
-   // float lp5 = pow(1 - (NdotL), 5);
-   // float vp5 = pow(1 - (NdotV), 5);
 
-
-  //  vec3 diffuse = (base / M_PI) * (1 + fd90m1 * lp5) * (1 + fd90m1 * vp5) * NdotL;
     vec3 diffuse = base * ((1/M_PI));
 
     vec3 res = (vec3(1) - F) * diffuse + specular;
@@ -330,40 +256,5 @@ vec3 dumb_brdf(Ray r, HittableRecord hit, float roughness, float metallic, vec3 
     }
     return res;
 }
-vec3 brdf_col2(Ray r, HittableRecord hit, float roughness, float metallic, vec3 base, vec3 mnormal)
-{
 
-    vec3 n = normalize(hit.normal);
- 
-    vec3 v = normalize( -r.direction);
-  //  vec3 v = n;
-    vec3 l = normalize(reflect(r.direction, mnormal));
-    vec3 h = normalize(l + v);
-
-
-    if(dot(n,l) <= 0.0f || dot(n,v) <= 0.0f)
-    {
-        return vec3(0,0,0);
-    }
-
- //   roughness = -roughness;
-    brdf_impl s = brdf_impl(n, h, l, v, roughness, metallic, roughness * roughness);
-
-
-    const vec3 black = vec3(0);
-
-    vec3 c_diff = mix(base, black, metallic);
-
-    vec3 f0 = mix(vec3(0.04), base, metallic);
-
-    vec3 F = f0 + (1.0f - f0) * pow(1.0f - abs(dot(s.v, s.n)), 5.0f);
-
-    vec3 f_diffuse = (1.0f - F) * (1.0f / M_PI) * c_diff;
-
-    vec3 f_specular = (F 
-    * d_ggx(s)  * ga_ggx(s)) / (4.0f * abs(dot(s.n, s.v)) * abs(dot(s.n, s.l)));
-
-    
-    return clamp(f_diffuse + f_specular, vec3(0), vec3(1));
-}
 #endif
