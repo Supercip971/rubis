@@ -484,8 +484,8 @@ vec2 fuv = record.uv;
 HittableRecord world_hit(Ray r, float x, float y)
 {
 
-    float cmin = 0.000001f;
-    float cmax = 1000000.f;
+    float cmin = 0.00001f;
+    float cmax = 100000.f;
 
     HittableRecord rec = traverse_bvh_stack(r, cmin, cmax);
     if (rec.hitted)
@@ -503,29 +503,34 @@ HittableRecord world_hit(Ray r, float x, float y)
         vec2 uv2a = buf_datas[start + 5].xy;
         vec2 uv2b = vec2(buf_datas[start + 5].z, buf_datas[start + 6].x);
         vec2 uv2c = buf_datas[start + 6].yz;
- 
+
         vec3 na = buf_datas[start + 7].xyz;
         vec3 nb = buf_datas[start + 8].xyz;
         vec3 nc = buf_datas[start + 9].xyz;
-        vec3 ta = buf_datas[start + 10].xyz;
-        vec3 tb = buf_datas[start + 11].xyz;
-        vec3 tc = buf_datas[start + 12].xyz;
+        vec3 ta = (buf_datas[start + 10].xyz);
+        float tsign = buf_datas[start + 10].w;
+        vec3 tb = (buf_datas[start + 11].xyz);
+        vec3 tc = (buf_datas[start + 12].xyz);
 
         vec3 edge_1 = pb - pa;
         vec3 edge_2 = pc - pa;
 
         rec.normal = normalize((na * (1 - rec.uv.x - rec.uv.y) + nb * (rec.uv.x) + nc * (rec.uv.y)));
 
-     //         rec.normal = (normalize(cross(edge_1, edge_2)));
+        vec3 n2 = (normalize(cross(edge_1, edge_2)));
+
+        rec.geometry_normal = n2;
+
         rec.tangent = normalize((ta * (1 - rec.uv.x - rec.uv.y) + tb * (rec.uv.x) + tc * (rec.uv.y)));
-        rec.tangent_sign = buf_datas[start + 10].w;
+
+        rec.bittangent = normalize(cross(rec.normal, rec.tangent)) * tsign;
+
         vec2 final = (uv1a * (1.0 - rec.uv.x - rec.uv.y) + uv1b * (rec.uv.x) + uv1c * (rec.uv.y));
-        rec.uv = final;
         vec2 final2 = (uv2a * (1.0 - rec.uv.x - rec.uv.y) + uv2b * (rec.uv.x) + uv2c * (rec.uv.y));
-        rec.uv2 = final;
 
+        rec.uv = final;
+        rec.uv2 = final2;
 
-        rec.bittangent = rec.tangent_sign * cross(rec.normal, rec.tangent);
         rec = update_face_normal(rec, r, rec.normal);
     }
 

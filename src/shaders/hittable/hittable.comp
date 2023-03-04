@@ -9,6 +9,7 @@ struct HittableRecord
     bool hitted;
     vec3 point;
     vec3 normal;
+    vec3 geometry_normal;
     vec3 tangent;
     vec3 bittangent;
     float tangent_sign;
