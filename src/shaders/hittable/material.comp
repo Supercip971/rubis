@@ -149,7 +149,7 @@ float smith_g_1(vec3 h, vec3 s, vec3 so, float alpha)
 
 
     float sq_alpha = alpha * alpha;
-    return h_dot_so * sqrt(sq_alpha + h_dot_s * (h_dot_s - sq_alpha * h_dot_s));
+    return h_dot_so * sqrt(sq_alpha + h_dot_s * h_dot_s * (1 - sq_alpha));
 
 //    float a = h_dot_s / (max(0.00001f,alpha) * sqrt(1 - min(0.9999999f,h_dot_s * h_dot_s)));
 
@@ -160,7 +160,7 @@ float smith_g_1(vec3 h, vec3 s, vec3 so, float alpha)
 
 vec3 fresnel(vec3 f_0, float f90, float ndotv)
 {
-    return f_0 + (vec3(f90) - f_0) * (pow(1.0-ndotv, 5.0)); 
+    return f_0 + (vec3(f90) - f_0) * (pow(clamp(1.0-ndotv, 0.0, 1.0), 5.0)); 
 }
 
 float ggx_smith_lambda(float a)
@@ -183,17 +183,28 @@ vec3 dumb_brdf(Ray r, HittableRecord hit, float roughness, float metallic, vec3 
     roughness = clamp(roughness, 0.0001, 0.9999);
     metallic = clamp(metallic, 0.0001, 0.9999);
     vec3 n = normalize(mnormal);
-    vec3 v = normalize(r.origin - hit.point);
+    vec3 v = normalize(-r.direction);
     vec3 l = normalize(next);
+
     // l = wI
     // v = wO 
 
     vec3 wO = v;
     vec3 wI = l;
     vec3 h = normalize(l + v);
+
+    if(dot(n, h) < 0)
+    {
+        return vec3(0,0,0);
+    }
+
+    if(h.x == 0 && h.y == 0 && h.z == 0)
+    {
+        return vec3(0,0,0);
+    }
    // vec3 r = reflect(-l, n);
 
-    float NdotH = clamp(dot(n, h), 0.001,0.99999);
+    float NdotH = clamp(dot(n, h), 0.001,1);
 
     float NdotV = clamp_01_1(dot(n, v)) ;
  
@@ -210,24 +221,18 @@ vec3 dumb_brdf(Ray r, HittableRecord hit, float roughness, float metallic, vec3 
     float alpha = roughness * roughness;
 
     float alpha_sq = float(alpha) * float(alpha);
-
-
+    float alpha_sq_c = max(0.001f * 0.001f, alpha_sq);
 
 
     // D
-    float ggx_d_denom = (alpha_sq - 1) * (NdotH) * (NdotH) + 1;
-   // double cos_theta = NdotH*NdotH;
-   // double ggx_d_num = exp(float((cos_theta - 1) / (alpha_sq * cos_theta)));
+    float ggx_d_denom = max((alpha_sq_c - 1.0) * (NdotH) * (NdotH) + 1, 0.01);
     
-  //  double ggx_d_denom = M_PI * (alpha_sq * cos_theta * cos_theta);
 
-   // double ggx_d =  ggx_d_num/ggx_d_denom;
+    float ggx_d =  ( alpha_sq_c * NdotH) / (M_PI *  ggx_d_denom * ggx_d_denom);
 
-
-    float ggx_d =  ( alpha_sq ) / (M_PI *  ggx_d_denom * ggx_d_denom);
   // # G
 
-    float ggx_g = 0.5 / ( smith_g_1(n, l,v, alpha) + smith_g_1(n, v,l, alpha));
+    float ggx_g = max(0.5 / ( smith_g_1(n, l,v, alpha) + smith_g_1(n, v,l, alpha)), 0.0);
     
     // ## Fresnel 
 
@@ -236,21 +241,13 @@ vec3 dumb_brdf(Ray r, HittableRecord hit, float roughness, float metallic, vec3 
 
     vec3 F = fresnel(f0,min(60 * luminance(f0), 1.0),  LdotH); 
 
-    // Wo = L
-    // Wi = V ??
-
-    vec3 diffuse_reflectance = base * (1.0-metallic);
-
-
-
-   //vec3 f_specullar = abs(F * (d_ggx(s)  * ga_ggx(s)));
    vec3 specular = vec3(clamp(((F * ggx_g * ggx_d )/(NdotV * NdotL * 4)), vec3(0), vec3(1)) * NdotL);
 
     vec3 diffuse = base * ((1/M_PI));
 
     vec3 res = (vec3(1) - F) * diffuse + specular;
 
-    if (squared_len(res) > 1)
+    if (length(res) > 1)
     {
         res = normalize(res);
     }
