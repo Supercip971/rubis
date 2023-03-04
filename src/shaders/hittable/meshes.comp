@@ -217,159 +217,170 @@ vec3 inverse_reflection(vec3 dir, vec3 reflected)
     return (reflected - 2.0 * dot(reflected, -dir) * (-dir));
 }
 
-
 PbrtTexture material_load_tex(int begin, int off)
 {
     const int scale = 3;
     PbrtTexture result;
-    result.id = int(buf_datas[begin +off*3].x);
-    result.tid = int(buf_datas[begin +off*3].y);
-    result.factor = buf_datas[begin +off*3+1];
-    result.offset = buf_datas[begin +off*3 + 2].xy;
-    result.scale = buf_datas[begin +off*3 + 2].zw;
+    result.id = int(buf_datas[begin + off * 3].x);
+    result.tid = int(buf_datas[begin + off * 3].y);
+    result.factor = buf_datas[begin + off * 3 + 1];
+    result.offset = buf_datas[begin + off * 3 + 2].xy;
+    result.scale = buf_datas[begin + off * 3 + 2].zw;
     return result;
 }
 
 vec3 material_tex_query(PbrtTexture tex, vec2 uv)
 {
-    mat3 translation = mat3(1,0,0, 0,1,0, tex.offset.x, tex.offset.y, 1);
+    mat3 translation = mat3(1, 0, 0, 0, 1, 0, tex.offset.x, tex.offset.y, 1);
 
-    mat3 scale = mat3(tex.scale.x*1,0,0, 0,tex.scale.y*1,0, 0,0,1);
+    mat3 scale = mat3(tex.scale.x * 1, 0, 0, 0, tex.scale.y * 1, 0, 0, 0, 1);
 
-    mat3 matrix = translation  * scale;
-    vec2 uvTransformed = ( matrix * vec3(uv.xy, 1) ).xy;
+    mat3 matrix = translation * scale;
+    vec2 uvTransformed = (matrix * vec3(uv.xy, 1)).xy;
     vec3 result = texture(textures, vec3(uvTransformed, tex.id)).rgb;
     return result;
 }
+
+vec3 cosine_sample_hemisphere( float r1, float r2)
+{
+    float phi = 2.0 * M_PI * r1;
+
+    
+    float rt_r2 = sqrt(r2);
+    float x = cos(phi) * rt_r2;
+    float y = sin(phi) * rt_r2;
+
+    float z = sqrt(max(0.0, 1.0 - x*x - y*y));
+    return normalize(vec3(x, y, z));
+}
+
+vec3 importance_sample(float r, float r1, float r2)
+{
+    float phi = 2.0 * M_PI * r1;
+
+    float rt_r2 = sqrt(r2);
+    float z = sqrt(1 - r2);
+    float x = r * cos(phi) * rt_r2;
+    float y = r * sin(phi) * rt_r2;
+
+    return normalize(vec3(x, y, z));
+}
+
 MaterialRecord material_hit(HittableRecord record, Ray r)
 {
     Mesh current_mesh = meshes[record.mesh_id];
 
     MaterialRecord result;
     result.emitted = vec3(0, 0, 0);
-    vec4 first = buf_datas[current_mesh.material_data_start].xyzw;
-    vec4 tid = buf_datas[current_mesh.material_data_start+4].xyzw;
 
+    PbrtTexture albedo_T = material_load_tex(int(current_mesh.material_data_start), 0);
+    PbrtTexture normal_T = material_load_tex(int(current_mesh.material_data_start), 1);
+    PbrtTexture metallic_roughness_T = material_load_tex(int(current_mesh.material_data_start), 2);
+    PbrtTexture emit_T = material_load_tex(int(current_mesh.material_data_start), 3);
 
-    int base = int(first.y);
-   int base_tid = int(tid.x);
+    int base = int(albedo_T.id);
+    int base_tid = int(albedo_T.tid);
 
+    int metal = int(metallic_roughness_T.id);
+    int metal_tid = int(metallic_roughness_T.tid);
 
-    int metal = int(first.z);
-   int metal_tid = int(tid.z);
+    int normal = int(normal_T.id);
+    int normal_tid = int(normal_T.tid);
 
+    int emitid = int(emit_T.id);
 
-    int normal = int(first.x);
-   int normal_tid = int(tid.y);
-
-
-    int emitid = int(first.w);
-
-    vec3 emit = buf_datas[current_mesh.material_data_start + 3].xyz;
+    vec3 emit = emit_T.factor.xyz;
 
     if (emitid >= 0)
     {
-        emit *= texture(textures, vec3(record.uv, emitid)).xyz;
-        
+        emit *= material_tex_query(emit_T, record.uv).xyz;
     }
 
-    result.do_scatter  = true;
-    if(length(emit) > 0.9)
+    result.do_scatter = true;
+    if (length(emit) > 0.9)
     {
-        result.do_scatter = false; 
+        result.do_scatter = false;
     }
 
-    vec3 fact = buf_datas[current_mesh.material_data_start + 2].xyz;
-
-    float alpha = 1;
+    vec3 fact = albedo_T.factor.xyz;
+    float alpha = albedo_T.factor.w;
     if (base < 0)
     {
-        result.attenuation = buf_datas[current_mesh.material_data_start + 1].xyz;
-        alpha = buf_datas[current_mesh.material_data_start + 1].w;
-
+        result.attenuation = fact;
     }
     else
     {
         vec2 fuv = record.uv;
-        if(base_tid == 1)
+        if (base_tid == 1)
         {
             fuv = record.uv2;
         }
-        result.attenuation = (texture(textures, vec3(fuv, base)).xyz);
+        result.attenuation = material_tex_query(albedo_T, fuv) * fact;
 
-  //     result.attenuation = linear_to_srgb(result.attenuation);
         alpha = 1.0;
-
         //        alpha = texture(textures, vec3(record.uv, base)).w;
     }
 
-    vec3 T = normalize((record.tangent));
-    vec3 N = normalize((record.normal));
+    vec3 T = ((record.tangent));
+    vec3 N = ((record.normal));
+    vec3 B = (record.bittangent);
 
     vec3 og_normal = record.normal;
-    vec3 B = normalize(record.bittangent);
 
     vec3 unit_direction = vec_unit(r.direction);
-    if (record.front)
-    {
-        T = -T;
-        B = -B;
 
-    }
     if (normal >= 0)
     {
-
         vec3 normalv = vec3(1);
         vec2 fuv = record.uv;
-        if(normal_tid >= 0.5)
+        if (normal_tid == 1)
         {
             fuv = record.uv2;
         }
-        normalv = texture(textures, vec3((fuv), int(normal))).rgb * 2.0 - vec3(1.0);
-        normalv = normalize(normalv);
+        normalv = (material_tex_query(normal_T, fuv).rgb) * 2.0 - vec3(1.0);
 
-        mat3 TBN = (mat3(T, B, N));
+        normalv = (normalize(normalv) * vec3(normal_T.factor.xy, 1.0));
 
-        record.normal = normalize(((normalv * TBN)));
+        record.normal = normalize((normalv.x) * T + (normalv.y) * B + (normalv.z) * N);
     }
 
-  //  result.emitted = (record.normal + vec3(1)) / 2.0;
 
-  //  result.do_scatter = false;
-  //  return result;
+    // recreate a coordinate system 
+
+    // https://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors#CoordinateSystemfromaVector
+    N = record.normal;
+    if(abs(N.x) > abs(N.y))
+    {
+        T = normalize(vec3(-N.z, 0, N.x) * inversesqrt(N.x * N.x + N.z * N.z));
+    }
+    else
+    {
+        T = normalize(vec3(0, N.z, -N.y) * inversesqrt(N.y * N.y + N.z * N.z));
+    }
+    B = normalize(cross(N, T));
+// debug
+#if 0
+    if(true)
+    {
+        result.emitted =( record.normal + vec3(1.0)) / 2.0;
+        result.do_scatter = false;
+        return result;
+    }
+#endif
 
     vec3 metal_roughness = vec3(1, 1, 1);
     if (metal >= 0)
     {
-vec2 fuv = record.uv;
-        if(metal_tid == 1)
+        vec2 fuv = record.uv;
+        if (metal_tid == 1)
         {
             fuv = record.uv2;
         }
-        metal_roughness = texture(textures, vec3(fuv, metal)).xyz;
+        metal_roughness = material_tex_query(metallic_roughness_T, fuv);
     }
 
+    metal_roughness *= metallic_roughness_T.factor.xyz;
 
-
-    metal_roughness.z *= fact.x;
-
-    metal_roughness.y *= fact.y;
-
-    vec3 nref = reflect(unit_direction, record.normal);
-     vec3 ndir = vec_unit(nref + (vec3_random_unit() * (random())) *  clamp(metal_roughness.y, 0, 1));
-
-     vec3 normalv = vec_unit(inverse_reflection(ndir, unit_direction));
-
-
-       normalv = record.normal;
-   if(dot(normalv, r.direction) > 0)
-   {
-         normalv = -normalv;
-   }
-
-    // metal_roughness.z *= (metal_roughness.z);
-
-   // metal_roughness.y *= (metal_roughness.y);
 
     result.emitted = emit;
 
@@ -378,69 +389,80 @@ vec2 fuv = record.uv;
     vec3 oattenuation = result.attenuation;
 
     vec3 dir;
+
+    const float idx = 1.5;
+
+    float refract_ratio = 1.0 / idx;
+    // if (!record.front)
+    // {
+    //     refract_ratio = idx;
+    // }
+
+    float cos_theta = min((dot(-unit_direction, N)), 1.0);
+    float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+
+
+    float diffuse_ratio = 1.0 - (metal_roughness.z * metal_roughness.z);
+    vec3 H = N;
+
+    float roughness_value = clamp(metal_roughness.y, 0.0001, 1);
+    float metal_value = clamp(metal_roughness.z, 0, 1);
+
+
+
+    if (reflectance(cos_theta, refract_ratio) > random()) // specular
     {
-        const float idx = 1.5;
+        // https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf
 
-        float refract_ratio = 1.0 / idx;
-       // if (!record.front)
-       // {
-       //     refract_ratio = idx;
-       // }
+       //  dir = reflect(unit_direction, record.normal);
+        //dir = vec_unit(dir + (vec3_random_unit() * (random())) * clamp(metal_roughness.y, 0, 1));
+        H = importance_sample(roughness_value, random(), random());
 
-
-        
-
-     vec3 nnorm = vec_unit(record.normal + (vec3_random_unit() * (random())) *  clamp(metal_roughness.y, 0, 1));
-        float cos_theta = min((dot(-unit_direction, nnorm)), 1.0);
-
-        float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
-
-
-
-
-        
-        if (((reflectance(cos_theta, refract_ratio) > random())) )
+        H = normalize(H.x * T + H.y * B + H.z * N);
+        if(dot(H, unit_direction) > 0)
         {
-     //       result.emitted= vec3(1);
-     //       result.do_scatter = false;
-     //       return result;
-//https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf
-
-            dir = reflect(unit_direction, record.normal);
-            dir = vec_unit(dir + (vec3_random_unit() * (random())) *  clamp(metal_roughness.y, 0, 1));
-
-            result.attenuation = dumb_brdf(r, record, clamp(metal_roughness.y, 0, 1), clamp(metal_roughness.z, 0,1), result.attenuation, dir, normalv) * result.attenuation;
-         //   result.attenuation = vec3(1,1,1);
-         //   vec3 f0 = mix(vec3(refract_ratio), result.attenuation, metal_roughness.z);
-        //    result.attenuation = f0;
-   //result.attenuation = vec3(0,0,0);
-  //          result.do_scatter = false;
-         
+            H = -H;
         }
-        else
+        dir = normalize(reflect(unit_direction, H));
+    }
+    else
+    {
+        float r1 = random();
+        float r2 = random();
+        if (random() < (metal_value * 0.5))
         {
-     //   result.emitted= vec3(0);
-     //   result.do_scatter = false;
-     //   return result;
+            H = importance_sample(roughness_value, r1,r2);
+            
 
-            dir = ndir;
-            vec3 fnormal = normalv;
-            if (random() > (metal_roughness.z))
+            H = normalize(H.x * T + H.y * B + H.z * N);
+
+            if(dot(H, unit_direction) > 0)
             {
-                fnormal = random_in_hemisphere(record.normal);
-
-
-                dir = fnormal;
+                H = -H;
             }
-            dir = vec_unit(dir);
-  
-            result.attenuation =(dumb_brdf(r, record, clamp(metal_roughness.y, 0, 1), clamp(metal_roughness.z, 0,1), result.attenuation, dir, normalv));
-          //  result.attenuation = vec3(0,0,0);
+            dir = reflect(unit_direction, H);
         }
+        else 
+        {
+            dir = cosine_sample_hemisphere( r1, r2);
 
+            // V= -I
+            // H = (V + L) / 2 <=> = norm(V + L) 
+            H = normalize(dir + (-unit_direction));
+            if(dot(H, unit_direction) > 0)
+            {
+                H = -H;
+            }
+        }
+        //  vec3 ndir = vec_unit(record.normal+ (vec3_random_unit() * (random())) *  clamp(metal_roughness.y, 0, 1));
+
+        
+        vec3 fnormal = H;
+        dir = vec_unit(dir);
 
     }
 
+    result.attenuation = dumb_brdf(r, record, roughness_value, metal_value, result.attenuation, dir, N);
 
 
 
@@ -525,9 +547,21 @@ HittableRecord world_hit(Ray r, float x, float y)
     return rec;
 }
 
+float map(float value, float min1, float max1, float min2, float max2)
+{
+    return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
+}
+
+vec3 light_off = vec_unit(vec3(-3.9618, -3.142, -1.3474));
 vec4 sky_color(Ray r)
 {
+
+    // return vec4(vec3(0.9922, 0.9843, 0.8275) * (100), 1);
     vec3 unit_direction = vec_unit(r.direction);
+    float rad = (0.009285) / 4;
+    float ldir = map(clamp(dot(-light_off, unit_direction), 1.0 - rad, 1.0), 1.0 - rad, 1.0, 0, 1);
+
+    return vec4(mix(vec3(0.23, 0.36, 0.41), vec3(0.9922, 0.9843, 0.8275) * (100), ldir), 1);
     float t = acos(unit_direction.y);
     float p = atan(-unit_direction.z, unit_direction.x) + 3.1415;
     float u = p * (1 / (2 * 3.1415));
@@ -535,7 +569,7 @@ vec4 sky_color(Ray r)
 
     vec3 rc = texture(skymap, vec2(u, v)).rgb;
 
-   // return vec4(1, 0, 0, 1);
+    // return vec4(1, 0, 0, 1);
     return vec4(srgb_to_linear(rc), 1);
 }
 
