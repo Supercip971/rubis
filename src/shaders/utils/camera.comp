@@ -18,7 +18,10 @@ struct camera
     float lens_radius;
 };
 
-#define FOV 60
+#define FOV 39.5978
+//#define FOV 60
+
+
 camera camera_init(vec3 pos, vec3 to, vec3 up, float aperture, float focus_disk)
 {
 
@@ -45,20 +48,19 @@ camera camera_init(vec3 pos, vec3 to, vec3 up, float aperture, float focus_disk)
 
 Ray camera_ray(camera cam, float u, float v)
 {
-
+#if 0
+   // Ray r;
+   // r.origin = cam.origin;
+   // r.direction = cam.llc + u * cam.horizontal + v * cam.vertical - cam.origin;
+   // return r;
+#else 
+    vec3 rd = cam.lens_radius * vec3_random_unit_in_disk() * (random() * 2 - 1.0);
+    vec3 off = cam.u * rd.x + cam.v * rd.y;
     Ray r;
-    r.origin = cam.origin;
-    r.direction = cam.llc + u * cam.horizontal + v * cam.vertical - cam.origin;
+    r.origin = cam.origin + off;
+    r.direction = cam.llc + u * cam.horizontal + v * cam.vertical - cam.origin - off;
     return r;
-
-    /*
-        vec3 rd = cam.lens_radius * vec3_random_unit_in_disk();
-        vec3 off = cam.u * rd.x + cam.v * rd.y;
-        Ray r;
-        r.origin = cam.origin + off;
-        r.direction = cam.llc + u * cam.horizontal + v * cam.vertical - cam.origin - off;
-        return r;
-        */
+#endif  
 }
 
 #endif
