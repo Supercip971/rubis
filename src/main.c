@@ -16,28 +16,28 @@ struct muarg_argument_config arg_list[] = {
 };
 
 struct muarg_header header = {
-    .app_name = "feather", 
-    .usage = "feather -m {model}", 
+    .app_name = "feather",
+    .usage = "feather -m {model}",
     .help_info = "You may need to download a .glb file",
     .version = "0.0.0",
     .argument_count = sizeof(arg_list) / sizeof(arg_list[0]),
-    .argument_list =arg_list,
+    .argument_list = arg_list,
 };
 
 #define randomf() (((float)random()) / (float)RAND_MAX)
 int main(MAYBE_UNUSED int argc, MAYBE_UNUSED char **argv)
 {
-    struct muarg_result res = muarg_eval(&header, argc, argv); 
-    if(res.has_error == MUARG_ERROR)
+    struct muarg_result res = muarg_eval(&header, argc, argv);
+    if (res.has_error == MUARG_ERROR)
     {
         return res.has_error;
     }
-    if(muarg_status_from_name(&res, "help")->is_called)
+    if (muarg_status_from_name(&res, "help")->is_called)
     {
         return 0;
     }
-    struct muarg_argument_status* status = muarg_status_from_name(&res, "model");
-    if(!status->is_called)
+    struct muarg_argument_status *status = muarg_status_from_name(&res, "model");
+    if (!status->is_called)
     {
         printf("invalid usage, please use a model path, see --help for more information\n");
         return -1;
@@ -51,7 +51,7 @@ int main(MAYBE_UNUSED int argc, MAYBE_UNUSED char **argv)
     Scene scene = {};
 
     scene_init(&scene);
-    Buffer skybuf = read_file("obj/skymap.png");
+    Buffer skybuf = read_file("./meta/skymap.png");
     scene.skymap = image_load(skybuf.buffer, skybuf.len);
 
     printf("loading scene...\n");
@@ -78,8 +78,8 @@ int main(MAYBE_UNUSED int argc, MAYBE_UNUSED char **argv)
     camera_init(&cam, (void *)window_raw_handle(&curr_window), CAMERA_CONTROLLABLE, &scene.camera_transform);
     cam.aperture = 8.0;
     cam.focus_disc = (2.0f);
-   // cam.pos = vec3$(0, 2, 1);
-   // cam.front = vec3_unit(vec3_sub(vec3$(0, 2, 0), cam.pos));
+    // cam.pos = vec3$(0, 2, 1);
+    // cam.front = vec3_unit(vec3_sub(vec3$(0, 2, 0), cam.pos));
     while (!window_should_close(&curr_window))
     {
 
