@@ -7,8 +7,8 @@ Triangle *mesh_get_triangle(MeshCreation *mesh, int index)
 }
 Vec3 mesh_geometry_normal(Triangle *input)
 {
-    Vec3 u = vec3_sub(input->pb, input->pa);
-    Vec3 v = vec3_sub(input->pc, input->pa);
+    Vec3 u = vec3_sub(input->b.pos, input->a.pos);
+    Vec3 v = vec3_sub(input->c.pos, input->a.pos);
 
     return vec3_unit(vec3_cross(u, v));
 }
@@ -16,15 +16,15 @@ Vec3 mesh_geometry_normal(Triangle *input)
 int triangle_shared_point_count(Triangle *a, Triangle *b)
 {
     int count = 0;
-    if (vec3_eq(a->pa, b->pa) || vec3_eq(a->pa, b->pb) || vec3_eq(a->pa, b->pc))
+    if (vec3_eq(a->a.pos, b->a.pos) || vec3_eq(a->a.pos, b->b.pos) || vec3_eq(a->a.pos, b->c.pos))
     {
         count++;
     }
-    if (vec3_eq(a->pb, b->pa) || vec3_eq(a->pb, b->pb) || vec3_eq(a->pb, b->pc))
+    if (vec3_eq(a->b.pos, b->a.pos) || vec3_eq(a->b.pos, b->b.pos) || vec3_eq(a->b.pos, b->c.pos))
     {
         count++;
     }
-    if (vec3_eq(a->pc, b->pa) || vec3_eq(a->pc, b->pb) || vec3_eq(a->pc, b->pc))
+    if (vec3_eq(a->c.pos, b->a.pos) || vec3_eq(a->c.pos, b->b.pos) || vec3_eq(a->c.pos, b->c.pos))
     {
         count++;
     }
@@ -54,25 +54,25 @@ void mesh_gen_normal_for_triangle(MeshCreation *mesh, int triangle_index)
         Vec3 normal = mesh_geometry_normal(other);
 
         float angle = fabs(vec3_dot(geometry_normal, normal));
-        if (vec3_eq(a->pa, b->pa) || vec3_eq(a->pa, b->pb) || vec3_eq(a->pa, b->pc))
+        if (vec3_eq(a->a.pos, b->a.pos) || vec3_eq(a->a.pos, b->b.pos) || vec3_eq(a->a.pos, b->c.pos))
         {
             result_a = vec3_add(vec3_mul_val(normal, angle), result_a);
         }
-        if (vec3_eq(a->pb, b->pa) || vec3_eq(a->pb, b->pb) || vec3_eq(a->pb, b->pc))
+        if (vec3_eq(a->b.pos, b->a.pos) || vec3_eq(a->b.pos, b->b.pos) || vec3_eq(a->b.pos, b->c.pos))
         {
             result_b = vec3_add(vec3_mul_val(normal, angle), result_b);
         }
-        if (vec3_eq(a->pc, b->pa) || vec3_eq(a->pc, b->pb) || vec3_eq(a->pc, b->pc))
+        if (vec3_eq(a->c.pos, b->a.pos) || vec3_eq(a->c.pos, b->b.pos) || vec3_eq(a->c.pos, b->c.pos))
         {
             result_c = vec3_add(vec3_mul_val(normal, angle), result_c);
         }
     }
 
-    triangle->na = vec3_unit(result_a);
-    triangle->nb = vec3_unit(result_b);
-    triangle->nc = vec3_unit(result_c);
+    triangle->a.normal = vec3_unit(result_a);
+    triangle->b.normal = vec3_unit(result_b);
+    triangle->c.normal = vec3_unit(result_c);
 
-    triangle->has_normals = true;
+    triangle->a.normal._padding = 1.0;
 }
 void mesh_gen_normals_if_needed(MeshCreation *mesh)
 {
@@ -81,10 +81,9 @@ void mesh_gen_normals_if_needed(MeshCreation *mesh)
     {
         Triangle *triangle = mesh_get_triangle(mesh, i);
 
-        if (!triangle->has_normals)
+        if (triangle->a.normal._padding < 0.5)
         {
             mesh_gen_normal_for_triangle(mesh, i);
-            triangle->has_normals = true;
         }
     }
 }

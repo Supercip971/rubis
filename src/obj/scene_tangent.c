@@ -28,19 +28,23 @@ void scene_get_position(const SMikkTSpaceContext *pContext, float fvPosOut[], in
 {
     TengantGenCtx *ctx = pContext->m_pUserData;
     Mesh *mesh = &ctx->scene->meshes.data[ctx->mesh_id];
-    fvPosOut[0] = ctx->scene->data.data[mesh->vertices.start + iVert + iFace * MESH_VERTICE_COUNT].x;
-    fvPosOut[1] = ctx->scene->data.data[mesh->vertices.start + iVert + iFace * MESH_VERTICE_COUNT].y;
-    fvPosOut[2] = ctx->scene->data.data[mesh->vertices.start + iVert + iFace * MESH_VERTICE_COUNT].z;
+    SVertex vert = mesh_read_vertex(ctx->scene, mesh, iVert+ iFace * 3);
 
+    fvPosOut[0] = vert.pos.x;
+    fvPosOut[1] = vert.pos.y;
+    fvPosOut[2] = vert.pos.z;
 }
 
 void scene_get_normal(const SMikkTSpaceContext *pContext, float fvNormOut[], int iFace, int iVert)
 {
     TengantGenCtx *ctx = pContext->m_pUserData;
     Mesh *mesh = &ctx->scene->meshes.data[ctx->mesh_id];
-    fvNormOut[0] = ctx->scene->data.data[mesh->vertices.start + iVert + 7 + iFace * MESH_VERTICE_COUNT].x;
-    fvNormOut[1] = ctx->scene->data.data[mesh->vertices.start + iVert + 7 + iFace * MESH_VERTICE_COUNT].y;
-    fvNormOut[2] = ctx->scene->data.data[mesh->vertices.start + iVert + 7 + iFace * MESH_VERTICE_COUNT].z;
+    SVertex vert = mesh_read_vertex(ctx->scene, mesh, iVert+ iFace * 3);
+
+    fvNormOut[0] = vert.normal.x;
+    fvNormOut[1] = vert.normal.y;
+    fvNormOut[2] = vert.normal.z;
+
 }
 
 int scene_texture_id_normal(Scene *scene, int material_d)
@@ -63,33 +67,33 @@ void scene_get_texCoord(const SMikkTSpaceContext *pContext, float fvTexOut[], in
     
     int offset = scene_texture_id_normal(ctx->scene, mesh->material.start) * 2;
     // see:  https://github.com/KhronosGroup/glTF-Sample-Models/issues/174
-    switch(iVert)
+    SVertex vert = mesh_read_vertex(ctx->scene, mesh, iVert+ iFace * 3);
+
+    if(offset == 0)
     {
-        case 0:
-            fvTexOut[0] = ctx->scene->data.data[mesh->vertices.start + 3 + offset + iFace * MESH_VERTICE_COUNT].x;
-            fvTexOut[1] = ctx->scene->data.data[mesh->vertices.start + 3 + offset + iFace * MESH_VERTICE_COUNT].y;
-            break;
-        case 1:
-            fvTexOut[0] = ctx->scene->data.data[mesh->vertices.start + 3 + offset + iFace * MESH_VERTICE_COUNT].z;
-            fvTexOut[1] = ctx->scene->data.data[mesh->vertices.start + 4 + offset + iFace * MESH_VERTICE_COUNT].x;
-            break;
-        case 2:
-            fvTexOut[0] = ctx->scene->data.data[mesh->vertices.start + 4 + offset + iFace * MESH_VERTICE_COUNT].y;
-            fvTexOut[1] = ctx->scene->data.data[mesh->vertices.start + 4 + offset + iFace * MESH_VERTICE_COUNT].z;
-            break;
+        fvTexOut[0] = vert.tc1.x;
+        fvTexOut[1] = vert.tc1.y;
+
+        return;
     }
+
+    fvTexOut[0] = vert.tc2.x;
+    fvTexOut[1] = vert.tc2.y;
+
 }
 
 void scene_set_tangent_basic(const SMikkTSpaceContext *pContext, const float fvTangent[], float fSign, int iFace, int iVert)
 {
     TengantGenCtx *ctx = pContext->m_pUserData;
     Mesh *mesh = &ctx->scene->meshes.data[ctx->mesh_id];
-      // see:  https://github.com/KhronosGroup/glTF-Sample-Models/issues/174
-    
-    ctx->scene->data.data[mesh->vertices.start + 10 + iVert + iFace * MESH_VERTICE_COUNT].x = fvTangent[0];
-    ctx->scene->data.data[mesh->vertices.start + 10 + iVert + iFace * MESH_VERTICE_COUNT].y = fvTangent[1];
-    ctx->scene->data.data[mesh->vertices.start + 10 + iVert + iFace * MESH_VERTICE_COUNT].z = fvTangent[2];
-    ctx->scene->data.data[mesh->vertices.start + 10 + iVert + iFace * MESH_VERTICE_COUNT]._padding = -fSign;
+
+    SVertex vert = mesh_read_vertex(ctx->scene, mesh, iVert+ iFace * 3);
+    vert.tangent.x = fvTangent[0];
+    vert.tangent.y = fvTangent[1];
+    vert.tangent.z = fvTangent[2];
+    // see:  https://github.com/KhronosGroup/glTF-Sample-Models/issues/174
+    vert.tangent._padding = -fSign;
+    mesh_write_vertex(ctx->scene, mesh, iVert+ iFace * 3, vert);
 }
 
 bool scene_generate_tangent(Scene* self)
@@ -129,7 +133,6 @@ bool scene_generate_tangent(Scene* self)
             return false;
         }
     }
-
 
     return true;
 

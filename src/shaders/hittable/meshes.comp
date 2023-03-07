@@ -42,13 +42,15 @@ layout(binding = 7) uniform sampler2D skymap;
 #define FROM_PARENT 2
 #define FROM_CHILD 3
 
+// size in vec4
+#define VERTEX_SIZE 4
 HittableRecord process_leaf(Ray r, int id, int vert, float cmin, float cmax)
 {
     Mesh current_mesh = meshes[id];
 
-    vec3 pa = buf_datas[current_mesh.mesh_data_start + vert * VERTICES_SIZE].xyz;
-    vec3 pb = buf_datas[current_mesh.mesh_data_start + vert * VERTICES_SIZE + 1].xyz;
-    vec3 pc = buf_datas[current_mesh.mesh_data_start + vert * VERTICES_SIZE + 2].xyz;
+    vec3 pa = buf_datas[current_mesh.mesh_data_start + vert * VERTICES_SIZE + 0 * VERTEX_SIZE].xyz;
+    vec3 pb = buf_datas[current_mesh.mesh_data_start + vert * VERTICES_SIZE + 1 * VERTEX_SIZE].xyz;
+    vec3 pc = buf_datas[current_mesh.mesh_data_start + vert * VERTICES_SIZE + 2 * VERTEX_SIZE].xyz;
 
     HittableRecord res = hit_triangle(cmin, cmax, r, pa, pb, pc);
 
@@ -503,25 +505,26 @@ HittableRecord world_hit(Ray r, float x, float y)
         Mesh current_mesh = meshes[rec.mesh_id];
         uint start = current_mesh.mesh_data_start + rec.vert_id * VERTICES_SIZE;
 
-        vec3 pa = buf_datas[start].xyz;
-        vec3 pb = buf_datas[start + 1].xyz;
-        vec3 pc = buf_datas[start + 2].xyz;
-        vec2 uv1a = buf_datas[start + 3].xy;
-        vec2 uv1b = vec2(buf_datas[start + 3].z, buf_datas[start + 4].x);
-        vec2 uv1c = buf_datas[start + 4].yz;
+        vec3 pa = buf_datas[VERTEX_SIZE * 0 + start].xyz;
+        vec3 na = buf_datas[VERTEX_SIZE * 0 + start + 1].xyz;
+        vec3 ta = (buf_datas[VERTEX_SIZE * 0 + start + 2].xyz);
+        vec2 uv1a = buf_datas[VERTEX_SIZE * 0 + start + 3].xy;
+        vec2 uv2a = buf_datas[VERTEX_SIZE * 0 + start + 3].zw;
 
-        vec2 uv2a = buf_datas[start + 5].xy;
-        vec2 uv2b = vec2(buf_datas[start + 5].z, buf_datas[start + 6].x);
-        vec2 uv2c = buf_datas[start + 6].yz;
+        vec3 pb = buf_datas[VERTEX_SIZE * 1 + start].xyz;
+        vec3 nb = buf_datas[VERTEX_SIZE * 1 + start + 1].xyz;
+        vec3 tb = (buf_datas[VERTEX_SIZE * 1 + start + 2].xyz);
+        vec2 uv1b = buf_datas[VERTEX_SIZE * 1 + start + 3].xy;
+        vec2 uv2b = buf_datas[VERTEX_SIZE * 1 + start + 3].zw;
 
-        vec3 na = buf_datas[start + 7].xyz;
-        vec3 nb = buf_datas[start + 8].xyz;
-        vec3 nc = buf_datas[start + 9].xyz;
-        vec3 ta = (buf_datas[start + 10].xyz);
-        float tsign = buf_datas[start + 10].w;
-        vec3 tb = (buf_datas[start + 11].xyz);
-        vec3 tc = (buf_datas[start + 12].xyz);
+        vec3 pc = buf_datas[VERTEX_SIZE * 2 + start].xyz;
+        vec3 nc = buf_datas[VERTEX_SIZE * 2 + start + 1].xyz;
+        vec3 tc = (buf_datas[VERTEX_SIZE * 2 + start + 2].xyz);
+        vec2 uv1c = buf_datas[VERTEX_SIZE * 2 + start + 3].xy;
+        vec2 uv2c = buf_datas[VERTEX_SIZE * 2 + start + 3].zw;
 
+
+        float tsign = buf_datas[start + 2].w;
         vec3 edge_1 = pb - pa;
         vec3 edge_2 = pc - pa;
 

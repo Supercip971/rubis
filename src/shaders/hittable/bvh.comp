@@ -1,7 +1,7 @@
 #ifndef BVH_COMP
 #define BVH_COMP
 
-#define VERTICES_SIZE 13
+#define VERTICES_SIZE 12
 struct Bvh
 {
     int is_next_a_bvh;

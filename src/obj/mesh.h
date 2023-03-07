@@ -2,12 +2,11 @@
 #include <ds/vec.h>
 #include <math/vec3.h>
 #include <math/aabb.h>
+#include <render/vulkan/vertex.h>
 
 #define MESH_NONE 0
 #define MESH_CIRCLE 1
 #define MESH_TRIANGLES 2
-
-#define MESH_VERTICE_COUNT 13
 
 typedef struct __attribute__((packed))
 {
@@ -24,53 +23,7 @@ typedef struct __attribute__((packed))
     _Alignas(16) AABB aabb;
 } Mesh;
 
-typedef struct
-{
-    float x, y;
-} TriangleTexPos;
 
-typedef struct
-{
-    Vec3 pa;
-
-    Vec3 pb;
-    Vec3 pc;
-
-    union
-    {
-
-        float tex_coords[3][2];
-        TriangleTexPos tex_pos[3];
-    } tc1;
-    float _pad;
-
-    union
-    {
-
-        float tex_coords[3][2];
-        TriangleTexPos tex_pos[3];
-    } tc2;
-    float _pad2;
-
-
-    bool has_normals;
-    Vec3 na;
-    Vec3 nb;
-    Vec3 nc;
-
-    // tangent 
-    Vec3 ta;
-    Vec3 tb;
-    Vec3 tc;
-
-
-
-
-} Triangle;
-typedef struct __attribute__((packed))
-{
-
-} MeshVertice;
 typedef vec_t(Vec3) Points;
 typedef vec_t(Mesh) Meshes;
 
@@ -79,7 +32,3 @@ void mesh_init(Meshes *self);
 void mesh_add_circle(Meshes *self);
 
 int mesh_count_faces(Mesh *self);
-
-Triangle triangle_unpack(const Vec3* packed_data);
-void triangle_pack(Vec3* target, Triangle triangle);
-

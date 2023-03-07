@@ -7,6 +7,7 @@
 #include "math/vec3.h"
 #include "obj/img.h"
 #include "obj/mesh.h"
+#include "render/vulkan/vertex.h"
 void scene_init(Scene *self)
 {
     vec_init(&self->data);
@@ -114,56 +115,24 @@ void scene_push_tri(Scene *self, Vec3 posa, Vec3 posb, Vec3 posc, Material mater
 
     vec_push(&self->meshes, mesh);
 }
+
 void scene_push_tri2(Scene *self, Triangle triangle, Material material)
 {
     Mesh mesh = {
         .material_type = material.type,
         .material = material.data,
         .type = MESH_TRIANGLES,
-        .aabb = aabb_create_triangle(triangle.pa, triangle.pb, triangle.pc),
+        .aabb = aabb_create_triangle(triangle.a.pos, triangle.b.pos, triangle.c.pos),
 
     };
+     Vec3 dat[TRIANGLE_PACKED_COUNT];
 
-    scene_data_reference_push(self, &mesh.vertices, triangle.pa);
-    scene_data_reference_push(self, &mesh.vertices, triangle.pb);
-
-    scene_data_reference_push(self, &mesh.vertices, triangle.pc);
-
-    Vec3 tcoord1;
-    Vec3 tcoord2;
-
-    // TEXCOORD_0
-    tcoord1.x = triangle.tc1.tex_coords[0][0]; // pa.x
-    tcoord1.y = triangle.tc1.tex_coords[0][1]; // pa.y
-    tcoord1.z = triangle.tc1.tex_coords[1][0]; // pb.x
-    tcoord2.x = triangle.tc1.tex_coords[1][1]; // pb.y
-    tcoord2.y = triangle.tc1.tex_coords[2][0]; // pc.x
-    tcoord2.z = triangle.tc1.tex_coords[2][1]; // pc.y
-
-    scene_data_reference_push(self, &mesh.vertices, tcoord1);
-    scene_data_reference_push(self, &mesh.vertices, tcoord2);
-
-    // TEXCOORD_1
-    tcoord1.x = triangle.tc2.tex_coords[0][0]; // pa.x
-    tcoord1.y = triangle.tc2.tex_coords[0][1]; // pa.y
-    tcoord1.z = triangle.tc2.tex_coords[1][0]; // pb.x
-    tcoord2.x = triangle.tc2.tex_coords[1][1]; // pb.y
-    tcoord2.y = triangle.tc2.tex_coords[2][0]; // pc.x
-    tcoord2.z = triangle.tc2.tex_coords[2][1]; // pc.y
-
-    scene_data_reference_push(self, &mesh.vertices, tcoord1);
-    scene_data_reference_push(self, &mesh.vertices, tcoord2);
-
-    scene_data_reference_push(self, &mesh.vertices, triangle.na);
-
-    scene_data_reference_push(self, &mesh.vertices, triangle.nb);
-    scene_data_reference_push(self, &mesh.vertices, triangle.nc);
-
-    // Tangent
-    scene_data_reference_push(self, &mesh.vertices, triangle.ta);
-    scene_data_reference_push(self, &mesh.vertices, triangle.tb);
-    scene_data_reference_push(self, &mesh.vertices, triangle.tc);
-
+    triangle_pack(dat, triangle);
+    
+    for(int i = 0; i < TRIANGLE_PACKED_COUNT ; i++)
+    { 
+        scene_data_reference_push(self, &mesh.vertices, dat[i]);
+    }
     vec_push(&self->meshes, mesh);
 }
 
@@ -191,22 +160,46 @@ MeshCreation scene_start_mesh(Scene *self, Material material)
 Triangle scene_mesh_triangle(Scene *self, int mesh_index, int triangle_index)
 {
     Mesh *mesh = &self->meshes.data[mesh_index];
-    Vec3 *data = &self->data.data[mesh->vertices.start + triangle_index * MESH_VERTICE_COUNT];
+    Vec3 *data = &self->data.data[mesh->vertices.start + triangle_index * TRIANGLE_PACKED_COUNT];
     Triangle t = triangle_unpack(data);
 
     return t;
 }
+
+
+SVertex mesh_read_vertex(Scene* self, Mesh* from,   int vertex)
+{
+    if(vertex >= from->vertices.end/ SVERTEX_PACKED_COUNT)
+    {
+        printf("vertex out of bounds: %d >= %d\n", vertex, from->vertices.end/ SVERTEX_PACKED_COUNT);
+        abort();
+    }
+    Vec3* data = &self->data.data[from->vertices.start + vertex * SVERTEX_PACKED_COUNT];
+    return svertex_unpack(data);
+}
+
+void mesh_write_vertex(Scene* self, Mesh* from, int vertex, SVertex data)
+{
+    if(vertex >= from->vertices.end/ SVERTEX_PACKED_COUNT)
+    {
+        printf("vertex out of bounds: %d >= %d\n", vertex, from->vertices.end/ SVERTEX_PACKED_COUNT);
+        abort();
+    }
+    Vec3* dat = &self->data.data[from->vertices.start + vertex * SVERTEX_PACKED_COUNT];
+    svertex_pack(dat, data);
+}
+
 void mesh_push_triangle(MeshCreation *mesh, Triangle triangle)
 {
 
     if (mesh->data.length == 0)
     {
-        mesh->mesh.aabb = aabb_create_triangle(triangle.pa, triangle.pb, triangle.pc);
+        mesh->mesh.aabb = aabb_create_triangle(triangle.a.pos, triangle.b.pos, triangle.c.pos);
     }
     else
     {
         // TODO: this is so dumb, we should add a AABB library
-        AABB next = aabb_create_triangle(triangle.pa, triangle.pb, triangle.pc);
+        AABB next = aabb_create_triangle(triangle.a.pos, triangle.b.pos, triangle.c.pos);
 
         mesh->mesh.aabb.min = vec3_min(mesh->mesh.aabb.min, next.min);
         mesh->mesh.aabb.max = vec3_max(mesh->mesh.aabb.max, next.max);
@@ -226,11 +219,11 @@ void scene_end_mesh(Scene *self, MeshCreation *mesh)
     {
         Triangle triangle = d->data[i];
 
-        Vec3 raw[MESH_VERTICE_COUNT];
+        Vec3 raw[TRIANGLE_PACKED_COUNT];
 
         triangle_pack(raw, triangle);
 
-        for (int c = 0; c < MESH_VERTICE_COUNT; c++)
+        for (int c = 0; c < TRIANGLE_PACKED_COUNT; c++)
         {
 
             scene_data_reference_push(self, &mesh->mesh.vertices, raw[c]);

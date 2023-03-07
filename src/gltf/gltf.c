@@ -137,26 +137,26 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
                 abort();
             }
             Triangle final = {
-                .pa = matrix_apply_point_ret(&transform, gltvec2vec(v[idx0])),
-                .pb = matrix_apply_point_ret(&transform, gltvec2vec(v[idx1])),
-                .pc = matrix_apply_point_ret(&transform, gltvec2vec(v[idx2])),
+                .a.pos = matrix_apply_point_ret(&transform, gltvec2vec(v[idx0])),
+                .b.pos = matrix_apply_point_ret(&transform, gltvec2vec(v[idx1])),
+                .c.pos = matrix_apply_point_ret(&transform, gltvec2vec(v[idx2])),
             };
 
             if(has_normal)
             {
-                final.na = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx0]));
-                final.nb = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx1]));
-                final.nc = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx2]));
-                final.has_normals = true;  
+                final.a.normal = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx0]));
+                final.b.normal = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx1]));
+                final.c.normal = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx2]));
+                final.a.normal._padding = 1;  
             }
             else  {
-                final.has_normals = false;
+                final.a.normal._padding = 0;
             }
             if(has_tangent)
             {
-                final.ta = matrix_apply_vector_ret(&transform, gltvec42vec(t[idx0]));
-                final.tb = matrix_apply_vector_ret(&transform, gltvec42vec(t[idx1]));
-                final.tc = matrix_apply_vector_ret(&transform, gltvec42vec(t[idx2]));
+                final.a.tangent = matrix_apply_vector_ret(&transform, gltvec42vec(t[idx0]));
+                final.b.tangent = matrix_apply_vector_ret(&transform, gltvec42vec(t[idx1]));
+                final.c.tangent = matrix_apply_vector_ret(&transform, gltvec42vec(t[idx2]));
             
             }
 
@@ -170,9 +170,9 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
                 }
 
                 GltfVec2 *gltftex = texcoords1.view.data;
-                final.tc1.tex_pos[0] = (TriangleTexPos){gltftex[idx0].x, gltftex[idx0].y};
-                final.tc1.tex_pos[1] = (TriangleTexPos){gltftex[idx1].x, gltftex[idx1].y};
-                final.tc1.tex_pos[2] = (TriangleTexPos){gltftex[idx2].x, gltftex[idx2].y};
+                final.a.tc1 = (TriangleTexPos){gltftex[idx0].x, gltftex[idx0].y};
+                final.b.tc1 = (TriangleTexPos){gltftex[idx1].x, gltftex[idx1].y};
+                final.c.tc1 = (TriangleTexPos){gltftex[idx2].x, gltftex[idx2].y};
             }
         if (has_texcoord2)
             {
@@ -183,9 +183,9 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
                 }
 
                 GltfVec2 *gltftex = texcoords2.view.data;
-                final.tc2.tex_pos[0] = (TriangleTexPos){gltftex[idx0].x, gltftex[idx0].y};
-                final.tc2.tex_pos[1] = (TriangleTexPos){gltftex[idx1].x, gltftex[idx1].y};
-                final.tc2.tex_pos[2] = (TriangleTexPos){gltftex[idx2].x, gltftex[idx2].y};
+                final.a.tc2 = (TriangleTexPos){gltftex[idx0].x, gltftex[idx0].y};
+                final.b.tc2 = (TriangleTexPos){gltftex[idx1].x, gltftex[idx1].y};
+                final.c.tc2 = (TriangleTexPos){gltftex[idx2].x, gltftex[idx2].y};
             }
             mesh_push_triangle(&mesh_creation, final);
         }

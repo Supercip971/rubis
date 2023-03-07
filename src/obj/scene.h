@@ -4,6 +4,7 @@
 #include <obj/mesh.h>
 #include <stddef.h>
 #include "math/mat4.h"
+#include "render/vulkan/vertex.h"
 
 #define PBRT_SIZE_IMAGE 3
 typedef vec_t(Image) TexLists;
@@ -29,6 +30,9 @@ typedef struct
 
 
 Triangle scene_mesh_triangle(Scene *self, int mesh_index, int triangle_index);
+
+SVertex mesh_read_vertex(Scene* self, Mesh* from,   int vertex);
+void mesh_write_vertex(Scene* self, Mesh* from, int vertex, SVertex data);
 
 void scene_init(Scene *self);
 

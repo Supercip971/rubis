@@ -157,7 +157,7 @@ bool is_vec3_dim_superior(Vec3 point, Vec3 maxc, Vec3 minc, VecDimension dim)
 
 bool triangle_bounding_with(Triangle tri, AAPlane plane, AABB *box)
 {
-    return triangle_in_plane_aabb(tri.pa, tri.pb, tri.pc, plane, box);
+    return triangle_in_plane_aabb(tri.a.pos, tri.b.pos, tri.c.pos, plane, box);
 }
 
 AAPlane center_plane_from_aabb(AABB box)
@@ -613,7 +613,7 @@ void bvh_init(BvhList *self, Scene *target)
 
                 BvhEntry entry = {
                     .box = 
-                        aabb_create_triangle(t.pa,  t.pb,  t.pc),
+                        aabb_create_triangle(t.a.pos,  t.b.pos,  t.c.pos),
                     .is_next_a_bvh = false,
                     .la = i,
                     .lb = c,
