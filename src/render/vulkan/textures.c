@@ -38,7 +38,6 @@ VulkanBuffer vulkan_scene_texture_data_init(VulkanCtx *ctx, uint32_t *final_size
             {
 
                 memcpy(data + off + j, c.data, src_size);
-           
             }
         }
         off += dst_size;
@@ -74,8 +73,11 @@ void image_load_from_buffer(VulkanCtx *ctx, VkImage target, uint32_t width, uint
 
     vk_end_single_time_command(ctx, cmd_buf);
 }
-void swap_image_layout(VulkanCtx *ctx, VkImage image, VkImageLayout old, VkImageLayout new, int layers, bool compute, bool writable)
+
+void swap_image_layout(VulkanCtx *ctx, VkImage image, VkFormat fmt, VkImageLayout old, VkImageLayout new, int layers, bool compute, bool writable)
 {
+    // TODO: improve this function
+
     VkCommandBuffer cmd_buf = vk_start_single_time_command(ctx);
     VkImageMemoryBarrier barrier = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -91,19 +93,50 @@ void swap_image_layout(VulkanCtx *ctx, VkImage image, VkImageLayout old, VkImage
         .subresourceRange.layerCount = layers,
     };
 
-    if (old == VK_IMAGE_LAYOUT_UNDEFINED)
+    if (new == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
     {
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    }
-    else
-    {
-
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        if (fmt == VK_FORMAT_D32_SFLOAT_S8_UINT || fmt == VK_FORMAT_D24_UNORM_S8_UINT)
+        {
+            barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+        }
     }
     VkPipelineStageFlags src_stage = (old == VK_IMAGE_LAYOUT_UNDEFINED) ? (VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT) : (VK_PIPELINE_STAGE_TRANSFER_BIT);
     VkPipelineStageFlags dst_stage = (old == VK_IMAGE_LAYOUT_UNDEFINED) ? (VK_PIPELINE_STAGE_TRANSFER_BIT) : (VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+    if (old == VK_IMAGE_LAYOUT_UNDEFINED && new == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+    {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+        src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dst_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
+    else if (old == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && new == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+    {
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    else if (old == VK_IMAGE_LAYOUT_UNDEFINED && new == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+    {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+        src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        dst_stage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    }
+    else 
+    {
+        printf("[warn] unhandled image layout transition\n");
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
     if (compute)
     {
         if (dst_stage == VK_PIPELINE_STAGE_TRANSFER_BIT)
@@ -195,7 +228,7 @@ void vulkan_shader_shared_texture_init(VulkanCtx *ctx, VulkanTex *self, int widt
 
     vk_try$(vkBindImageMemory(ctx->logical_device, self->image, self->mem, 0));
 
-    swap_image_layout(ctx, self->image, VK_IMAGE_LAYOUT_UNDEFINED, (fragment) ? (VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) : (VK_IMAGE_LAYOUT_GENERAL), 1, true, true);
+    swap_image_layout(ctx, self->image, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, (fragment) ? (VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) : (VK_IMAGE_LAYOUT_GENERAL), 1, true, true);
 
     self->desc_info.imageView = image_view_create(ctx, self->image, 1, true);
     self->desc_info.sampler = image_sampler_create(ctx);
@@ -238,10 +271,10 @@ void vulkan_scene_texture_load(VulkanCtx *ctx, VulkanTex *self, VulkanBuffer *bu
 
     vkBindImageMemory(ctx->logical_device, self->image, self->mem, 0);
 
-    swap_image_layout(ctx, self->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, depth, false, false);
+    swap_image_layout(ctx, self->image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, depth, false, false);
 
     image_load_from_buffer(ctx, self->image, width, height, depth, buffer->buffer);
-    swap_image_layout(ctx, self->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, depth, false, false);
+    swap_image_layout(ctx, self->image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, depth, false, false);
 
     self->desc_info.imageView = image_view_create(ctx, self->image, depth, false);
     self->desc_info.sampler = image_sampler_create(ctx);
