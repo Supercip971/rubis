@@ -1,5 +1,6 @@
 #pragma once
 
+#include "obj/img.h"
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <ds/vec.h>
@@ -35,7 +36,11 @@ typedef struct
     _Alignas(16) Vec3 cam_up;
     _Alignas(4) float aperture;
     _Alignas(4) float focus_disc;
-    _Alignas(4) int denoise;
+
+    _Alignas(16) float proj_matrix[4][4];
+    _Alignas(16) float view_matrix[4][4];
+
+
 } VulkanConfig;
 
 typedef struct
@@ -58,7 +63,12 @@ typedef struct
     VkDeviceMemory mem;
     int width;
     int height;
+    VkFormat fmt;
+    VkImageView view; // optional
 } VulkanTex;
+
+typedef vec_t(VulkanTex) VulkanTexs;
+
 typedef struct
 {
     VkApplicationInfo app_info;
@@ -83,7 +93,11 @@ typedef struct
     VkExtent2D extend;
     VkFormat swapchain_image_format;
     VkPipelineLayout pipeline_layout;
+    VkPipelineLayout compute_preview_pipeline_layout;
+
+
     VkPipeline gfx_pipeline;
+    VkPipeline compute_preview_pipeline;
     VkPipeline compute_pipeline;
 
     VkRenderPass render_pass;
@@ -92,6 +106,8 @@ typedef struct
 
     VkCommandPool cmd_pool;
     VkCommandPool comp_pool;
+    VkDescriptorPool gui_pool;
+
 
     VkCommandBuffer cmd_buffer;
     VkCommandBuffer comp_buffer;
@@ -117,6 +133,8 @@ typedef struct
     VulkanBuffer mesh_data_buf;
     VulkanBuffer bvh_buf;
 
+    VulkanBuffer vertex_buffer;
+
     VkDescriptorPool descriptor_pool;
     uint32_t frame_id;
 
@@ -124,6 +142,11 @@ typedef struct
     VulkanTex skymap;
     VulkanTex comp_targ;
     VulkanTex frag_targ;
+    VulkanTex depth_buffer;
+
+    VkImageView depth_view;
+
+    VulkanTexs overlay_images;
 
     Vec3 cam_pos;
     Vec3 cam_look;

@@ -174,8 +174,10 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
     vulkan_cmd_pool_init(self);
 
     vulkan_cmd_buffer_init(self);
+    vulkan_render_pass_init(self);
     vulkan_scene_textures_init(self);
 
+    vulkan_vertex_buffer_init(self);
     vulkan_shader_shared_texture_init(self, &self->comp_targ, self->aligned_width, self->aligned_height, false);
     vulkan_shader_shared_texture_init(self, &self->frag_targ, self->aligned_width, self->aligned_height, true);
 
@@ -200,6 +202,7 @@ int vulkan_deinit(VulkanCtx *self)
     vkDeviceWaitIdle(self->logical_device);
     vk_buffer_unmap(self, self->config_buf);
     vulkan_sync_deinit(self);
+    vulkan_vertex_buffer_deinit(self);
     vulkan_cmd_pool_deinit(self);
     vulkan_framebuffer_deinit(self);
 
@@ -245,9 +248,18 @@ int vulkan_frame(VulkanCtx *self)
     self->cfg->height = self->aligned_height;
     self->cfg->t = self->frame_id;
 
-    self->cfg->denoise = self->enable_denoise;
+    Matrix4x4 view = matrix_lookat(self->cam_pos, cam_look, vec3$(0,1,0));
 
-    bool compute_refresh = false;
+    Matrix4x4 proj = matrix_perspective(45, (float)self->aligned_width / (float)self->aligned_height, 0.1, 1000);
+
+    for(int x = 0; x < 4; x++)
+    {
+        for(int y = 0; y < 4; y++)
+        {
+            self->cfg->view_matrix[x][y]= view.value[x][y];
+            self->cfg->proj_matrix[x][y]= proj.value[x][y];
+        }
+    }
 
     if (vkGetFenceStatus(self->logical_device, self->compute_fence) == VK_SUCCESS)
     {
@@ -304,7 +316,7 @@ int vulkan_frame(VulkanCtx *self)
         uint32_t image_idx = 0;
 
         vk_try$(vkAcquireNextImageKHR(self->logical_device, self->swapchain, UINT64_MAX, self->image_available_semaphore, VK_NULL_HANDLE, &image_idx));
-        vulkan_record_cmd_buffer(self, image_idx, compute_refresh);
+        vulkan_record_cmd_buffer(self, image_idx, true);
         VkSemaphore signaledSemaphores[] = {self->render_finished_semaphore};
         VkSemaphore waitSemaphores[] = {self->image_available_semaphore};
         VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};

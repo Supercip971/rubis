@@ -100,17 +100,7 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
     vkResetCommandBuffer(ctx->cmd_buffer, 0);
 
     vk_try$(vkBeginCommandBuffer(ctx->cmd_buffer, &begin_info));
-    /*
-     VkBufferCopy copy_region = {
-         .size = ctx->computing_image.len,
-         .dstOffset = 0,
-         .srcOffset = 0,
-     };
 
-     vkCmdCopyBuffer(ctx->cmd_buffer, ctx->comp_targ.mem, ctx->fragment_image.buffer, 1, &copy_region);
-*/
-
-    //   VkCommandBuffer cmd_buf = vk_start_single_time_command(ctx);
     VkRenderPassBeginInfo render_pass_info = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = ctx->render_pass,

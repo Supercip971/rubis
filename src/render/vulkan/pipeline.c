@@ -1,5 +1,7 @@
 #include <render/vulkan/pipeline.h>
 #include <utils/file.h>
+#include <vulkan/vulkan_core.h>
+#include "render/vulkan/vertex.h"
 
 VkShaderModule vulkan_shader_create(VulkanCtx *ctx, Buffer code)
 {
@@ -34,11 +36,11 @@ void vulkan_compute_pipeline(VulkanCtx *ctx)
     vkCreateComputePipelines(ctx->logical_device, VK_NULL_HANDLE, 1, &info, NULL, &ctx->compute.raw_pipeline);
 }
 
-void vulkan_pipeline_init(VulkanCtx *ctx)
-{
-    Buffer frag_code = read_file("build/shaders/frag.spv");
-    Buffer vert_code = read_file("build/shaders/vert.spv");
 
+void vulkan_graphics_pipeline_init(VulkanCtx *ctx, VkPipeline* target, VkPipelineLayout* layout ,const char* vpath, const char* fpath)
+{
+    Buffer frag_code = read_file(fpath);
+    Buffer vert_code = read_file(vpath);
     VkShaderModule frag_mod = vulkan_shader_create(ctx, frag_code);
     VkShaderModule vert_mod = vulkan_shader_create(ctx, vert_code);
 
@@ -61,12 +63,15 @@ void vulkan_pipeline_init(VulkanCtx *ctx)
     vec_push(&infos, vcreate_info);
     vec_push(&infos, fcreate_info);
 
+    VertexDescription vert_desc = vulkan_vertex_desc();
+    VkVertexInputBindingDescription vert_bind = vulkan_vertex_binding();
+
     VkPipelineVertexInputStateCreateInfo vt_input = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        .vertexBindingDescriptionCount = 0,
-        .pVertexBindingDescriptions = NULL,
-        .vertexAttributeDescriptionCount = 0,
-        .pVertexAttributeDescriptions = NULL,
+        .vertexBindingDescriptionCount = 1,
+        .pVertexBindingDescriptions = &vert_bind,
+        .vertexAttributeDescriptionCount = 5,
+        .pVertexAttributeDescriptions = vert_desc.attributes,
     };
 
     VkPipelineInputAssemblyStateCreateInfo input_assembly = {
@@ -85,6 +90,7 @@ void vulkan_pipeline_init(VulkanCtx *ctx)
     };
 
     VkRect2D scissor = {
+        .offset = {0,0},
         .extent = ctx->extend,
     };
 
@@ -102,7 +108,7 @@ void vulkan_pipeline_init(VulkanCtx *ctx)
         .rasterizerDiscardEnable = VK_FALSE,
         .polygonMode = VK_POLYGON_MODE_FILL,
         .lineWidth = 1.0f,
-        .cullMode = VK_CULL_MODE_BACK_BIT,
+        .cullMode = VK_CULL_MODE_NONE,
         .frontFace = VK_FRONT_FACE_CLOCKWISE,
         .depthBiasEnable = VK_FALSE,
     };
@@ -123,6 +129,20 @@ void vulkan_pipeline_init(VulkanCtx *ctx)
         .logicOpEnable = VK_FALSE,
         .attachmentCount = 1,
         .pAttachments = &color_blending_attachement,
+        .logicOp = VK_LOGIC_OP_COPY, 
+    };
+
+    VkPipelineDepthStencilStateCreateInfo depth_stencil = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .depthTestEnable = VK_TRUE,
+        .depthWriteEnable = VK_TRUE,
+        .depthCompareOp = VK_COMPARE_OP_LESS,
+        .depthBoundsTestEnable = VK_FALSE,
+        .minDepthBounds = 0.0f,
+        .maxDepthBounds = 1.0f,
+        .stencilTestEnable = VK_FALSE,
+        .front = {0},
+        .back = {0},
     };
 
     VkPipelineLayoutCreateInfo pipeline_create = {
@@ -131,7 +151,7 @@ void vulkan_pipeline_init(VulkanCtx *ctx)
         .pSetLayouts = &ctx->descriptor_layout,
     };
 
-    vk_try$(vkCreatePipelineLayout(ctx->logical_device, &pipeline_create, NULL, &ctx->pipeline_layout));
+    vk_try$(vkCreatePipelineLayout(ctx->logical_device, &pipeline_create, NULL, layout));
 
     VkGraphicsPipelineCreateInfo graphic_pipeline = {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
@@ -144,15 +164,25 @@ void vulkan_pipeline_init(VulkanCtx *ctx)
         .pRasterizationState = &rast_create_info,
         .pMultisampleState = &multisampling_create_info,
         .pColorBlendState = &color_blending,
-        .layout = ctx->pipeline_layout,
+        .pDepthStencilState = &depth_stencil,
+        .layout = *layout,
         .renderPass = ctx->render_pass,
         .subpass = 0,
     };
 
-    vk_try$(vkCreateGraphicsPipelines(ctx->logical_device, VK_NULL_HANDLE, 1, &graphic_pipeline, NULL, &ctx->gfx_pipeline));
+    vk_try$(vkCreateGraphicsPipelines(ctx->logical_device, VK_NULL_HANDLE, 1, &graphic_pipeline, NULL, target));
 
     vkDestroyShaderModule(ctx->logical_device, frag_mod, NULL);
     vkDestroyShaderModule(ctx->logical_device, vert_mod, NULL);
+}
+
+
+void vulkan_pipeline_init(VulkanCtx *ctx)
+{
+
+    vulkan_graphics_pipeline_init(ctx, &ctx->gfx_pipeline, &ctx->pipeline_layout, "build/shaders/vert.spv", "build/shaders/frag.spv");
+    vulkan_graphics_pipeline_init(ctx, &ctx->gfx_pipeline, &ctx->compute_preview_pipeline_layout, "build/shaders/vert_cview.spv", "build/shaders/frag_cview.spv");
+
 
     vulkan_compute_pipeline(ctx);
 }
@@ -163,6 +193,8 @@ void vulkan_pipeline_deinit(VulkanCtx *ctx)
 
     vkDestroyPipeline(ctx->logical_device, ctx->gfx_pipeline, NULL);
     vkDestroyPipelineLayout(ctx->logical_device, ctx->pipeline_layout, NULL);
+    vkDestroyPipelineLayout(ctx->logical_device, ctx->compute_preview_pipeline_layout, NULL);
+
 
     (void)ctx;
 }
