@@ -4,7 +4,9 @@
 #include <render/vulkan/command.h>
 #include <render/vulkan/device.h>
 #include <render/vulkan/logical.h>
+#include <ui/ui.h>
 #include <vulkan/vulkan_core.h>
+#include "render/vulkan/vertex.h"
 void vulkan_cmd_pool_init(VulkanCtx *ctx)
 {
     QueueFamilyIndices queue_family_idx = vulkan_pick_queue_family(ctx);
@@ -110,6 +112,18 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
         },
         .clearValueCount = 0,
     };
+    VkClearValue clearColor = {
+        .color = {
+            {0.0f, 0.0f, 0.0f, 1.0f}},
+    };
+    VkClearValue clearStencil = {
+
+        .depthStencil = {1.0f, 0},
+    };
+
+    VkClearValue clearValues[] = {clearColor, clearStencil};
+    render_pass_info.clearValueCount = 2;
+    render_pass_info.pClearValues = clearValues;
 
     if (false)
     {

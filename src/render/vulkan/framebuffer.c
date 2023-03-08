@@ -11,12 +11,13 @@ void vulkan_framebuffer_init(VulkanCtx *ctx)
     {
         VkImageView attachement[] = {
             ctx->swapchain_img_view.data[i],
+            ctx->depth_view
         };
 
         VkFramebufferCreateInfo create_info = {
             .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
             .renderPass = ctx->render_pass,
-            .attachmentCount = 1,
+            .attachmentCount = 2,
             .pAttachments = attachement,
             .width = ctx->extend.width,
             .height = ctx->extend.height,

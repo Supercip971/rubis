@@ -170,10 +170,12 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
 
     vulkan_image_view_init(self);
 
-    vulkan_render_pass_init(self);
     vulkan_cmd_pool_init(self);
 
     vulkan_cmd_buffer_init(self);
+
+    vulkan_depth_target_init(self);
+
     vulkan_render_pass_init(self);
     vulkan_scene_textures_init(self);
 
@@ -203,6 +205,8 @@ int vulkan_deinit(VulkanCtx *self)
     vk_buffer_unmap(self, self->config_buf);
     vulkan_sync_deinit(self);
     vulkan_vertex_buffer_deinit(self);
+
+    vulkan_depth_target_deinit(self);
     vulkan_cmd_pool_deinit(self);
     vulkan_framebuffer_deinit(self);
 
