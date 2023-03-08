@@ -2,6 +2,22 @@
 
 #define MAYBE_UNUSED [[maybe_unused]]
 
+#define umax(x, y) ((x) > (y) ? (x) : (y))
+#define umin(x, y) ((x) < (y) ? (x) : (y))
+#define umax_s(x, y) ({                     \
+    __auto_type __x_val = (x);              \
+    __auto_type __y_val = (y);              \
+    __auto_type r = umax(__x_val, __y_val); \
+    r;                                      \
+})
+
+#define umin_s(x, y) ({                     \
+    __auto_type __x_val = (x);              \
+    __auto_type __y_val = (y);              \
+    __auto_type r = umin(__x_val, __y_val); \
+    r;                                      \
+})
+
 #define clamp(x, min, max) (((x) > (max)) ? (max) : (((x) < (min)) ? (min) : (x)))
 
 #define clamp_s(x, min, max) ({                           \

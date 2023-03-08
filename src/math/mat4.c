@@ -245,3 +245,47 @@ Vec3 matrix_apply_point_ret(const Matrix4x4 *matrix, Vec3 point)
     matrix_apply_point(matrix, &c);
     return c;
 }
+
+Matrix4x4 matrix_lookat(Vec3 pos, Vec3 center, Vec3 up)
+{
+    Vec3 f = vec3_unit(vec3_sub(center, pos));
+    Vec3 s = vec3_unit(vec3_cross(f, up));
+    Vec3 u = vec3_cross(s, f);
+
+    Matrix4x4 result = {};
+    create_matrix_identity(&result);
+
+    result.value[0][0] = s.x;
+    result.value[1][0] = s.y;
+    result.value[2][0] = s.z;
+    result.value[0][1] = u.x;
+    result.value[1][1] = u.y;
+    result.value[2][1] = u.z;
+    result.value[0][2] = -f.x;
+    result.value[1][2] = -f.y;
+    result.value[2][2] = -f.z;
+    result.value[3][3] = 1.0f;
+
+    result.value[3][0] = -vec3_dot(s, pos);
+    result.value[3][1] = -vec3_dot(u, pos);
+    result.value[3][2] = vec3_dot(f, pos);
+
+    return result;
+}
+
+Matrix4x4 matrix_perspective(float fov_deg, float ratio, float near, float far)
+{
+    float fov_rad = fov_deg * (M_PI / 180.0f);
+    float f = 1.0f / tan(fov_rad / 2.0f);
+    Matrix4x4 result = {};
+    create_matrix_identity(&result);
+
+
+    result.value[0][0] = f / ratio;
+    result.value[1][1] = f;
+    result.value[2][2] = (far + near) / (near - far);
+    result.value[2][3] = -1.0f;
+    result.value[3][2] = (-2.0f * far * near) / (far - near);
+    result.value[3][3] = 1.0f;
+    return result;
+}

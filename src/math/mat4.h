@@ -16,6 +16,10 @@ void create_matrix_rotate_y(Matrix4x4 *matrix, float angle);
 void create_matrix_rotate_z(Matrix4x4 *matrix, float angle);
 void create_matrix_rotate_q(Matrix4x4 *matrix, double x, double y, double z, double w);
 
+Matrix4x4 matrix_lookat(Vec3 pos, Vec3 center, Vec3 up);
+
+Matrix4x4 matrix_perspective(float fov_deg, float ratio, float near, float far);
+
 void matrix_inverse(const Matrix4x4 *matrix, Matrix4x4 *result);
 void matrix_transpose(const Matrix4x4 *matrix, Matrix4x4 *result);
 void matrix_multiply(const Matrix4x4 *a, const Matrix4x4 *b, Matrix4x4 *result);
