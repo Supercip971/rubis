@@ -20,6 +20,6 @@ typedef struct
     bool denoise;
 } Camera;
 
-void camera_init(Camera *cam, void *whandle, bool enable_control, Matrix4x4* mod);
+void camera_init(Camera *cam, void *whandle, Matrix4x4* mod);
 
 void camera_update(Camera *cam, void *whandle);

@@ -48,29 +48,57 @@ Triangle triangle_unpack(const Vec3 *packed_data)
 
 
 
-/*
 VkVertexInputBindingDescription vulkan_vertex_binding(void)
 {
     return (VkVertexInputBindingDescription){
         .binding = 0,
-        .stride = sizeof(float) * 4 * MESH_VERTICE_COUNT,
+        .stride = 4*sizeof(float) * SVERTEX_PACKED_COUNT,
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
     };
 }
 
+static int vulkan_v4_off(int i)
+{
+    return i * sizeof(float) * 4;
+}
 
 VertexDescription vulkan_vertex_desc()
 {
-    VertexDescription desc = {
+    const VertexDescription desc = {
         .input  = vulkan_vertex_binding(),
         .attributes = {
             [0] = (VkVertexInputAttributeDescription){
                 .binding = 0,
                 .location = 0,
-                .format = VK_FORMAT_R32G32B32_SFLOAT,
-                .offset = 0,
-            }
+                .format = VK_FORMAT_R32G32B32A32_SFLOAT, // position
+                .offset = vulkan_v4_off(0),
+            },
+            [1] = (VkVertexInputAttributeDescription){
+                .binding = 0,
+                .location = 1,
+                .format = VK_FORMAT_R32G32B32A32_SFLOAT, // normal
+                .offset = vulkan_v4_off(1),
+            },
+            [2] = (VkVertexInputAttributeDescription){
+                .binding = 0,
+                .location = 2,
+                .format = VK_FORMAT_R32G32B32A32_SFLOAT, // tangent with sign
+                .offset = vulkan_v4_off(2),
+            },
+            [3] = (VkVertexInputAttributeDescription){
+                .binding = 0,
+                .location = 3,
+                .format = VK_FORMAT_R32G32_SFLOAT, // tcoord1
+                .offset = vulkan_v4_off(3),
+            },
+            [4] = (VkVertexInputAttributeDescription){
+                .binding = 0,
+                .location = 4,
+                .format = VK_FORMAT_R32G32_SFLOAT, // tcoord2
+                .offset = vulkan_v4_off(3) + sizeof(float) * 2,
+            },
         },
     };
 
-}*/
+    return desc;
+}

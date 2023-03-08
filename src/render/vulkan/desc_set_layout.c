@@ -47,7 +47,7 @@ void shader_descriptors_init(VulkanCtx *ctx, ShaderDescriptors *desc)
 
     vec_push(desc, ((ShaderDescriptor){
                        .target = &ctx->config_buf,
-                       .flag = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .flag = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT,
                        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                    }));
 

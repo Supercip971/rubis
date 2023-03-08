@@ -121,14 +121,53 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
         .clearValueCount = 0,
     };
 
-    vkCmdBeginRenderPass(ctx->cmd_buffer, &render_pass_info, 0);
+    if (false)
     {
-        vkCmdBindPipeline(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->gfx_pipeline);
 
-        vkCmdBindDescriptorSets(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->pipeline_layout, 0, 1, &ctx->descriptor_set, 0, NULL);
-        vkCmdDraw(ctx->cmd_buffer, 6, 1, 0, 0);
+        vkCmdBeginRenderPass(ctx->cmd_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+        {
+
+            vkCmdBindPipeline(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->gfx_pipeline);
+            vkCmdBindDescriptorSets(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->pipeline_layout, 0, 1, &ctx->descriptor_set, 0, NULL);
+
+            for (int i = 0; i < ctx->scene.meshes.length; i++)
+            {
+                Mesh mesh = ctx->scene.meshes.data[i];
+
+                int data_start = mesh.vertices.start;
+                int data_end = mesh.vertices.end;
+
+                int data_size = data_end - data_start;
+
+                if (data_size == 0)
+                {
+                    continue;
+                }
+                VkBuffer vertex_buffers[] = {ctx->vertex_buffer.buffer};
+
+                VkDeviceSize offsets[] = {data_start * 4 * sizeof(float)};
+
+                vkCmdBindVertexBuffers(ctx->cmd_buffer, 0, 1, vertex_buffers, offsets);
+                vkCmdDraw(ctx->cmd_buffer, data_size / SVERTEX_PACKED_COUNT, 1, 0, 0);
+            }
+            ui_record(ctx);
+        }
+        vkCmdEndRenderPass(ctx->cmd_buffer);
     }
-    vkCmdEndRenderPass(ctx->cmd_buffer);
+    else
+    {
+        vkCmdBeginRenderPass(ctx->cmd_buffer, &render_pass_info, 0);
+        {
+            vkCmdBindPipeline(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->gfx_pipeline);
+
+            vkCmdBindDescriptorSets(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->compute_preview_pipeline_layout, 0, 1, &ctx->descriptor_set, 0, NULL);
+            vkCmdDraw(ctx->cmd_buffer, 6, 1, 0, 0);
+           ui_record(ctx);
+      
+        }
+
+        vkCmdEndRenderPass(ctx->cmd_buffer);
+    }
 
     vk_try$(vkEndCommandBuffer(ctx->cmd_buffer));
 }
