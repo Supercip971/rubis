@@ -11,6 +11,7 @@ typedef struct
 {
     Window self;
     GLFWwindow *window;
+    bool control;
 } WindowImpl;
 
 vec_t(WindowImpl) windows = {};
@@ -31,11 +32,8 @@ int window_init(Window *self)
     self->window_id = windows.length;
 
     impl.window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "loading", NULL, NULL);
-    if (CAMERA_CONTROLLABLE)
-    {
-        glfwSetInputMode(impl.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    }
     impl.self = *self;
+    impl.control = !get_config().camera_controllable;
     printf("window: %lx\n", (uintptr_t)impl.window);
 
     vec_push(&windows, impl);
@@ -116,6 +114,25 @@ bool window_should_close(Window *self)
 
 int window_update(MAYBE_UNUSED Window *self)
 {
+    WindowImpl *impl = &windows.data[self->window_id];
+
+    bool nc = get_config().camera_controllable;
+
+    if (nc != impl->control)
+    {
+        if (get_config().camera_controllable)
+        {
+            glfwSetInputMode(impl->window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            nc = true;
+        }
+        else
+        {
+            glfwSetInputMode(impl->window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            nc = false;
+        }
+    }
+
     glfwPollEvents();
+
     return 0;
 }

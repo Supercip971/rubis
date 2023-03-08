@@ -3,6 +3,7 @@
 #include <render/camera/camera.h>
 #include <stdio.h>
 #include <utils.h>
+#include "config.h"
 #include "math/mat4.h"
 Camera *cam2;
 
@@ -14,20 +15,25 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos)
     double x = xpos;
     double y = ypos;
 
-    float dx = x - cam2->lastx;
-    float dy = cam2->lasty - y;
+    if (get_config().camera_controllable)
+    {
 
-    cam2->yaw += dx * 0.05f;
-    cam2->pitch += dy * 0.05f;
+        float dx = x - cam2->lastx;
+        float dy = cam2->lasty - y;
 
-    cam2->pitch = clamp(cam2->pitch, -89.0f, 89.0f);
+        cam2->yaw += dx * 0.05f;
+        cam2->pitch += dy * 0.05f;
 
-    cam2->front.x = cosf(DEG2RAD(cam2->yaw)) * cosf(DEG2RAD(cam2->pitch));
-    cam2->front.y = sinf(DEG2RAD(cam2->pitch));
-    cam2->front.z = sinf(DEG2RAD(cam2->yaw)) * cosf(DEG2RAD(cam2->pitch));
-    cam2->front = vec3_unit(cam2->front);
+        cam2->pitch = clamp(cam2->pitch, -89.0f, 89.0f);
+
+        cam2->front.x = cosf(DEG2RAD(cam2->yaw)) * cosf(DEG2RAD(cam2->pitch));
+        cam2->front.y = sinf(DEG2RAD(cam2->pitch));
+        cam2->front.z = sinf(DEG2RAD(cam2->yaw)) * cosf(DEG2RAD(cam2->pitch));
+        cam2->front = vec3_unit(cam2->front);
+    }
     cam2->lastx = x;
     cam2->lasty = y;
+
     (void)window;
 }
 
@@ -48,21 +54,18 @@ void camera_key_fun(GLFWwindow *window, int key, int scancode, int action, int m
 void camera_scroll_mouse_fun(GLFWwindow *window, double xpos, double ypos)
 {
     (void)xpos;
-    ctx2->speed = clamp(ctx2->speed + ypos * 0.01f, 0.01f, 10.0f);
+    ctx2->speed = clamp(ctx2->speed + ypos * 0.01f, 0.0001f, 10.0f);
     (void)window;
 }
-void camera_init(Camera *cam, void *whandle, bool enable_control, Matrix4x4 *mod)
+void camera_init(Camera *cam, void *whandle, Matrix4x4 *mod)
 {
     GLFWwindow *window = whandle;
 
-    if (enable_control)
-    {
-        double x;
-        double y;
-        glfwGetCursorPos(window, &x, &y);
+    double x;
+    double y;
+    glfwGetCursorPos(window, &x, &y);
 
-        glfwSetCursorPosCallback(window, mouse_callback);
-    }
+    glfwSetCursorPosCallback(window, mouse_callback);
     cam2 = cam;
 
     cam->pos = vec3$(0, 0, 0);
@@ -80,7 +83,6 @@ void camera_init(Camera *cam, void *whandle, bool enable_control, Matrix4x4 *mod
     cam->lastx = 0;
     cam->lasty = 0;
     cam->speed = 0.002f;
-    cam->controllable = enable_control;
     ctx2 = cam;
     glfwSetKeyCallback(window, camera_key_fun);
     glfwSetScrollCallback(window, camera_scroll_mouse_fun);
@@ -92,12 +94,12 @@ void camera_update(Camera *cam, void *whandle)
     cam2->front = vec3_unit(cam2->front);
 
     GLFWwindow *window = whandle;
-    if (cam->controllable)
+    if (get_config().camera_controllable)
     {
 
         cam2 = cam;
 
-        //const float cam_speed = 0.002f;
+        // const float cam_speed = 0.002f;
 
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         {
@@ -115,9 +117,9 @@ void camera_update(Camera *cam, void *whandle)
         {
             cam->pos = vec3_sub(cam->pos, vec3_mul_val(vec3_cross(cam->front, cam->up), cam->speed));
         }
-     //   if(glfwGetKey(window, GLFW_MOUSE) == GLFW_PRESS)
-     //   {
-     //       cam->pos = vec3_add(cam->pos, vec3_mul_val(cam->up, cam_speed));
-     //   }
+        //   if(glfwGetKey(window, GLFW_MOUSE) == GLFW_PRESS)
+        //   {
+        //       cam->pos = vec3_add(cam->pos, vec3_mul_val(cam->up, cam_speed));
+        //   }
     }
 }
