@@ -72,10 +72,10 @@ int main(MAYBE_UNUSED int argc, MAYBE_UNUSED char **argv)
 
     window_init(&curr_window);
 
+    camera_init(&cam, (void *)window_raw_handle(&curr_window), &scene.camera_transform);
     render_engine_init(&curr_window, &scene);
     render_init(&render);
 
-    camera_init(&cam, (void *)window_raw_handle(&curr_window), CAMERA_CONTROLLABLE, &scene.camera_transform);
     cam.aperture = 8.0;
     cam.focus_disc = (2.0f);
     // cam.pos = vec3$(0, 2, 1);

@@ -1,5 +1,7 @@
 #include <render/vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
+#include "math/mat4.h"
+#include "render/vulkan/depth.h"
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <config.h>
@@ -13,6 +15,7 @@
 #include <render/vulkan/img_view.h>
 #include <render/vulkan/layer.h>
 #include <render/vulkan/logical.h>
+#include <render/vulkan/vertex_buf.h>
 #include <render/vulkan/pipeline.h>
 #include <render/vulkan/render_pass.h>
 #include <render/vulkan/surface.h>
@@ -24,6 +27,7 @@
 #include <time.h>
 #include <unistd.h>
 #include "textures.h"
+#include <ui/ui.h>
 
 static int vulkan_dump_extension(void)
 {
@@ -192,6 +196,7 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
     vulkan_sync_init(self);
     scene_buf_value_init(self);
 
+    ui_init((void*)window_handle, self);
     clock_gettime(CLOCK_REALTIME, &start);
 
     self->cfg = vk_buffer_map(self, self->config_buf);
@@ -202,6 +207,7 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
 int vulkan_deinit(VulkanCtx *self)
 {
     vkDeviceWaitIdle(self->logical_device);
+    ui_deinit(self);
     vk_buffer_unmap(self, self->config_buf);
     vulkan_sync_deinit(self);
     vulkan_vertex_buffer_deinit(self);
@@ -234,7 +240,9 @@ int vulkan_deinit(VulkanCtx *self)
 float v = 0;
 int vulkan_frame(VulkanCtx *self)
 {
+    ui_begin();
 
+    ui_end();
     Vec3 cam_look = vec3_add(self->cam_look, self->cam_pos);
 
     if (!vec3_eq(self->cfg->cam_pos, self->cam_pos) ||
@@ -264,10 +272,10 @@ int vulkan_frame(VulkanCtx *self)
             self->cfg->proj_matrix[x][y]= proj.value[x][y];
         }
     }
+#if 1
 
     if (vkGetFenceStatus(self->logical_device, self->compute_fence) == VK_SUCCESS)
     {
-        compute_refresh = true;
 
         //     VkCommandBuffer cmd = vk_start_single_time_command(self);
         /*  VkImageCopy region = {
@@ -312,7 +320,7 @@ int vulkan_frame(VulkanCtx *self)
 
         clock_gettime(CLOCK_REALTIME, &start);
     }
-
+#endif
     if (vkGetFenceStatus(self->logical_device, self->in_flight_fence) == VK_SUCCESS)
     {
         vk_try$(vkResetFences(self->logical_device, 1, &self->in_flight_fence));
