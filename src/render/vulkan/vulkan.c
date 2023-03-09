@@ -238,9 +238,20 @@ int vulkan_deinit(VulkanCtx *self)
 }
 
 float v = 0;
+
+int tick = 0;
+float fps = 0;
 int vulkan_frame(VulkanCtx *self)
 {
-    ui_begin();
+
+    UiInfo info = {
+        .fps = fps,
+        .frame = tick,
+        .width = self->aligned_width,
+        .height = self->aligned_height,
+    };
+
+    ui_begin(info);
 
     ui_end();
     Vec3 cam_look = vec3_add(self->cam_look, self->cam_pos);
@@ -251,6 +262,7 @@ int vulkan_frame(VulkanCtx *self)
         self->frame_id = 0;
     }
 
+    self->cfg->bounce_count = (get_config().rays_bounce);
     self->cfg->cam_pos = self->cam_pos;
     self->cfg->focus_disc = self->cam_focus_disk;
     self->cfg->aperture = self->cam_aperture;
@@ -274,7 +286,7 @@ int vulkan_frame(VulkanCtx *self)
     }
 #if 1
 
-    if (vkGetFenceStatus(self->logical_device, self->compute_fence) == VK_SUCCESS)
+    if (!get_config().show_raster &&vkGetFenceStatus(self->logical_device, self->compute_fence) == VK_SUCCESS)
     {
 
         //     VkCommandBuffer cmd = vk_start_single_time_command(self);
@@ -303,7 +315,10 @@ int vulkan_frame(VulkanCtx *self)
         clock_gettime(CLOCK_REALTIME, &cur);
         double accum;
         accum = (cur.tv_sec - start.tv_sec) + (double)(cur.tv_nsec - start.tv_nsec) / (double)1000000000L;
-        printf("a1 %lf %i \n", 1 / accum, self->frame_id);
+
+        fps = 1 / accum;
+        tick = self->frame_id;
+       // printf("a1 %lf %i \n", 1 / accum, self->frame_id);
 
         vkResetFences(self->logical_device, 1, &self->compute_fence);
 
@@ -316,7 +331,7 @@ int vulkan_frame(VulkanCtx *self)
         vk_try$(vkQueueSubmit(self->comp_queue, 1, &submitInfo2, self->compute_fence));
 
         self->frame_id += 1;
-        printf("a2\n");
+       // printf("a2\n");
 
         clock_gettime(CLOCK_REALTIME, &start);
     }
@@ -358,7 +373,7 @@ int vulkan_frame(VulkanCtx *self)
         };
         vk_try$(vkQueuePresentKHR(self->present_queue, &present_info));
     }
-    else
+    else if(!get_config().show_raster)
     {
         vkWaitForFences(self->logical_device, 1, &self->compute_fence, VK_TRUE, 16666000);
     }

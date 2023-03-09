@@ -19,6 +19,9 @@ typedef struct Config
     int window_width;
     int window_height;
     bool camera_controllable;
+    bool show_ui;
+    int rays_bounce;
+    bool show_raster;
 } Config;
 
 Config get_config();

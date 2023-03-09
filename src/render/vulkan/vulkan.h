@@ -94,10 +94,11 @@ typedef struct
     VkExtent2D extend;
     VkFormat swapchain_image_format;
     VkPipelineLayout pipeline_layout;
+
+    VkPipeline gfx_pipeline;
     VkPipelineLayout compute_preview_pipeline_layout;
 
 
-    VkPipeline gfx_pipeline;
     VkPipeline compute_preview_pipeline;
     VkPipeline compute_pipeline;
 
