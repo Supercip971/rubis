@@ -125,7 +125,7 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
     render_pass_info.clearValueCount = 2;
     render_pass_info.pClearValues = clearValues;
 
-    if (false)
+    if (get_config().show_raster)
     {
 
         vkCmdBeginRenderPass(ctx->cmd_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
@@ -154,7 +154,11 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
                 vkCmdBindVertexBuffers(ctx->cmd_buffer, 0, 1, vertex_buffers, offsets);
                 vkCmdDraw(ctx->cmd_buffer, data_size / SVERTEX_PACKED_COUNT, 1, 0, 0);
             }
-            ui_record(ctx);
+
+            if(get_config().show_ui)
+            {
+                ui_record(ctx);
+            }
         }
         vkCmdEndRenderPass(ctx->cmd_buffer);
     }
@@ -166,8 +170,11 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
 
             vkCmdBindDescriptorSets(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->compute_preview_pipeline_layout, 0, 1, &ctx->descriptor_set, 0, NULL);
             vkCmdDraw(ctx->cmd_buffer, 6, 1, 0, 0);
-           ui_record(ctx);
-      
+ 
+            if(get_config().show_ui)
+            {
+                ui_record(ctx);
+            }     
         }
 
         vkCmdEndRenderPass(ctx->cmd_buffer);
