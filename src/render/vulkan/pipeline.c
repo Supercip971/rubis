@@ -181,7 +181,7 @@ void vulkan_pipeline_init(VulkanCtx *ctx)
 {
 
     vulkan_graphics_pipeline_init(ctx, &ctx->gfx_pipeline, &ctx->pipeline_layout, "build/shaders/vert.spv", "build/shaders/frag.spv");
-    vulkan_graphics_pipeline_init(ctx, &ctx->gfx_pipeline, &ctx->compute_preview_pipeline_layout, "build/shaders/vert_cview.spv", "build/shaders/frag_cview.spv");
+    vulkan_graphics_pipeline_init(ctx, &ctx->compute_preview_pipeline, &ctx->compute_preview_pipeline_layout, "build/shaders/vert_cview.spv", "build/shaders/frag_cview.spv");
 
 
     vulkan_compute_pipeline(ctx);
@@ -192,6 +192,8 @@ void vulkan_pipeline_deinit(VulkanCtx *ctx)
     vkDestroyPipeline(ctx->logical_device, ctx->compute.raw_pipeline, NULL);
 
     vkDestroyPipeline(ctx->logical_device, ctx->gfx_pipeline, NULL);
+    vkDestroyPipeline(ctx->logical_device, ctx->compute_preview_pipeline, NULL);
+
     vkDestroyPipelineLayout(ctx->logical_device, ctx->pipeline_layout, NULL);
     vkDestroyPipelineLayout(ctx->logical_device, ctx->compute_preview_pipeline_layout, NULL);
 
