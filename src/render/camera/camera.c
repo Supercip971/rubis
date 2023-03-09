@@ -5,6 +5,7 @@
 #include <utils.h>
 #include "config.h"
 #include "math/mat4.h"
+#include "window/window.h"
 Camera *cam2;
 
 void mouse_callback(GLFWwindow *window, double xpos, double ypos)
@@ -14,15 +15,15 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos)
     (void)ypos;
     double x = xpos;
     double y = ypos;
-
+  
     if (get_config().camera_controllable)
     {
 
         float dx = x - cam2->lastx;
         float dy = cam2->lasty - y;
 
-        cam2->yaw += dx * 0.05f;
-        cam2->pitch += dy * 0.05f;
+        cam2->yaw += dx * cam2->speed;
+        cam2->pitch += dy * cam2->speed;
 
         cam2->pitch = clamp(cam2->pitch, -89.0f, 89.0f);
 
@@ -30,11 +31,20 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos)
         cam2->front.y = sinf(DEG2RAD(cam2->pitch));
         cam2->front.z = sinf(DEG2RAD(cam2->yaw)) * cosf(DEG2RAD(cam2->pitch));
         cam2->front = vec3_unit(cam2->front);
+
+        int width = 0;
+        int height = 0;
+        glfwGetWindowSize(window, &width, &height);
+        glfwSetCursorPos(window, width / 2, height / 2);
+
+        x = width / 2;
+        y = height / 2;
     }
     cam2->lastx = x;
     cam2->lasty = y;
 
-    (void)window;
+
+   (void)window;
 }
 
 Camera *ctx2;
@@ -63,6 +73,15 @@ void camera_init(Camera *cam, void *whandle, Matrix4x4 *mod)
 
     double x;
     double y;
+
+    int width = 0;
+    int height = 0;
+    glfwGetWindowSize(window, &width, &height);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+
+
+    glfwSetCursorPos(window, width / 2, height / 2);
+
     glfwGetCursorPos(window, &x, &y);
 
     glfwSetCursorPosCallback(window, mouse_callback);

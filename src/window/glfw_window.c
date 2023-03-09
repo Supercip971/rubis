@@ -32,6 +32,7 @@ int window_init(Window *self)
     self->window_id = windows.length;
 
     impl.window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "loading", NULL, NULL);
+
     impl.self = *self;
     impl.control = !get_config().camera_controllable;
     printf("window: %lx\n", (uintptr_t)impl.window);
@@ -112,6 +113,8 @@ bool window_should_close(Window *self)
     return glfwWindowShouldClose(impl->window);
 }
 
+bool pressed_h = false;
+bool pressed_c = false;
 int window_update(MAYBE_UNUSED Window *self)
 {
     WindowImpl *impl = &windows.data[self->window_id];
@@ -122,7 +125,7 @@ int window_update(MAYBE_UNUSED Window *self)
     {
         if (get_config().camera_controllable)
         {
-            glfwSetInputMode(impl->window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            glfwSetInputMode(impl->window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
             nc = true;
         }
         else
@@ -130,9 +133,38 @@ int window_update(MAYBE_UNUSED Window *self)
             glfwSetInputMode(impl->window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
             nc = false;
         }
+        impl->control = nc;
     }
 
     glfwPollEvents();
 
+    if (glfwGetKey(impl->window, GLFW_KEY_H) == GLFW_PRESS)
+    {
+        if (!pressed_h)
+        {
+            Config c = get_config();
+            c.show_ui = !c.show_ui;
+            set_config(c);
+        }
+        pressed_h = true;
+    }
+    else
+    {
+        pressed_h = false;
+    }
+    if (glfwGetKey(impl->window, GLFW_KEY_C) == GLFW_PRESS)
+    {
+        if (!pressed_c)
+        {
+            Config c = get_config();
+            c.camera_controllable = !c.camera_controllable;
+            set_config(c);
+        }
+        pressed_c = true;
+    }
+    else
+    {
+        pressed_c = false;
+    }
     return 0;
 }
