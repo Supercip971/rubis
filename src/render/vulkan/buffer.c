@@ -1,5 +1,6 @@
 #include <render/vulkan/buffer.h>
 #include <render/vulkan/command.h>
+#include <vulkan/vulkan_core.h>
 uint32_t find_memory_type(VulkanCtx *ctx, uint32_t typeFilter, VkMemoryPropertyFlags properties, uint32_t size)
 {
     VkPhysicalDeviceMemoryProperties memProperties;
@@ -20,6 +21,17 @@ uint32_t find_memory_type(VulkanCtx *ctx, uint32_t typeFilter, VkMemoryPropertyF
     abort();
 
     return 0;
+}
+
+VkDeviceAddress vk_buffer_addr(VulkanCtx *ctx, VulkanBuffer buf)
+{
+    VkBufferDeviceAddressInfo info = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+        .buffer = buf.buffer,
+    };
+    VkDeviceAddress addr = vkGetBufferDeviceAddress(ctx->logical_device, &info);
+
+    return addr;
 }
 
 VulkanBuffer vk_buffer_alloc(VulkanCtx *ctx, size_t len, VkBufferUsageFlags flags, VkMemoryPropertyFlags properties)
