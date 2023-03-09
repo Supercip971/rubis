@@ -40,6 +40,7 @@ typedef struct
     _Alignas(16) float proj_matrix[4][4];
     _Alignas(16) float view_matrix[4][4];
 
+    _Alignas(4) unsigned int bounce_count;
 
 } VulkanConfig;
 

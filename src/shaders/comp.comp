@@ -31,16 +31,23 @@ layout(std140, binding = 0) buffer buf
 layout(binding = 0, rgba32f) uniform image2D buf;
 
 layout(std140, binding = 1) readonly uniform UniformBufferObject
-{
+{    
     float width;
     float height;
     uint t;
-    vec4 camera_pos;
 
+    vec4 camera_pos;
     vec4 camera_target;
     vec4 camera_up;
+
     float aperture;
     float focus_disk;
+
+
+    mat4 proj;
+    mat4 view;
+
+    uint bounce_limit;
 }
 ubo;
 
@@ -77,7 +84,7 @@ void main()
 
     Ray r = camera_ray(cam, u, v);
     r.inv_direction = vec3(1) / r.direction;
-    color = ray_color(r, u, v, 4);
+    color = ray_color(r, u, v, ubo.bounce_limit);
 
     imageStore(buf, ivec2(x, y), ((prev * (ubo.t)) + color) / ((ubo.t + 1)));
 }
