@@ -576,7 +576,7 @@ vec4 sky_color(Ray r)
     return vec4(srgb_to_linear(rc), 1);
 }
 
-vec4 ray_color(Ray r, float x, float y, int maxv)
+vec4 ray_color(Ray r, float x, float y, uint maxv)
 {
 
     int last_hit = -1;
