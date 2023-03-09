@@ -22,7 +22,7 @@ CFLAGS = 			\
 		-Isrc/      \
 		$(CFLAGS_WARNS) $(shell pkg-config --cflags json-c)
 
-LDFLAGS=$(SANITIZERS) -lm -lglfw -lvulkan -ldl -lpthread -lcjson
+LDFLAGS=$(SANITIZERS) -static-libstdc++ -static-libgcc -lm -lstdc++ -lglfw -lvulkan -ldl -lpthread -lcjson
 
 # some people likes to use sources/source instead of src
 PROJECT_NAME = test
@@ -41,8 +41,11 @@ OSFILES = $(patsubst $(SRC_DIR)/%.vs, $(BUILD_DIR)/%.spv, $(VSFILES)) \
 
 
 CFILES = $(wildcard $(SRC_DIR)/*.c) $(wildcard $(SRC_DIR)/*/*.c) $(wildcard $(SRC_DIR)/*/*/*.c)
+CXXFILES = $(wildcard $(SRC_DIR)/*.cpp) $(wildcard $(SRC_DIR)/*/*.cpp) $(wildcard $(SRC_DIR)/*/*/*.cpp) $(wildcard $(SRC_DIR)/*/*/*/*.cpp)
+
+
 DFILES = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.d, $(CFILES))
-OFILES = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(CFILES))
+OFILES = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(CFILES)) $(patsubst $(SRC_DIR)/%.cpp, $(BUILD_DIR)/%.o, $(CXXFILES))
 
 OUTPUT = build/$(PROJECT_NAME)
 
@@ -69,11 +72,18 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@echo " CC [ $@ ] $<"
 	@clang $(CFLAGS) $(SANITIZERS) -MMD -MP $< -c -o $@
 
+# Only for Imgui for C
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@$(MKCWD)
+	@echo " CXX [ $@ ] $<"
+	@clang++ -g -Isrc/ $(SANITIZERS) -MMD -MP $< -c -o $@
+
+
 
 $(OUTPUT): $(OFILES)
 	@$(MKCWD)
 	@echo " LD [ $@ ] $^"
-	@clang $(LDFLAGS) -o $@ $^ $(SANITIZERS)
+	@clang++ $(LDFLAGS) -o $@ $^ $(SANITIZERS)
 
 run: $(OUTPUT) $(OSFILES)
 	@$(OUTPUT)
