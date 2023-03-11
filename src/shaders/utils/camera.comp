@@ -58,7 +58,7 @@ Ray camera_ray(camera cam, float u, float v)
     vec3 off = cam.u * rd.x + cam.v * rd.y;
     Ray r;
     r.origin = cam.origin + off;
-    r.direction = cam.llc + u * cam.horizontal + v * cam.vertical - cam.origin - off;
+    r.direction = normalize(cam.llc + u * cam.horizontal + v * cam.vertical - cam.origin - off);
     return r;
 #endif  
 }

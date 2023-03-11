@@ -41,6 +41,8 @@ typedef struct
     _Alignas(16) float view_matrix[4][4];
 
     _Alignas(4) unsigned int bounce_count;
+    _Alignas(4) unsigned int scale;
+    _Alignas(4) bool use_fsr;
 
 } VulkanConfig;
 
@@ -126,7 +128,7 @@ typedef struct
     VkDescriptorSet descriptor_set;
 
     VulkanBuffer computing_image;
-    VulkanBuffer fragment_image;
+    VulkanTex fragment_image;
 
     VulkanBuffer config_buf;
 

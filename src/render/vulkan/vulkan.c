@@ -267,6 +267,10 @@ int vulkan_frame(VulkanCtx *self)
     self->cfg->focus_disc = self->cam_focus_disk;
     self->cfg->aperture = self->cam_aperture;
     self->cfg->cam_look = cam_look;
+    self->cfg->scale = get_config().scale_divider;
+    self->cfg->use_fsr = get_config().use_fsr;
+
+
 
     self->cfg->width = self->aligned_width;
     self->cfg->height = self->aligned_height;
@@ -322,6 +326,8 @@ int vulkan_frame(VulkanCtx *self)
 
         vkResetFences(self->logical_device, 1, &self->compute_fence);
 
+        vulkan_compute_cmd_buffer_record(self);
+
         VkSubmitInfo submitInfo2 = {
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
             .commandBufferCount = 1,
@@ -334,7 +340,9 @@ int vulkan_frame(VulkanCtx *self)
        // printf("a2\n");
 
         clock_gettime(CLOCK_REALTIME, &start);
+
     }
+
 #endif
     if (vkGetFenceStatus(self->logical_device, self->in_flight_fence) == VK_SUCCESS)
     {

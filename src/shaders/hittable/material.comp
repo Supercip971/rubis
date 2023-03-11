@@ -182,9 +182,9 @@ vec3 dumb_brdf(Ray r, HittableRecord hit, float roughness, float metallic, vec3 
 
     roughness = clamp(roughness, 0.0001, 0.9999);
     metallic = clamp(metallic, 0.0001, 0.9999);
-    vec3 n = normalize(mnormal);
-    vec3 v = normalize(-r.direction);
-    vec3 l = normalize(next);
+    vec3 n = (mnormal);
+    vec3 v = (-r.direction);
+    vec3 l = (next);
 
     // l = wI
     // v = wO 
@@ -210,8 +210,8 @@ vec3 dumb_brdf(Ray r, HittableRecord hit, float roughness, float metallic, vec3 
  
     float VdotH = clamp_01_1(dot(v, h)) ;
  
-      float NdotL = clamp_01_1(dot(n, l)) ;
-      float LdotH = clamp_01_1(dot(l, h));
+    float NdotL = clamp_01_1(dot(n, l)) ;
+    float LdotH = clamp_01_1(dot(l, h));
       
 
    

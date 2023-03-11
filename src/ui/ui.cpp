@@ -106,6 +106,12 @@ extern "C" void ui_begin(UiInfo info)
  	ImGui::Checkbox("Enable camera controls (press C)", &current.camera_controllable);
 
     ImGui::SliderInt("Rays bounce", &current.rays_bounce, 1, 12);
+    ImGui::SliderInt("Render divider", &current.scale_divider, 1, 8);
+
+ 	ImGui::Checkbox("Use amd FSR", &current.use_fsr);
+
+
+
     ImGui::Checkbox("Show rasterizer (no raytrace)", &current.show_raster);
 
 

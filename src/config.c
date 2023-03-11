@@ -7,6 +7,8 @@ Config default_cfg = {
     .show_ui = true,
     .rays_bounce = 4,
     .show_raster = false,
+    .scale_divider = 1,
+    .use_fsr = true,
 };
 Config get_config()
 {

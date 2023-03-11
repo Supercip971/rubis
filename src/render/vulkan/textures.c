@@ -67,7 +67,6 @@ void image_load_from_buffer(VulkanCtx *ctx, VkImage target, uint32_t width, uint
         },
         .imageOffset = {0, 0, 0},
         .imageExtent = {.width = width, .height = height, .depth = 1},
-
     };
     vkCmdCopyBufferToImage(cmd_buf, buf, target, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
@@ -128,7 +127,7 @@ void swap_image_layout(VulkanCtx *ctx, VkImage image, VkFormat fmt, VkImageLayou
         src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         dst_stage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     }
-    else 
+    else
     {
         printf("[warn] unhandled image layout transition\n");
         barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -293,6 +292,9 @@ void vulkan_scene_textures_init(VulkanCtx *ctx)
     uint32_t maxh = 0;
     TexLists texs = ctx->scene.textures;
     VulkanBuffer staging_buf;
+
+    vulkan_shader_shared_texture_init(ctx, &ctx->fragment_image, ctx->aligned_width, ctx->aligned_height, true);
+
     if (texs.length != 0)
     {
 
@@ -317,5 +319,21 @@ void vulkan_scene_textures_init(VulkanCtx *ctx)
 }
 void vulkan_scene_textures_deinit(VulkanCtx *ctx)
 {
+
+    vkDestroyImageView(ctx->logical_device, ctx->combined_textures.desc_info.imageView, NULL);
+    vkDestroySampler(ctx->logical_device, ctx->combined_textures.desc_info.sampler, NULL);
+    vkDestroyImage(ctx->logical_device, ctx->combined_textures.image, NULL);
+    vkFreeMemory(ctx->logical_device, ctx->combined_textures.mem, NULL);
+
+    vkDestroyImageView(ctx->logical_device, ctx->skymap.desc_info.imageView, NULL);
+    vkDestroySampler(ctx->logical_device, ctx->skymap.desc_info.sampler, NULL);
+    vkDestroyImage(ctx->logical_device, ctx->skymap.image, NULL);
+    vkFreeMemory(ctx->logical_device, ctx->skymap.mem, NULL);
+
+    vkDestroyImageView(ctx->logical_device, ctx->fragment_image.desc_info.imageView, NULL);
+    vkDestroySampler(ctx->logical_device, ctx->fragment_image.desc_info.sampler, NULL);
+    vkDestroyImage(ctx->logical_device, ctx->fragment_image.image, NULL);
+    vkFreeMemory(ctx->logical_device, ctx->fragment_image.mem, NULL);
+
     (void)ctx;
 }

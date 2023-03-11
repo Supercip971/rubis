@@ -22,6 +22,8 @@ typedef struct Config
     bool show_ui;
     int rays_bounce;
     bool show_raster;
+    int scale_divider;
+    bool use_fsr;
 } Config;
 
 Config get_config();

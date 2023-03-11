@@ -48,6 +48,7 @@ layout(std140, binding = 1) readonly uniform UniformBufferObject
     mat4 view;
 
     uint bounce_limit;
+    uint scale;
 }
 ubo;
 
@@ -61,8 +62,8 @@ ubo;
 
 void main()
 {
-    const float window_width = (ubo.width);
-    const float window_height = (ubo.height);
+    const float window_width = (ubo.width) / int(ubo.scale);
+    const float window_height = (ubo.height) / int(ubo.scale);
     const uint x = gl_GlobalInvocationID.x;
     const uint y = gl_GlobalInvocationID.y;
     const vec2 cc = vec2(x / window_width , y / window_height );

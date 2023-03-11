@@ -51,22 +51,31 @@ void vulkan_compute_cmd_buffer_record(VulkanCtx *ctx)
                                 VK_PIPELINE_BIND_POINT_COMPUTE,
                                 ctx->pipeline_layout, 0, 1, &ctx->descriptor_set, 0, 0);
 
-        vkCmdDispatch(ctx->comp_buffer, ctx->comp_targ.width / ctx->threads_size, ctx->comp_targ.height / ctx->threads_size, 1);
-        VkBufferImageCopy region = {
-            .bufferImageHeight = 0,
-            .bufferOffset = 0,
-            .bufferRowLength = 0,
-            .imageSubresource = {
+        int divider = get_config().scale_divider * ctx->threads_size;
+        vkCmdDispatch(ctx->comp_buffer, ctx->comp_targ.width / divider, ctx->comp_targ.height / divider, 1);
+
+        VkImageCopy region = {
+            .srcSubresource = {
                 .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                 .mipLevel = 0,
                 .baseArrayLayer = 0,
                 .layerCount = 1,
             },
-            .imageOffset = {0, 0, 0},
-            .imageExtent = {.width = ctx->comp_targ.width, .height = ctx->comp_targ.height, .depth = 1},
+            .dstSubresource = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+            .srcOffset = {0, 0, 0},
+            .dstOffset = {0, 0, 0},
+
+
+            .extent = {.width = ctx->comp_targ.width, .height = ctx->comp_targ.height, .depth = 1},
         };
 
-        vkCmdCopyImageToBuffer(ctx->comp_buffer, ctx->comp_targ.image, ctx->comp_targ.desc_info.imageLayout, ctx->fragment_image.buffer, 1, &region);
+        vkCmdCopyImage(ctx->comp_buffer, ctx->comp_targ.image, ctx->comp_targ.desc_info.imageLayout, ctx->fragment_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+        //vkCmdCopyImageToBuffer(ctx->comp_buffer, ctx->comp_targ.image, ctx->comp_targ.desc_info.imageLayout, ctx->fragment_image.buffer, 1, &region);
     }
     vk_try$(vkEndCommandBuffer(ctx->comp_buffer));
 }

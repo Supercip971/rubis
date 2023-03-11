@@ -35,8 +35,8 @@ layout(std140, binding = 5) readonly buffer BvhBuf
 {
     Bvh bvhs[];
 };
-layout(binding = 6) uniform sampler2DArray textures;
-layout(binding = 7) uniform sampler2D skymap;
+layout(binding = 6) uniform sampler2DArray  textures;
+layout(binding = 7) uniform sampler2D  skymap;
 
 #define FROM_SIBLING 1
 #define FROM_PARENT 2
@@ -450,16 +450,15 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
 
             // V= -I
             // H = (V + L) / 2 <=> = norm(V + L) 
-            H = normalize(dir + (-unit_direction));
-            if(dot(H, unit_direction) > 0)
-            {
-                H = -H;
-            }
+       //     H = normalize(dir + (-unit_direction));
+       //     if(dot(H, unit_direction) > 0)
+       //     {
+       //         H = -H;
+       //     }
         }
         //  vec3 ndir = vec_unit(record.normal+ (vec3_random_unit() * (random())) *  clamp(metal_roughness.y, 0, 1));
 
         
-        vec3 fnormal = H;
         dir = vec_unit(dir);
 
     }
