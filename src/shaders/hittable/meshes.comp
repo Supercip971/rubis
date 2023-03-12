@@ -35,15 +35,30 @@ layout(std140, binding = 5) readonly buffer BvhBuf
 {
     Bvh bvhs[];
 };
-layout(binding = 6) uniform sampler2DArray  textures;
-layout(binding = 7) uniform sampler2D  skymap;
-
+layout(binding = 6) uniform sampler2DArray textures;
+layout(binding = 7) uniform sampler2D skymap;
+layout(std140, binding = 8) readonly buffer Lights
+{
+    uint lights[];
+};
 #define FROM_SIBLING 1
 #define FROM_PARENT 2
 #define FROM_CHILD 3
 
 // size in vec4
 #define VERTEX_SIZE 4
+
+PbrtTexture material_load_tex(int begin, int off)
+{
+    const int scale = 3;
+    PbrtTexture result;
+    result.id = int(buf_datas[begin + off * 3].x);
+    result.tid = int(buf_datas[begin + off * 3].y);
+    result.factor = buf_datas[begin + off * 3 + 1];
+    result.offset = buf_datas[begin + off * 3 + 2].xy;
+    result.scale = buf_datas[begin + off * 3 + 2].zw;
+    return result;
+}
 HittableRecord process_leaf(Ray r, int id, int vert, float cmin, float cmax)
 {
     Mesh current_mesh = meshes[id];
@@ -57,8 +72,52 @@ HittableRecord process_leaf(Ray r, int id, int vert, float cmin, float cmax)
     res.mesh_id = id;
     res.vert_id = vert;
 
+    if (res.hitted)
+    {
+        float alpha = material_load_tex(int(current_mesh.material_data_start), 0).factor.w;
+        if (random() > (alpha))
+        {
+            res.hitted = false;
+        }
+    }
+
     return res;
 }
+
+struct PdfSampleRecord
+{
+    vec3 random_point;
+    float area;
+    float pdf;
+    uint id;
+};
+
+PdfSampleRecord sample_triangle(uint id, uint mid)
+{
+    vec3 pa = buf_datas[id + 0 * VERTEX_SIZE].xyz;
+    vec3 pb = buf_datas[id + 1 * VERTEX_SIZE].xyz;
+    vec3 pc = buf_datas[id + 2 * VERTEX_SIZE].xyz;
+
+    vec3 ab = pb - pa;
+    vec3 ac = pc - pa;
+    vec3 p = pa + random() * ab + random() * ac;
+    float area = 0.5 * length(cross(ab, ac));
+    float pdf = 1.0 / area;
+    return PdfSampleRecord(p, area, pdf, mid);
+}
+PdfSampleRecord sample_random(vec3 origin, vec3 n)
+{
+    int id = int(random() * float(lights.length() - 1));
+
+    Mesh current_mesh = meshes[lights[id]];
+
+    uint vid = current_mesh.mesh_data_start + int(random() * float((current_mesh.mesh_data_end - current_mesh.mesh_data_start) / VERTEX_SIZE - 1)) * VERTEX_SIZE;
+
+    return sample_triangle(vid, lights[id]);
+}
+
+HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f);
+
 
 bool aabb_hit(Ray r, Bvh cur, float t_min, float t_max)
 {
@@ -117,8 +176,17 @@ bool aabb_hit2(Ray r, Bvh cur, float t_min, float t_max)
 
 #define STACK_SIZE 64
 
+ struct CacheRecord 
+{
+    HittableRecord result;
+    Ray ray;
+};
+int cache_off = 0;
+int cache_len = 0;
+CacheRecord cache[3];
 HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
 {
+
     int stack[STACK_SIZE];
 
     int current = bvhs[0].la;
@@ -213,22 +281,10 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
     return res;
 }
 
-//# Temporary way of getting the normal vector from a reflection and a input vector
+// # Temporary way of getting the normal vector from a reflection and a input vector
 vec3 inverse_reflection(vec3 dir, vec3 reflected)
 {
     return (reflected - 2.0 * dot(reflected, -dir) * (-dir));
-}
-
-PbrtTexture material_load_tex(int begin, int off)
-{
-    const int scale = 3;
-    PbrtTexture result;
-    result.id = int(buf_datas[begin + off * 3].x);
-    result.tid = int(buf_datas[begin + off * 3].y);
-    result.factor = buf_datas[begin + off * 3 + 1];
-    result.offset = buf_datas[begin + off * 3 + 2].xy;
-    result.scale = buf_datas[begin + off * 3 + 2].zw;
-    return result;
 }
 
 vec3 material_tex_query(PbrtTexture tex, vec2 uv)
@@ -243,16 +299,15 @@ vec3 material_tex_query(PbrtTexture tex, vec2 uv)
     return result;
 }
 
-vec3 cosine_sample_hemisphere( float r1, float r2)
+vec3 cosine_sample_hemisphere(float r1, float r2)
 {
     float phi = 2.0 * M_PI * r1;
 
-    
     float rt_r2 = sqrt(r2);
     float x = cos(phi) * rt_r2;
     float y = sin(phi) * rt_r2;
 
-    float z = sqrt(max(0.0, 1.0 - x*x - y*y));
+    float z = sqrt(max(0.0, 1.0 - x * x - y * y));
     return normalize(vec3(x, y, z));
 }
 
@@ -266,6 +321,58 @@ vec3 importance_sample(float r, float r1, float r2)
     float y = r * sin(phi) * rt_r2;
 
     return normalize(vec3(x, y, z));
+}
+
+PdfSampleRecord sample_point(vec3 N, vec3 point)
+{
+
+    bool continue_v = true;
+    int maxv = 0;
+    while (continue_v && maxv++ < 4)
+    {
+        PdfSampleRecord pdf_sample = sample_random(point, N);
+        vec3 dir = -(point - pdf_sample.random_point);
+
+        if (dot(dir, N) < 0)
+        {
+            continue;
+        }
+        else
+        {
+            vec3 cdir = normalize(dir);
+            Ray new_ray = Ray(point, cdir, 1 / cdir);
+            const float cmin = 0.00001f;
+            const float cmax = 100000.f;
+
+          //  HittableRecord rec = traverse_bvh_stack(new_ray, cmin, cmax);
+          //  if (rec.hitted)
+           // {
+                //if (rec.mesh_id != pdf_sample.id)
+                //{
+                //    continue;
+                //}
+                float dist = length(dir);
+
+                dir = cdir;
+                float pdf = dist * dist / (dot(N, dir) * pdf_sample.area);
+
+                pdf_sample.pdf = pdf;
+
+                return pdf_sample;
+                //      mvr = dumb_brdf(r, record, roughness_value, metal_value, result.attenuation, dir, N);
+//            }
+
+        }
+    }
+    PdfSampleRecord pdf_sample = sample_random(point, N);
+    vec3 dir = -(point - pdf_sample.random_point);
+    float dist = length(dir);
+
+    dir = normalize(dir);
+
+    float pdf = dist * dist / (dot(N, dir) * pdf_sample.area);
+    pdf_sample.pdf = 0;
+    return pdf_sample;
 }
 
 MaterialRecord material_hit(HittableRecord record, Ray r)
@@ -346,12 +453,11 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
         record.normal = normalize((normalv.x) * T + (normalv.y) * B + (normalv.z) * N);
     }
 
-
-    // recreate a coordinate system 
+    // recreate a coordinate system
 
     // https://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors#CoordinateSystemfromaVector
     N = record.normal;
-    if(abs(N.x) > abs(N.y))
+    if (abs(N.x) > abs(N.y))
     {
         T = normalize(vec3(-N.z, 0, N.x) * inversesqrt(N.x * N.x + N.z * N.z));
     }
@@ -362,9 +468,19 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
     B = normalize(cross(N, T));
 // debug
 #if 0
-    if(true)
+    if (true)
     {
-        result.emitted =( record.normal + vec3(1.0)) / 2.0;
+
+        for (int i = 0; i < lights.length(); i++)
+        {
+            if (record.mesh_id == lights[i])
+            {
+                result.emitted = vec3(1, 1, 1);
+                result.do_scatter = false;
+                return result;
+            }
+        }
+        result.emitted = (vec3(0, 0, 1));
         result.do_scatter = false;
         return result;
     }
@@ -382,7 +498,6 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
     }
 
     metal_roughness *= metallic_roughness_T.factor.xyz;
-
 
     result.emitted = emit;
 
@@ -403,25 +518,23 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
     float cos_theta = min((dot(-unit_direction, N)), 1.0);
     float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
 
-
     float diffuse_ratio = 1.0 - (metal_roughness.z * metal_roughness.z);
     vec3 H = N;
 
     float roughness_value = clamp(metal_roughness.y, 0.0001, 1);
     float metal_value = clamp(metal_roughness.z, 0, 1);
-
-
-
+    bool is_specular = false;
     if (reflectance(cos_theta, refract_ratio) > random()) // specular
     {
+        is_specular = true;
         // https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf
 
-       //  dir = reflect(unit_direction, record.normal);
-        //dir = vec_unit(dir + (vec3_random_unit() * (random())) * clamp(metal_roughness.y, 0, 1));
+        //  dir = reflect(unit_direction, record.normal);
+        // dir = vec_unit(dir + (vec3_random_unit() * (random())) * clamp(metal_roughness.y, 0, 1));
         H = importance_sample(roughness_value, random(), random());
 
         H = normalize(H.x * T + H.y * B + H.z * N);
-        if(dot(H, unit_direction) > 0)
+        if (dot(H, unit_direction) > 0)
         {
             H = -H;
         }
@@ -433,45 +546,82 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
         float r2 = random();
         if (random() < (metal_value * 0.5))
         {
-            H = importance_sample(roughness_value, r1,r2);
-            
+            H = importance_sample(roughness_value, r1, r2);
 
             H = normalize(H.x * T + H.y * B + H.z * N);
 
-            if(dot(H, unit_direction) > 0)
+            if (dot(H, unit_direction) > 0)
             {
                 H = -H;
             }
             dir = reflect(unit_direction, H);
         }
-        else 
+        else
         {
-            dir = cosine_sample_hemisphere( r1, r2);
+            dir = cosine_sample_hemisphere(r1, r2);
 
             // V= -I
-            // H = (V + L) / 2 <=> = norm(V + L) 
-       //     H = normalize(dir + (-unit_direction));
-       //     if(dot(H, unit_direction) > 0)
-       //     {
-       //         H = -H;
-       //     }
+            // H = (V + L) / 2 <=> = norm(V + L)
+            //     H = normalize(dir + (-unit_direction));
+            //     if(dot(H, unit_direction) > 0)
+            //     {
+            //         H = -H;
+            //     }
         }
         //  vec3 ndir = vec_unit(record.normal+ (vec3_random_unit() * (random())) *  clamp(metal_roughness.y, 0, 1));
 
-        
         dir = vec_unit(dir);
-
     }
 
-    result.attenuation = dumb_brdf(r, record, roughness_value, metal_value, result.attenuation, dir, N);
+    MaterialValRecord mvr = dumb_brdf(r, record, roughness_value, metal_value, result.attenuation, dir, N);
 
+    result.attenuation = mvr.color;
 
+    if (!is_specular && random() < 0.5)
+    {
+
+        vec3 olddir = dir;
+
+        int maxv = 0;
+
+        PdfSampleRecord pdf_sample = sample_point(N, record.point);
+
+        if (pdf_sample.pdf == 0)
+        {
+            result.pdf = 1;
+
+            result.scatter_pdf = 1;
+
+        //    result.emitted = vec3(0, 1, 0);
+        //    result.do_scatter = false;
+        //    return result;
+        }
+        else
+        {
+
+            dir = normalize(-(record.point - pdf_sample.random_point));
+
+            mvr = dumb_brdf(r, record, roughness_value, metal_value, result.attenuation, dir, N);
+            result.scatter_pdf = mvr.pdf;
+
+            result.pdf = pdf_sample.pdf;
+        //    result.emitted = vec3(1, 0, 0);
+        //    result.do_scatter = false;
+        //    return result;
+        }
+    }
+    else
+    {
+        result.pdf = 1;
+
+        result.scatter_pdf = 1;
+    }
 
 // debug
 #if 0
     if(true)
     {
-        result.emitted = result.attenuation;
+        result.emitted = vec3(pdf, result.scatter_pdf, 0);
         result.do_scatter = false;
         return result;
     }
@@ -479,20 +629,12 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
 
     result.scatter = Ray(record.point, dir, vec3(1));
 
-    if (random() > (alpha))
-    {
-        result.attenuation = vec3(1, 1, 1);
-        result.emitted = vec3(0);
-        result.scatter.direction = vec3(r.direction);
-        result.do_scatter = true;
-    }
-
     result.scatter.inv_direction = vec3(1) / result.scatter.direction;
 
     return result;
 }
 
-HittableRecord world_hit(Ray r, float x, float y)
+HittableRecord world_hit(Ray r)
 {
 
     float cmin = 0.00001f;
@@ -521,7 +663,6 @@ HittableRecord world_hit(Ray r, float x, float y)
         vec3 tc = (buf_datas[VERTEX_SIZE * 2 + start + 2].xyz);
         vec2 uv1c = buf_datas[VERTEX_SIZE * 2 + start + 3].xy;
         vec2 uv2c = buf_datas[VERTEX_SIZE * 2 + start + 3].zw;
-
 
         float tsign = buf_datas[start + 2].w;
         vec3 edge_1 = pb - pa;
@@ -563,6 +704,7 @@ vec4 sky_color(Ray r)
     float rad = (0.009285) / 4;
     float ldir = map(clamp(dot(-light_off, unit_direction), 1.0 - rad, 1.0), 1.0 - rad, 1.0, 0, 1);
 
+    return vec4(0, 0, 0, 1);
     return vec4(mix(vec3(0.23, 0.36, 0.41), vec3(0.9922, 0.9843, 0.8275) * (100), ldir), 1);
     float t = acos(unit_direction.y);
     float p = atan(-unit_direction.z, unit_direction.x) + 3.1415;
@@ -571,7 +713,6 @@ vec4 sky_color(Ray r)
 
     vec3 rc = texture(skymap, vec2(u, v)).rgb;
 
-    // return vec4(1, 0, 0, 1);
     return vec4(srgb_to_linear(rc), 1);
 }
 
@@ -579,7 +720,7 @@ vec4 ray_color(Ray r, float x, float y, uint maxv)
 {
 
     int last_hit = -1;
-    HittableRecord rec = world_hit(r, x, y);
+    HittableRecord rec = world_hit(r);
     vec4 result = vec4(1);
 
     int depth = 0;
@@ -592,7 +733,7 @@ vec4 ray_color(Ray r, float x, float y, uint maxv)
         //  return vec4(0, 1, 0, 1);
         return sky_color(r);
     }
-
+    float accum = 1.0;
     while (depth <= maxv)
     {
         MaterialRecord material = material_hit(rec, r);
@@ -600,7 +741,7 @@ vec4 ray_color(Ray r, float x, float y, uint maxv)
         if (material.do_scatter)
         {
             r = material.scatter;
-            result = result * vec4(material.attenuation, 1.0);
+            result = result * (vec4(material.attenuation, 1.0) * material.scatter_pdf) / material.pdf;
         }
         else
         {
@@ -611,7 +752,7 @@ vec4 ray_color(Ray r, float x, float y, uint maxv)
 
         depth += 1;
 
-        rec = world_hit(r, x, y);
+        rec = world_hit(r);
 
         if (rec.hitted == false)
         {

@@ -4,20 +4,34 @@
 #include <obj/mesh.h>
 #include <stddef.h>
 #include "math/mat4.h"
+#include "math/vec3.h"
 #include "render/vulkan/vertex.h"
 
 #define PBRT_SIZE_IMAGE 3
 typedef vec_t(Image) TexLists;
+
+typedef struct __attribute__((packed))
+{
+    _Alignas(8) int type;;
+    _Alignas(16) Vec3 color;
+    _Alignas(16) Vec3 p1;
+    _Alignas(16) Vec3 p2;
+    _Alignas(16) Vec3 p3;
+} Light;
+typedef struct __attribute__((packed))
+{
+    _Alignas(16) Light light;
+} Emissive;
 typedef struct
 {
     Points data;
     Meshes meshes;
-    Meshes reordred;
     TexLists textures;
     Image skymap;
 
     Matrix4x4 camera_transform;
     float camera_fov;
+    vec_t(Emissive) mesh_emissive_indices;
 } Scene;
 
 typedef struct
@@ -37,6 +51,8 @@ void mesh_write_vertex(Scene* self, Mesh* from, int vertex, SVertex data);
 void scene_init(Scene *self);
 
 void scene_resize_textures(Scene* self);
+void scene_emissive_indices_init(Scene* self);
+
 void scene_push_circle(Scene *self, Vec3 pos, float r, Material material);
 
 void scene_push_tri(Scene *self, Vec3 posa, Vec3 posb, Vec3 posc, Material material);
@@ -96,7 +112,10 @@ Material scene_push_pbrt(Scene *self, Pbrt pbrt);
 
 PbrtMaterialImage scene_get_pbrt(Scene* self, int offset);
 
+Pbrt scene_get_full_pbrt(Scene *self, int offset);
 void scene_deinit(Scene *self);
+
+void scene_emissive_indices_init(Scene* self);
 
 void scene_build_buffer(Scene *self);
 

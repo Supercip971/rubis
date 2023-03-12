@@ -66,6 +66,7 @@ int main(MAYBE_UNUSED int argc, MAYBE_UNUSED char **argv)
     }
     printf("started resizing textures...\n");
     scene_resize_textures(&scene);
+    scene_emissive_indices_init(&scene);
     printf("loaded scene %i \n", scene.meshes.length);
 
     window_engine_init();

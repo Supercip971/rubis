@@ -2,6 +2,7 @@
 #include <render/vulkan/buffer.h>
 #include <render/vulkan/desc_set_layout.h>
 #include <vulkan/vulkan_core.h>
+#include "obj/scene.h"
 
 typedef struct
 {
@@ -16,12 +17,17 @@ typedef vec_t(ShaderDescriptor) ShaderDescriptors;
 static void scene_buf_init(VulkanCtx *ctx)
 {
     size_t mesh_buf_size = sizeof(Mesh) * ctx->scene.meshes.length;
+    size_t mesh_emit_size = sizeof(EmissiveIndex) * ctx->scene.mesh_emissive_indices.length;
+
+
     size_t mesh_data_buf_size = sizeof(Vec3) * ctx->scene.data.length;
     size_t mesh_bvh_size = sizeof(BvhEntry) * ctx->bvh_data.length;
 
     VkBufferUsageFlags compute_buffer_usage_flag = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 
     ctx->mesh_buf = vk_buffer_alloc(ctx, mesh_buf_size, compute_buffer_usage_flag, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    ctx->emissive_buf = vk_buffer_alloc(ctx, mesh_emit_size, compute_buffer_usage_flag, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    
     ctx->mesh_data_buf = vk_buffer_alloc(ctx, mesh_data_buf_size, compute_buffer_usage_flag, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     ctx->bvh_buf = vk_buffer_alloc(ctx, mesh_bvh_size, compute_buffer_usage_flag, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 }
@@ -93,6 +99,14 @@ void shader_descriptors_init(VulkanCtx *ctx, ShaderDescriptors *desc)
                        .flag = VK_SHADER_STAGE_COMPUTE_BIT,
                        .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                    }));
+                   
+    vec_push(desc, ((ShaderDescriptor){
+                       .target = &ctx->emissive_buf,
+                       .flag = VK_SHADER_STAGE_COMPUTE_BIT,
+                       .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                   }));
+
+
 }
 
 static void vulkan_desc_pool_init(VulkanCtx *ctx, ShaderDescriptors descriptors)
@@ -240,9 +254,11 @@ void scene_buf_value_init(VulkanCtx *ctx)
     size_t mesh_buf_size = sizeof(Mesh) * ctx->scene.meshes.length;
     size_t mesh_data_buf_size = sizeof(Vec3) * ctx->scene.data.length;
     size_t mesh_bvh_size = sizeof(BvhEntry) * ctx->bvh_data.length;
+    size_t mesh_idx_size = sizeof(EmissiveIndex) * ctx->scene.mesh_emissive_indices.length;
+
 
     VulkanBuffer temp_buf = vk_buffer_alloc(ctx,
-                                            fmax(fmax(mesh_buf_size, mesh_data_buf_size), mesh_bvh_size),
+                                            fmax(fmax(fmax(mesh_buf_size, mesh_data_buf_size), mesh_bvh_size),mesh_idx_size),
                                             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -251,6 +267,11 @@ void scene_buf_value_init(VulkanCtx *ctx)
     // mesh buffer
     memcpy((void *)dat, ctx->scene.meshes.data, mesh_buf_size);
     vk_buffer_copy(ctx, ctx->mesh_buf, temp_buf);
+
+    // emmissive data buffer
+    memcpy((void *)dat, ctx->scene.mesh_emissive_indices.data, mesh_idx_size);
+    vk_buffer_copy(ctx, ctx->emissive_buf, temp_buf);
+
 
     // mesh data buffer
     memcpy((void *)dat, ctx->scene.data.data, mesh_data_buf_size);

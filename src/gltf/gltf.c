@@ -1,10 +1,10 @@
-#include "gltf.h"
 #include <cjson/cJSON.h>
 #include <gltf/accessor.h>
 #include <gltf/materials.h>
 #include <gltf/textures.h>
 #include <math/mat4.h>
 #include <stdio.h>
+#include "gltf.h"
 #include "math/vec3.h"
 #include "obj/mesh.h"
 #include "obj/scene.h"
@@ -24,12 +24,16 @@ typedef struct __attribute__((packed))
 } GltfVec2;
 
 #define gltvec2vec(v) vec3$(v.x, v.y, v.z)
-#define gltvec42vec(v) (Vec3){v.x, v.y, v.z, v.w}
-
+#define gltvec42vec(v)     \
+    (Vec3)                 \
+    {                      \
+        v.x, v.y, v.z, v.w \
+    }
 
 bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
 {
     cJSON *mesh_primitives_array = cJSON_GetObjectItem(node, "primitives");
+
     int primitive_count = cJSON_GetArraySize(mesh_primitives_array);
     bool has_tangent_all = false;
     for (int i = 0; i < primitive_count; i++)
@@ -51,11 +55,10 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
             material = self->null_material_id;
         }
         bool has_tangent = cJSON_GetObjectItem(attributes, "TANGENT") != NULL;
-        if(has_tangent)
+        if (has_tangent)
         {
             has_tangent_all = true;
         }
-        
 
         mesh_creation = scene_start_mesh(self->target, self->materials.data[material].final);
 
@@ -74,25 +77,24 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
         if (has_texcoord2)
         {
 
-            
             texcoords2 = gltf_read_accessor(self, cJSON_GetObjectItem(attributes, "TEXCOORD_1")->valueint);
         }
 
-
         GltfAccessorPtr normals;
-        if(cJSON_GetObjectItem(attributes, "NORMAL") == NULL)
+        if (cJSON_GetObjectItem(attributes, "NORMAL") == NULL)
         {
             has_normal = false;
         }
-        else {
+        else
+        {
             has_normal = true;
             normals = gltf_read_accessor(self, cJSON_GetObjectItem(attributes, "NORMAL")->valueint);
         }
 
         GltfAccessorPtr tangents;
-        if(has_tangent)
+        if (has_tangent)
         {
-             tangents = gltf_read_accessor(self, cJSON_GetObjectItem(attributes, "TANGENT")->valueint);
+            tangents = gltf_read_accessor(self, cJSON_GetObjectItem(attributes, "TANGENT")->valueint);
         }
         for (int j = 0; j < indicies.count; j += 3)
         {
@@ -111,7 +113,6 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
 
             GltfVec3 *n = normals.view.data;
             GltfVec4 *t = tangents.view.data;
-
 
             int idx0 = 0, idx1 = 0, idx2 = 0;
 
@@ -142,24 +143,23 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
                 .c.pos = matrix_apply_point_ret(&transform, gltvec2vec(v[idx2])),
             };
 
-            if(has_normal)
+            if (has_normal)
             {
                 final.a.normal = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx0]));
                 final.b.normal = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx1]));
                 final.c.normal = matrix_apply_vector_ret(&transform, gltvec2vec(n[idx2]));
-                final.a.normal._padding = 1;  
+                final.a.normal._padding = 1;
             }
-            else  {
+            else
+            {
                 final.a.normal._padding = 0;
             }
-            if(has_tangent)
+            if (has_tangent)
             {
                 final.a.tangent = matrix_apply_vector_ret(&transform, gltvec42vec(t[idx0]));
                 final.b.tangent = matrix_apply_vector_ret(&transform, gltvec42vec(t[idx1]));
                 final.c.tangent = matrix_apply_vector_ret(&transform, gltvec42vec(t[idx2]));
-            
             }
-
 
             if (has_texcoord1)
             {
@@ -174,7 +174,7 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
                 final.b.tc1 = (TriangleTexPos){gltftex[idx1].x, gltftex[idx1].y};
                 final.c.tc1 = (TriangleTexPos){gltftex[idx2].x, gltftex[idx2].y};
             }
-        if (has_texcoord2)
+            if (has_texcoord2)
             {
                 if (texcoords2.componen_type != GLTF_COMP_FLOAT && texcoords2.type != GLTF_VEC2)
                 {
@@ -192,6 +192,7 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
         mesh_creation.has_tangent = has_tangent_all;
         mesh_creation.mesh.type = (has_tangent_all) ? -1 : 2;
         mesh_gen_normals_if_needed(&mesh_creation);
+        printf("end: %i\n", self->target->meshes.length);;
         scene_end_mesh(self->target, &mesh_creation);
     }
 
@@ -322,6 +323,12 @@ bool parse_gltf_node(GltfCtx *self, cJSON *node, Matrix4x4 transform)
     }
 
     cJSON *mesh_element = cJSON_GetArrayItem(cJSON_GetObjectItem(self->root, "meshes"), object_mesh_id->valueint);
+    const char *name = cJSON_GetStringValue(cJSON_GetObjectItem(mesh_element, "name"));
+    if (name == NULL)
+    {
+        name = "unnamed";
+    }
+    printf("parsing mesh %s | %i\n", name, object_mesh_id->valueint);
 
     bool mesh = parse_gltf_mesh(self, mesh_element, res);
     if (!mesh)
@@ -393,8 +400,6 @@ bool parse_gltf(void *data, Scene *target)
     };
 
     gltf_textures_parse(&ctx);
-
-    
 
     gltf_materials_parse(&ctx);
 

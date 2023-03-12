@@ -11,6 +11,11 @@ struct MaterialRecord
     vec3 attenuation;
     vec3 emitted;
     float scatter_factor;
+
+    float pdf;
+    float scatter_pdf;
+    bool has_light;
+    HittableRecord light_record;
 };
 
 // BASED on gltf sample implementation
@@ -177,9 +182,16 @@ float luminance(vec3 c)
     return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
 }
 
-vec3 dumb_brdf(Ray r, HittableRecord hit, float roughness, float metallic, vec3 base, vec3 next, vec3 mnormal)
+struct MaterialValRecord
 {
+    float pdf;
+    float scatter_pdf;
+    vec3 color;
+};
 
+MaterialValRecord dumb_brdf(Ray r, HittableRecord hit, float roughness, float metallic, vec3 base, vec3 next, vec3 mnormal)
+{
+    MaterialValRecord result;
     roughness = clamp(roughness, 0.0001, 0.9999);
     metallic = clamp(metallic, 0.0001, 0.9999);
     vec3 n = (mnormal);
@@ -195,12 +207,14 @@ vec3 dumb_brdf(Ray r, HittableRecord hit, float roughness, float metallic, vec3 
 
     if(dot(n, h) < 0)
     {
-        return vec3(0,0,0);
+        result.color= vec3(0,0,0);
+        return result;
     }
 
     if(h.x == 0 && h.y == 0 && h.z == 0)
     {
-        return vec3(0,0,0);
+        result.color= vec3(0,0,0);
+        return result;
     }
    // vec3 r = reflect(-l, n);
 
@@ -228,7 +242,7 @@ vec3 dumb_brdf(Ray r, HittableRecord hit, float roughness, float metallic, vec3 
     float ggx_d_denom = max((alpha_sq_c - 1.0) * (NdotH) * (NdotH) + 1, 0.01);
     
 
-    float ggx_d =  ( alpha_sq_c * NdotH) / (M_PI *  ggx_d_denom * ggx_d_denom);
+    float ggx_d =  ( alpha_sq_c * NdotH ) / (M_PI *  ggx_d_denom * ggx_d_denom);
 
   // # G
 
@@ -251,7 +265,18 @@ vec3 dumb_brdf(Ray r, HittableRecord hit, float roughness, float metallic, vec3 
     {
         res = normalize(res);
     }
-    return res;
+
+    float diffuse_ratio =  0.5 * (1.0 - metallic);
+    float specular_ratio = 1.0 - diffuse_ratio;
+    
+    result.color = res;
+    
+    result.scatter_pdf = abs(dot(n, l)) ;
+    result.pdf = diffuse_ratio * (abs(dot(n, l)) / M_PI) + specular_ratio * (ggx_d / (4 * dot(v, h)));
+
+    
+
+    return result;
 }
 
 #endif

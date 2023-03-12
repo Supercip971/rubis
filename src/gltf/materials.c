@@ -100,7 +100,14 @@ void gltf_materials_parse(GltfCtx *self)
 
     for (int i = 0; i < materials_count; i++)
     {
-        printf("parsing material %i\n", i);
+        const char* name = cJSON_GetStringValue(cJSON_GetObjectItem(cJSON_GetArrayItem(materials_array, i), "name")); 
+        if(name == NULL)
+        {
+            name = "unnamed";
+        }
+        printf("parsing material %s | %i\n", name, i);
+
+
         cJSON *material = cJSON_GetArrayItem(materials_array, i);
 
         GltfMaterial current = {
@@ -226,6 +233,8 @@ void gltf_materials_parse(GltfCtx *self)
             {
                 current.emit.factor = vec3_mul_val(current.emit.factor, emissive_stren->valuedouble);
             }
+
+            printf("emit: %f %f %f\n", current.emit.factor.x, current.emit.factor.y, current.emit.factor.z);
         }
 
         Pbrt final = (Pbrt){

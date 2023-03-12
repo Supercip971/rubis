@@ -133,6 +133,7 @@ typedef struct
     VulkanBuffer config_buf;
 
     VulkanBuffer mesh_buf;
+    VulkanBuffer emissive_buf;
 
     VulkanBuffer mesh_data_buf;
     VulkanBuffer bvh_buf;

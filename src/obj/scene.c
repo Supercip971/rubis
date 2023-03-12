@@ -42,13 +42,13 @@ void scene_resize_textures(Scene *self)
         }
     }
 
-    if (maxw > 4096)
+    if (maxw > 2048)
     {
-        maxw = 4096;
+        maxw = 2048;
     }
-    if (maxh > 4096)
+    if (maxh > 2048)
     {
-        maxh = 4096;
+        maxh = 2048;
     }
 
     printf("resizing images for: %zux%zu\n", maxw, maxh);
@@ -98,44 +98,6 @@ void scene_push_circle(Scene *self, Vec3 pos, float r, Material material)
     vec_push(&self->meshes, mesh);
 }
 
-void scene_push_tri(Scene *self, Vec3 posa, Vec3 posb, Vec3 posc, Material material)
-{
-    Mesh mesh = {
-        .material_type = material.type,
-        .material = material.data,
-        .type = MESH_TRIANGLES,
-        .aabb =
-            aabb_create_triangle(posa, posb, posc),
-    };
-
-    scene_data_reference_push(self, &mesh.vertices, posa);
-    scene_data_reference_push(self, &mesh.vertices, posb);
-
-    scene_data_reference_push(self, &mesh.vertices, posc);
-
-    vec_push(&self->meshes, mesh);
-}
-
-void scene_push_tri2(Scene *self, Triangle triangle, Material material)
-{
-    Mesh mesh = {
-        .material_type = material.type,
-        .material = material.data,
-        .type = MESH_TRIANGLES,
-        .aabb = aabb_create_triangle(triangle.a.pos, triangle.b.pos, triangle.c.pos),
-
-    };
-     Vec3 dat[TRIANGLE_PACKED_COUNT];
-
-    triangle_pack(dat, triangle);
-    
-    for(int i = 0; i < TRIANGLE_PACKED_COUNT ; i++)
-    { 
-        scene_data_reference_push(self, &mesh.vertices, dat[i]);
-    }
-    vec_push(&self->meshes, mesh);
-}
-
 MeshCreation scene_start_mesh(Scene *self, Material material)
 {
     (void)self;
@@ -166,26 +128,25 @@ Triangle scene_mesh_triangle(Scene *self, int mesh_index, int triangle_index)
     return t;
 }
 
-
-SVertex mesh_read_vertex(Scene* self, Mesh* from,   int vertex)
+SVertex mesh_read_vertex(Scene *self, Mesh *from, int vertex)
 {
-    if(vertex >= from->vertices.end/ SVERTEX_PACKED_COUNT)
+    if (vertex >= from->vertices.end / SVERTEX_PACKED_COUNT)
     {
-        printf("vertex out of bounds: %d >= %d\n", vertex, from->vertices.end/ SVERTEX_PACKED_COUNT);
+        printf("vertex out of bounds: %d >= %d\n", vertex, from->vertices.end / SVERTEX_PACKED_COUNT);
         abort();
     }
-    Vec3* data = &self->data.data[from->vertices.start + vertex * SVERTEX_PACKED_COUNT];
+    Vec3 *data = &self->data.data[from->vertices.start + vertex * SVERTEX_PACKED_COUNT];
     return svertex_unpack(data);
 }
 
-void mesh_write_vertex(Scene* self, Mesh* from, int vertex, SVertex data)
+void mesh_write_vertex(Scene *self, Mesh *from, int vertex, SVertex data)
 {
-    if(vertex >= from->vertices.end/ SVERTEX_PACKED_COUNT)
+    if (vertex >= from->vertices.end / SVERTEX_PACKED_COUNT)
     {
-        printf("vertex out of bounds: %d >= %d\n", vertex, from->vertices.end/ SVERTEX_PACKED_COUNT);
+        printf("vertex out of bounds: %d >= %d\n", vertex, from->vertices.end / SVERTEX_PACKED_COUNT);
         abort();
     }
-    Vec3* dat = &self->data.data[from->vertices.start + vertex * SVERTEX_PACKED_COUNT];
+    Vec3 *dat = &self->data.data[from->vertices.start + vertex * SVERTEX_PACKED_COUNT];
     svertex_pack(dat, data);
 }
 
@@ -207,9 +168,6 @@ void mesh_push_triangle(MeshCreation *mesh, Triangle triangle)
 
     vec_push(&mesh->data, triangle);
 }
-
-
-
 
 void scene_end_mesh(Scene *self, MeshCreation *mesh)
 {
@@ -286,6 +244,22 @@ PbrtMaterialImage scene_get_pbrt(Scene *self, int offset)
     return image;
 }
 
+Pbrt scene_get_full_pbrt(Scene *self, int offset)
+{
+    PbrtMaterialImage base = scene_get_pbrt(self, offset);
+    PbrtMaterialImage normal = scene_get_pbrt(self, offset + 3);
+    PbrtMaterialImage metallic_roughness = scene_get_pbrt(self, offset + 6);
+    PbrtMaterialImage emit = scene_get_pbrt(self, offset + 9);
+
+    return (Pbrt){
+        .base = base,
+        .normal = normal,
+        .metallic_roughness = metallic_roughness,
+        .emit = emit,
+        .alpha = base.factor._padding,
+        .is_color = (base.id == -1),
+    };
+}
 Material scene_push_pbrt(Scene *self, Pbrt pbrt)
 {
     Material mat = {
@@ -319,4 +293,37 @@ void scene_deinit(Scene *self)
 {
     vec_deinit(&self->data);
     vec_deinit(&self->meshes);
+}
+void scene_emissive_indices_init(Scene *self)
+{
+    vec_init(&self->mesh_emissive_indices);
+
+    for (int i = 0; i < self->meshes.length; i++)
+    {
+        Mesh *mesh = &self->meshes.data[i];
+
+        AABB m_aabb = mesh->aabb;
+
+        float size = vec3_squared_length(vec3_sub(m_aabb.max, m_aabb.min));
+
+        PbrtMaterialImage emit = scene_get_pbrt(self, mesh->material.start + 9);
+
+        printf("[%i] %i | %f %f %f\n", i, emit.id, emit.factor.x, emit.factor.y, emit.factor.z);
+
+        if (emit.factor.x + emit.factor.y + emit.factor.z < 3 && emit.id < 0)
+        {
+            continue;
+        }
+        if (emit.id == -1 && emit.factor.x + emit.factor.y + emit.factor.z < 20)
+        {
+            continue;
+        }
+        printf("founded emissive: %i | %f \n", i, size);
+
+        for(int u = 0; u < (int)(fmax(1, size/10)); u++)
+        {
+            vec_push(&self->mesh_emissive_indices, (EmissiveIndex){i});
+        }
+   }
+    printf("emissive count %i\n", self->mesh_emissive_indices.length);
 }
