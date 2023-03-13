@@ -107,7 +107,7 @@ PdfSampleRecord sample_triangle(uint id, uint mid)
 }
 PdfSampleRecord sample_random(vec3 origin, vec3 n)
 {
-    int id = int(random() * float(lights.length() - 1));
+    int id = clamp(int(random() * float(lights.length())), 0, lights.length()-1);
 
     Mesh current_mesh = meshes[lights[id]];
 
@@ -333,7 +333,7 @@ PdfSampleRecord sample_point(vec3 N, vec3 point)
         PdfSampleRecord pdf_sample = sample_random(point, N);
         vec3 dir = -(point - pdf_sample.random_point);
 
-        if (dot(dir, N) < 0)
+        if (dot(dir, N) <= 0.001)
         {
             continue;
         }
@@ -354,7 +354,7 @@ PdfSampleRecord sample_point(vec3 N, vec3 point)
                 float dist = length(dir);
 
                 dir = cdir;
-                float pdf = dist * dist / (dot(N, dir) * pdf_sample.area);
+                float pdf = dist * dist / max(dot(N, dir) * pdf_sample.area, 0.01);
 
                 pdf_sample.pdf = pdf;
 
@@ -575,9 +575,8 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
 
     MaterialValRecord mvr = dumb_brdf(r, record, roughness_value, metal_value, result.attenuation, dir, N);
 
-    result.attenuation = mvr.color;
 
-    if (!is_specular && random() < 0.5)
+    if ( result.do_scatter  &&!is_specular && random() < 0.5 )
     {
 
         vec3 olddir = dir;
@@ -603,7 +602,7 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
 
             mvr = dumb_brdf(r, record, roughness_value, metal_value, result.attenuation, dir, N);
             result.scatter_pdf = mvr.pdf;
-
+            result.attenuation = mvr.color;
             result.pdf = pdf_sample.pdf;
         //    result.emitted = vec3(1, 0, 0);
         //    result.do_scatter = false;
@@ -617,6 +616,7 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
         result.scatter_pdf = 1;
     }
 
+    result.attenuation = mvr.color;
 // debug
 #if 0
     if(true)
@@ -741,7 +741,7 @@ vec4 ray_color(Ray r, float x, float y, uint maxv)
         if (material.do_scatter)
         {
             r = material.scatter;
-            result = result * (vec4(material.attenuation, 1.0) * material.scatter_pdf) / material.pdf;
+            result = result * (vec4(material.attenuation, 1.0) * material.scatter_pdf) / (material.pdf+0.001);
         }
         else
         {

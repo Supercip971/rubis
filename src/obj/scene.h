@@ -10,18 +10,10 @@
 #define PBRT_SIZE_IMAGE 3
 typedef vec_t(Image) TexLists;
 
-typedef struct __attribute__((packed))
+typedef struct 
 {
-    _Alignas(8) int type;;
-    _Alignas(16) Vec3 color;
-    _Alignas(16) Vec3 p1;
-    _Alignas(16) Vec3 p2;
-    _Alignas(16) Vec3 p3;
-} Light;
-typedef struct __attribute__((packed))
-{
-    _Alignas(16) Light light;
-} Emissive;
+    _Alignas(16) unsigned int index;
+} EmissiveIndex;
 typedef struct
 {
     Points data;
@@ -31,7 +23,7 @@ typedef struct
 
     Matrix4x4 camera_transform;
     float camera_fov;
-    vec_t(Emissive) mesh_emissive_indices;
+    vec_t(EmissiveIndex) mesh_emissive_indices;
 } Scene;
 
 typedef struct
