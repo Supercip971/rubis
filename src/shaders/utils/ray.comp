@@ -10,6 +10,6 @@ struct Ray
 
 vec3 ray_at(Ray r, float v)
 {
-    return r.origin + r.direction * v;
+    return vec3(r.origin + r.direction * v);
 }
 #endif

@@ -21,6 +21,7 @@ struct HittableRecord
     #ifdef SHOW_DEPTH
     int depth;
     #endif
+
     int vert_id;
 };
 
