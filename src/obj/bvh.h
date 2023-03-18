@@ -29,4 +29,5 @@ typedef vec_t(ElementOnList) tempBvhList;
 
 tempBvhList sort_on_axis(const tempBvhList *list, VecDimension axis, bool sign);
 
+
 void bvh_init(BvhList *self, Scene *target);

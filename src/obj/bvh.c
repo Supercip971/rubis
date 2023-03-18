@@ -26,7 +26,6 @@ float bvh_distance(ElementOnList *left, ElementOnList *right)
     return vec3_squared_length(vec3_sub(b_center, a_center));
 }
 
-
 BvhEntry bvh_make_mesh_fusion(BvhEntry left, BvhEntry right)
 {
 
@@ -172,6 +171,20 @@ AAPlane center_plane_from_aabb(AABB box)
     return plane;
 }
 
+AAPlane subdiv_plane_from_aabb(AABB box, float factor)
+{
+    // Vec3 center = aabb_centroid(&box);
+    VecDimension dim = pick_dim(box.min, box.max);
+    float min_v = vec3_dim(box.min, dim);
+    float max_v = vec3_dim(box.max, dim);
+    AAPlane plane = {
+        .dim = dim,
+        .t = min_v + (max_v - min_v) * factor,
+        .sign = 0,
+    };
+    return plane;
+}
+
 bool sbvh_bounding_with(BvhList *self, int entry_id, Scene *scene, AAPlane plane, AABB *result)
 {
     BvhEntry *entry = &self->data[entry_id];
@@ -248,31 +261,53 @@ void sbvh_init(BvhList *self, int entry_id, Scene *scene)
         // We have 2 sides, 2 element, if for each element in each sides we nead to compute the AABB
         // of that side element and then push 2 new object for each side
 
-        AAPlane plane_l = center_plane_from_aabb(entry->box);
-        plane_l.sign = 1;
+        AABB best_a;
+        AABB best_b;
+        bool is_valid = false;
+        float best_sah = 10000000;
 
-        AAPlane plane_r = plane_l;
-        plane_r.sign = -1;
+        float msah = aabb_surface_area(aabb_surrounding(&lb, &rb));
 
-        AABB new_lb;
-        AABB new_rb;
+        for (int i = 0; i < 4; i++)
+        {
 
-        AABB new_la;
-        AABB new_ra;
-        bool valid_la = sbvh_bounding_with(self, entry->la, scene, plane_l, &new_la);
-        bool valid_ra = sbvh_bounding_with(self, entry->ra, scene, plane_l, &new_ra);
-        bool valid_lb = sbvh_bounding_with(self, entry->la, scene, plane_r, &new_lb);
-        bool valid_rb = sbvh_bounding_with(self, entry->ra, scene, plane_r, &new_rb);
+            AAPlane plane_l = subdiv_plane_from_aabb(entry->box, i * 0.25f);
+            plane_l.sign = 1;
 
-        AABB final_a = aabb_surrounding(&new_la, &new_ra);
-        AABB final_b = aabb_surrounding(&new_lb, &new_rb);
+            AAPlane plane_r = plane_l;
+            plane_r.sign = -1;
 
+            AABB new_lb;
+            AABB new_rb;
+
+            AABB new_la;
+            AABB new_ra;
+
+            bool valid_la = sbvh_bounding_with(self, entry->la, scene, plane_l, &new_la);
+            bool valid_ra = sbvh_bounding_with(self, entry->ra, scene, plane_l, &new_ra);
+            bool valid_lb = sbvh_bounding_with(self, entry->la, scene, plane_r, &new_lb);
+            bool valid_rb = sbvh_bounding_with(self, entry->ra, scene, plane_r, &new_rb);
+
+            AABB final_a = aabb_surrounding(&new_la, &new_ra);
+            AABB final_b = aabb_surrounding(&new_lb, &new_rb);
+            if (valid_la && valid_ra && valid_lb && valid_rb)
+            {
+                float sah = aabb_surface_area(final_a) + aabb_surface_area(final_b);
+                if (sah < best_sah)
+                {
+                    best_sah = sah;
+                    best_a = final_a;
+                    best_b = final_b;
+                    is_valid = true;
+                }
+            }
+        }
         // bool valid_diff = aabb_near_same(&final_a, &final_b);
-        if (valid_la && valid_ra && valid_lb && valid_rb)
+        if (is_valid && best_sah < msah)
         {
 
             BvhEntry new_l_entry = {
-                .box = final_a,
+                .box = best_a,
                 .is_next_a_bvh = true,
                 .la = entry->la,
                 .lb = entry->lb,
@@ -280,7 +315,7 @@ void sbvh_init(BvhList *self, int entry_id, Scene *scene)
                 .rb = entry->rb,
             };
             BvhEntry new_r_entry = {
-                .box = final_b,
+                .box = best_b,
 
                 .is_next_a_bvh = true,
                 .la = entry->la,
@@ -306,14 +341,31 @@ float sah_cost_entry(ElementOnList *entry)
 {
     if (!entry->entry.is_next_a_bvh)
     {
-        return 1;
+        return 2;
     }
     else
     {
 
         ElementOnList *left = entry->next_l;
         ElementOnList *right = entry->next_r;
-        printf("what ?\n");
+        return (sah_cost_entry(left) + sah_cost_entry(right));
+    }
+}
+float sah_cost_entry_bounded(ElementOnList *entry, AABB aabb)
+{
+    if (!aabb_intersect(&aabb, &entry->entry.box))
+    {
+        return 0;
+    }
+    if (!entry->entry.is_next_a_bvh)
+    {
+        return 2;
+    }
+    else
+    {
+
+        ElementOnList *left = entry->next_l;
+        ElementOnList *right = entry->next_r;
         return (sah_cost_entry(left) + sah_cost_entry(right));
     }
 }
@@ -353,7 +405,7 @@ float sah_cost_list(tempBvhList *list, int split_at)
     }
 
     float ccost =
- 0.125f + (cost_left_count * aabb_surface_area(left) + cost_right_count * aabb_surface_area(right)) / aabb_surface_area(aabb_surrounding(&left, &right));
+        0.125f + (cost_left_count * aabb_surface_area(left) + cost_right_count * aabb_surface_area(right));
 
     return ccost;
 }
@@ -399,12 +451,219 @@ int best_sah_cost_list(tempBvhList *list, float *rcost)
     return best_index;
 }
 
+int bvh_element_primitive_count(ElementOnList *elt)
+{
+    int count = 0;
+    if (elt->entry.is_next_a_bvh)
+    {
+        count += bvh_element_primitive_count(elt->next_l);
+        count += bvh_element_primitive_count(elt->next_r);
+    }
+    else
+    {
+        count += 1;
+        count += 1;
+    }
+
+    return count;
+}
+int bvh_list_primitive_count(tempBvhList *list)
+{
+    int count = 0;
+    for (int i = 0; i < list->length; i++)
+    {
+        count += bvh_element_primitive_count(&list->data[i]);
+    }
+    return count;
+}
+float best_cut_impl(tempBvhList *list, VecDimension *dim, float t, bool split)
+{
+
+    AABB total = {};
+    Vec3 min_c = aabb_centroid(&list->data[0].entry.box);
+    Vec3 max_c = aabb_centroid(&list->data[0].entry.box);
+
+    for (int i = 0; i < list->length; i++)
+    {
+        total = aabb_surrounding(&total, &list->data[i].entry.box);
+
+        Vec3 c = aabb_centroid(&list->data[i].entry.box);
+        min_c = vec3_min(min_c, c);
+        max_c = vec3_max(max_c, c);
+    }
+
+    float from = vec3_dim(min_c, *dim);
+    float to = vec3_dim(max_c, *dim);
+
+    float delta = map(t, 0.0, 1.0, from, to);
+
+    AABB left_aabb;
+    float left_count = 0;
+    float right_count = 0;
+    AABB right_aabb;
+    AAPlane plane = {};
+    plane.dim = *dim;
+    plane.t = delta;
+    plane.sign = -1;
+
+    for (int i = 0; i < list->length; i++)
+    {
+        ElementOnList *entry = &list->data[i];
+        float c = vec3_dim(aabb_centroid(&entry->entry.box), *dim);
+        AABB left = entry->entry.box;
+        AABB right = entry->entry.box;
+
+        // if the box is in the part we want to split, we see if we can split it.
+        if (aabb_plane_intersection(entry->entry.box, plane, &left, &right) && split)
+        {
+            if (left_count == 0)
+            {
+                left_aabb = left;
+            }
+            if (right_count == 0)
+            {
+                right_aabb = right;
+            }
+
+            left_count += sah_cost_entry_bounded(entry, left);
+            right_count += sah_cost_entry_bounded(entry, right);
+
+            left_aabb = aabb_surrounding(&left_aabb, &left);
+            right_aabb = aabb_surrounding(&right_aabb, &right);
+
+            continue;
+        }
+        if (c < delta)
+        {
+            if (left_count == 0)
+            {
+                left_aabb = entry->entry.box;
+            }
+            left_count += sah_cost_entry(entry);
+
+            left_aabb = aabb_surrounding(&left_aabb, &entry->entry.box);
+        }
+        else
+        {
+
+            if (right_count == 0)
+            {
+                right_aabb = entry->entry.box;
+            }
+            right_count += sah_cost_entry(entry);
+
+            right_aabb = aabb_surrounding(&right_aabb, &entry->entry.box);
+        }
+    }
+
+    float invsize = 1.0f / aabb_surface_area(aabb_surrounding(&left_aabb, &right_aabb));
+
+    float r2 = (aabb_surface_area(left_aabb) * left_count + aabb_surface_area(right_aabb) * right_count) * invsize;
+
+   // float alpha = 1e-5f;
+
+   // if (aabb_intersect(&left_aabb, &right_aabb))
+   // {
+   //     float childs_size = aabb_surface_area(aabb_inter(&left_aabb, &right_aabb));
+   //     float root = aabb_surface_area(total);
+   //     if (childs_size / root < alpha && split)
+   //     {
+   //         return 1000000000;
+   //     }
+   // }
+
+    return r2;
+}
+
+float best_cut(tempBvhList *list, VecDimension *dim, bool *split)
+{
+    float cost = 10000000000.0f;
+    float best_cut = 1000000.f;
+
+    // Sah is overkill for little list
+    if (list->length <= 4)
+    {
+        return 0;
+    }
+
+    //    AABB total = {};
+    for (int i = 0; i < 3; i++)
+    {
+        VecDimension dim2 = (VecDimension)i;
+
+        for (int t = 0; t < 12; t++)
+        {
+            float tf = (float)t / 12.0f;
+            float tccost = best_cut_impl(list, &dim2, tf, true);
+            float fccost = best_cut_impl(list, &dim2, tf, false);
+
+            if (tccost < cost)
+            {
+                cost = tccost;
+                *split = true;
+                best_cut = tf;
+                *dim = (VecDimension)i;
+            }
+
+            if (fccost < cost)
+            {
+                cost = fccost;
+                *split = false;
+                best_cut = tf;
+                *dim = (VecDimension)i;
+            }
+        }
+    }
+
+    return best_cut;
+}
 /*
 
 int cmpfunc (const void * a, const void * b) {
    return ( *(int*)a - *(int*)b );
 }
 */
+
+ElementOnList element_simplify(BvhList *list, ElementOnList base, AABB new_box)
+{
+
+    (void)list;
+    ElementOnList *left = base.next_l;
+    ElementOnList *right = base.next_r;
+
+    if (!base.entry.is_next_a_bvh)
+    {
+        return base;
+    }
+    if(!aabb_intersect(&left->entry.box, &new_box) && !aabb_intersect(&right->entry.box, &new_box))
+    {
+        base.entry.box = (AABB){
+            .max = left->entry.box.max,
+            .min = left->entry.box.max,
+        };
+        base.entry.is_next_a_bvh = -1;
+        return base;
+    }
+    if (!aabb_intersect(&left->entry.box, &new_box))
+    {
+          base.entry.box = aabb_inter(&right->entry.box, &new_box);
+       
+        return element_simplify(list, *right, new_box);
+    }
+    if (!aabb_intersect(&right->entry.box, &new_box))
+    {
+        base.entry.box = aabb_inter(&left->entry.box, &new_box);
+        return element_simplify(list, *left, new_box);
+    }
+
+    ElementOnList ca = element_simplify(list, *left, new_box);
+    ElementOnList cb = element_simplify(list, *right, new_box);
+
+    base.next_l = element_copy(&ca);
+
+    base.next_r = element_copy(&cb);
+    return base;
+}
 ElementOnList bvh_init_rec(tempBvhList *list, BvhList *tlist, int depth)
 {
     if (list->length == 0)
@@ -426,14 +685,14 @@ ElementOnList bvh_init_rec(tempBvhList *list, BvhList *tlist, int depth)
     Vec3 min_p = (list->data[0].entry.box.min);
 
     Vec3 min_c = aabb_centroid(&list->data->entry.box);
- 
+
     Vec3 max_c = aabb_centroid(&list->data->entry.box);
     for (int i = 0; i < list->length; i++)
     {
         max_p = vec3_max(max_p, list->data[i].entry.box.max);
         min_p = vec3_min(min_p, list->data[i].entry.box.min);
 
-        max_c = vec3_max(max_c, aabb_centroid(&list->data[i].entry.box));                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+        max_c = vec3_max(max_c, aabb_centroid(&list->data[i].entry.box));
         min_c = vec3_min(min_c, aabb_centroid(&list->data[i].entry.box));
     }
 
@@ -448,108 +707,108 @@ ElementOnList bvh_init_rec(tempBvhList *list, BvhList *tlist, int depth)
         .max = max_p,
     };
 
-    /*
-    bool has_best = false;
-    float min_cost = 0.0;
-    tempBvhList best;
-    int best_id = 0;
-    for (int i = 0; i < 3; i++)
+    AABB tbox = {
+        .min = min_c,
+        .max = max_c,
+    };
+
+    vec_clear(&vr);
+    vec_clear(&vl);
+
+    bool has_l = false;
+    bool has_r = false;
+
+    float c = vec3_dim(vec3_add(max_c, min_c), dim) / 2.0f;
+    bool split = false;
+    if (list->length > 8)
     {
+        c = best_cut(list, &dim, &split);
+        float from = vec3_dim(tbox.min, dim);
+        float to = vec3_dim(tbox.max, dim);
 
-        tempBvhList temp = sort_on_axis(list, i, true);
-        float result_cost = 0;
-        int id = best_sah_cost_list(&temp, &result_cost);
-
-        if (!has_best || result_cost < min_cost)
-        {
-            if (has_best)
-            {
-                vec_deinit(&best);
-            }
-            min_cost = result_cost;
-            has_best = true;
-            best_id = id;
-            best = temp;
-        }
+        c = map(c, 0.0, 1.0, from, to);
     }
 
- //   printf("[%i] len: %i %i \n", depth, list->length, best_id);
-
-    lbox = best.data[0].entry.box;
-    rbox = best.data[best.length - 1].entry.box;
-    for (int i = 0; i < best.length; i++)
+    // printf("SPLIT! %i/%i, c: %f, dim: %d\n", list->length, split, c, dim);
+    AAPlane plane = {};
+    plane.dim = dim;
+    plane.t = c;
+    plane.sign = -1;
+    for (int i = 0; i < list->length; i++)
     {
-        if (i <= best_id)
+        ElementOnList curr = list->data[i];
+
+        if (split)
         {
-            lbox = aabb_surrounding(&lbox, &best.data[i].entry.box);
-            vec_push(&vl, best.data[i]);
-        }
-        else
-        {
-            rbox = aabb_surrounding(&rbox, &best.data[i].entry.box);
-            vec_push(&vr, best.data[i]);
-        }
-    }
-
-    //  printf("step[%i] (%i) l: %i r: %i \n", depth, list->length, vl.length, vr.length);
-    //  printf("%f %f %f - %f %f %f\n", min_p.x, min_p.y, min_p.z, max_p.x, max_p.y, max_p.z);
-    // generally when we have a lot of point in the same space, just random push, maybe I'll do something more
-    // intelligent but this is a really rare edge case
-
-    if(list->length > 4 && min_cost > list->length)
-    {
-        
-        printf("cost %f > %f\n", min_cost, (float)list->length);
-        abort();
-
-    }*/
-   // if ( min_cost > aabb_surface_area(aabb_surrounding(&lbox, &rbox)) * (list->length - 0.125f) || vl.length == 0 || vr.length == 0 
-   // || vec3_min_comp((vec3_sub(max_c, min_c))) < 0.1f)
-    {
-        vec_clear(&vr);
-        vec_clear(&vl);
-
-        bool has_l = false;
-        bool has_r = false;
-
-        for (int i = 0; i < list->length; i++)
-        {
-            ElementOnList curr = list->data[i];
-
-            if (is_vec3_dim_superior(aabb_centroid(&curr.entry.box), max_c, min_c, dim))
+            AABB nl;
+            AABB nr;
+            if (aabb_plane_intersection(curr.entry.box, plane, &nl, &nr))
             {
-                if (!has_r)
-                {
-                    rbox = curr.entry.box;
-                    has_r = true;
-                }
-                else
-                {
-                    rbox = aabb_surrounding(&rbox, &curr.entry.box);
-                }
-                vec_push(&vr, curr);
-            }
-            else
-            {
+
+                ElementOnList l = curr;
+                ElementOnList r = curr;
+
+                l.entry.box = nl;
+                r.entry.box = nr;
                 if (!has_l)
                 {
-                    lbox = curr.entry.box;
+                    lbox = nl;
                     has_l = true;
                 }
                 else
                 {
-                    lbox = aabb_surrounding(&lbox, &curr.entry.box);
+                    lbox = aabb_surrounding(&lbox, &nl);
                 }
-                vec_push(&vl, curr);
+                l.entry.box = nl;
+                vec_push(&vl,  element_simplify(tlist, l, nl));
+                if (!has_r)
+                {
+                    rbox = nr;
+                    has_r = true;
+                }
+                else
+                {
+                    rbox = aabb_surrounding(&rbox, &nr);
+                }
+                r.entry.box = nr;
+                vec_push(&vr,  element_simplify(tlist, r, nr));
+                continue;
             }
         }
+        if (vec3_dim(aabb_centroid(&curr.entry.box), dim) > c)
+        {
+            if (!has_r)
+            {
+                rbox = curr.entry.box;
+                has_r = true;
+            }
+            else
+            {
+                rbox = aabb_surrounding(&rbox, &curr.entry.box);
+            }
+            vec_push(&vr, curr);
+        }
+        else
+        {
+            if (!has_l)
+            {
+                lbox = curr.entry.box;
+                has_l = true;
+            }
+            else
+            {
+                lbox = aabb_surrounding(&lbox, &curr.entry.box);
+            }
+            vec_push(&vl, curr);
+        }
     }
+
     if (vl.length == 0 || vr.length == 0)
     {
 
         vec_clear(&vr);
         vec_clear(&vl);
-
+        *list = sort_on_axis(list, dim, 1);
         if (list->length == 2)
         {
             vec_push(&vr, list->data[1]);
@@ -563,7 +822,7 @@ ElementOnList bvh_init_rec(tempBvhList *list, BvhList *tlist, int depth)
             {
 
                 ElementOnList curr = list->data[i];
-                if (i < list->length / 2)
+                if (i > list->length / 2)
                 {
                     vec_push(&vr, curr);
                 }
@@ -588,7 +847,6 @@ ElementOnList bvh_init_rec(tempBvhList *list, BvhList *tlist, int depth)
 
     vec_deinit(&vr);
 
-
     return res;
 }
 
@@ -612,8 +870,8 @@ void bvh_init(BvhList *self, Scene *target)
                 Triangle t = scene_mesh_triangle(target, i, c);
 
                 BvhEntry entry = {
-                    .box = 
-                        aabb_create_triangle(t.a.pos,  t.b.pos,  t.c.pos),
+                    .box =
+                        aabb_create_triangle(t.a.pos, t.b.pos, t.c.pos),
                     .is_next_a_bvh = false,
                     .la = i,
                     .lb = c,
@@ -642,5 +900,6 @@ void bvh_init(BvhList *self, Scene *target)
     sbvh_init(self, 0, target);
     printf("bvh size: %lu \n", self->length * sizeof(BvhEntry));
     printf("bvh depth: %i \n", bvh_depth(self, 0));
-    //    bvh_dump(self, self->data, 0);
+    // abort();
+    //     bvh_dump(self, self->data, 0);
 }
