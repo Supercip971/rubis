@@ -7,17 +7,32 @@
 struct MaterialRecord
 {
     bool do_scatter;
-    Ray scatter;
-    vec3 attenuation;
-    vec3 emitted;
-    float scatter_factor;
-
+    vec3 albedo;
+    float alpha;
+    float metallic;
+    float roughness;
+    float ior;
     float pdf;
-    float scatter_pdf;
-    bool has_light;
-    HittableRecord light_record;
+    vec3 emitted;
+    bool is_specular;
+    vec3 N;
+    vec3 oN;
+    vec3 T;
+    vec3 B;
+    vec3 point;
+    vec3 incident;
+    bool transparent;
 };
 
+struct MaterialQueryRecord 
+{
+    Ray scatter;
+    vec3 H;
+    bool is_specular;
+    float pdf; 
+    float scatter_pdf;
+    vec3 attenuation;
+};
 // BASED on gltf sample implementation
 // https://github.com/KhronosGroup/glTF-Sample-Viewer/blob/master/source/Renderer/shaders/brdf.glsl
 // using: https://google.github.io/filament/Filament.md.html#materialsystem/specularbrdf/geometricshadowing(specularg) optimizations
@@ -189,13 +204,13 @@ struct MaterialValRecord
     vec3 color;
 };
 
-MaterialValRecord dumb_brdf(Ray r, HittableRecord hit, float roughness, float metallic, vec3 base, vec3 next, vec3 mnormal)
+MaterialValRecord dumb_brdf( float roughness, float metallic, vec3 incident, vec3 base, vec3 next, vec3 mnormal)
 {
     MaterialValRecord result;
     roughness = clamp(roughness, 0.0001, 0.9999);
     metallic = clamp(metallic, 0.0001, 0.9999);
     vec3 n = (mnormal);
-    vec3 v = (-r.direction);
+    vec3 v = (-incident);
     vec3 l = (next);
 
     // l = wI
@@ -213,7 +228,7 @@ MaterialValRecord dumb_brdf(Ray r, HittableRecord hit, float roughness, float me
 
     if(h.x == 0 && h.y == 0 && h.z == 0)
     {
-        result.color= vec3(0,0,0);
+        result.color= vec3(0,1,1);
         return result;
     }
    // vec3 r = reflect(-l, n);
@@ -241,7 +256,6 @@ MaterialValRecord dumb_brdf(Ray r, HittableRecord hit, float roughness, float me
     // D
     float ggx_d_denom = max((alpha_sq_c - 1.0) * (NdotH) * (NdotH) + 1, 0.01);
     
-
     float ggx_d =  ( alpha_sq_c * NdotH ) / (M_PI *  ggx_d_denom * ggx_d_denom);
 
   // # G
@@ -272,7 +286,8 @@ MaterialValRecord dumb_brdf(Ray r, HittableRecord hit, float roughness, float me
     result.color = res;
     
     result.scatter_pdf = abs(dot(n, l)) ;
-    result.pdf = diffuse_ratio * (abs(dot(n, l)) / M_PI) + specular_ratio * (ggx_d / (4 * dot(v, h)));
+    result.pdf = diffuse_ratio * (abs(dot(n, l)) / M_PI);
+    result.pdf += specular_ratio * (ggx_d / (4 * dot(l, h)));
 
     
 

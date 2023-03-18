@@ -7,8 +7,6 @@
 #include "utils/color.comp"
 #include "utils/ray.comp"
 
-// #define SHOW_BVH
-
 layout(std140, binding = 2) readonly buffer MeshesBufData
 {
     vec4 buf_datas[];
@@ -74,11 +72,11 @@ HittableRecord process_leaf(Ray r, int id, int vert, float cmin, float cmax)
 
     if (res.hitted)
     {
-        float alpha = material_load_tex(int(current_mesh.material_data_start), 0).factor.w;
-        if (random() > (alpha))
-        {
-            res.hitted = false;
-        }
+        //float alpha = material_load_tex(int(current_mesh.material_data_start), 0).factor.w;
+        //if (random() > (alpha))
+        //{
+        //    res.hitted = false;
+        //}
     }
 
     return res;
@@ -107,7 +105,7 @@ PdfSampleRecord sample_triangle(uint id, uint mid)
 }
 PdfSampleRecord sample_random(vec3 origin, vec3 n)
 {
-    int id = clamp(int(random() * float(lights.length())), 0, lights.length()-1);
+    int id = clamp(int(random() * float(lights.length())), 0, lights.length() - 1);
 
     Mesh current_mesh = meshes[lights[id]];
 
@@ -121,7 +119,9 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f);
 
 bool aabb_hit(Ray r, Bvh cur, float t_min, float t_max)
 {
+
     const vec3 invd = (r.inv_direction);
+    //
     vec3 t0 = ((cur.aabb_min.xyz - r.origin) * invd);
     vec3 t1 = ((cur.aabb_max.xyz - r.origin) * invd);
     if (invd.x < 0.0f)
@@ -176,7 +176,7 @@ bool aabb_hit2(Ray r, Bvh cur, float t_min, float t_max)
 
 #define STACK_SIZE 64
 
- struct CacheRecord 
+struct CacheRecord
 {
     HittableRecord result;
     Ray ray;
@@ -188,7 +188,7 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
 {
 
     int stack[STACK_SIZE];
-
+    float cmax_stack[STACK_SIZE];
     int current = bvhs[0].la;
     float cmin = cmin_f;
     float cmax = cmax_f;
@@ -199,6 +199,11 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
     sp++;
     HittableRecord res;
     res.hitted = false;
+
+    bool direction = true;
+    int ccount = 0;
+
+    mat4 m = mat4(1);
 
 #ifdef SHOW_DEPTH
     Bvh dcur = bvhs[stack[0]];
@@ -213,29 +218,39 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
         sp--; // pop
 
         Bvh cur = bvhs[stack[sp]];
+
         if (cur.is_next_a_bvh == 0)
         {
 
             HittableRecord rec2 = process_leaf(r, cur.la, cur.lb, cmin, cmax);
+#ifdef SHOW_DEPTH
+            ccount++;
+#endif
+
             if (rec2.hitted)
             {
                 cmax = rec2.t;
                 res = rec2;
 
 #ifdef SHOW_DEPTH
-                depth = max(depth, sp + 4);
+                depth = max(depth, sp + 8);
 #endif
             }
             if (cur.ra != 0)
             {
                 rec2 = process_leaf(r, cur.ra, cur.rb, cmin, cmax);
+#ifdef SHOW_DEPTH
+
+                ccount++;
+#endif
+
                 if (rec2.hitted)
                 {
                     cmax = rec2.t;
                     res = rec2;
 
 #ifdef SHOW_DEPTH
-                    depth = max(depth, sp + 4);
+                    depth = max(depth, sp + 8);
 #endif
                 }
             }
@@ -251,32 +266,62 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
         {
             Bvh lb = bvhs[cur.la];
             Bvh rb = bvhs[cur.ra];
-
-            if (aabb_hit(r, lb, cmin, cmax))
+            if (direction)
             {
-                stack[sp] = cur.la;
+                if (aabb_hit(r, lb, cmin, cmax))
+                {
 
-                sp++;
+                    stack[sp] = cur.la;
+                    //   cmax_stack[sp] = cmax;
+                    sp++;
 
 #ifdef SHOW_DEPTH
-                depth = max(depth, sp + 2);
+                    depth = max(depth, sp + 1);
 #endif
+                }
+                if (aabb_hit(r, rb, cmin, cmax))
+                {
+
+                    stack[sp] = cur.ra;
+                    //   cmax_stack[sp] = cmax;
+
+                    sp++;
+#ifdef SHOW_DEPTH
+                    depth = max(depth, sp + 1);
+#endif
+                }
             }
-            if (aabb_hit(r, rb, cmin, cmax))
+            else
             {
 
-                stack[sp] = cur.ra;
+                if (aabb_hit(r, rb, cmin, cmax))
+                {
 
-                sp++;
+                    stack[sp] = cur.ra;
+                    //   cmax_stack[sp] = cmax;
+
+                    sp++;
 #ifdef SHOW_DEPTH
-                depth = max(depth, sp + 2);
+                    depth = max(depth, sp + 1);
 #endif
+                }
+                if (aabb_hit(r, lb, cmin, cmax))
+                {
+
+                    stack[sp] = cur.la;
+                    //   cmax_stack[sp] = cmax;
+                    sp++;
+
+#ifdef SHOW_DEPTH
+                    depth = max(depth, sp + 1);
+#endif
+                }
             }
         }
     }
 
 #ifdef SHOW_DEPTH
-    res.depth = depth;
+    res.depth = ccount;
 #endif
     return res;
 }
@@ -299,6 +344,17 @@ vec3 material_tex_query(PbrtTexture tex, vec2 uv)
     return result;
 }
 
+vec4 material_tex_query_w(PbrtTexture tex, vec2 uv)
+{
+    mat3 translation = mat3(1, 0, 0, 0, 1, 0, tex.offset.x, tex.offset.y, 1);
+
+    mat3 scale = mat3(tex.scale.x * 1, 0, 0, 0, tex.scale.y * 1, 0, 0, 0, 1);
+
+    mat3 matrix = translation * scale;
+    vec2 uvTransformed = (matrix * vec3(uv.xy, 1)).xy;
+    vec4 result = texture(textures, vec3(uvTransformed, tex.id));
+    return result;
+}
 vec3 cosine_sample_hemisphere(float r1, float r2)
 {
     float phi = 2.0 * M_PI * r1;
@@ -344,24 +400,23 @@ PdfSampleRecord sample_point(vec3 N, vec3 point)
             const float cmin = 0.00001f;
             const float cmax = 100000.f;
 
-          //  HittableRecord rec = traverse_bvh_stack(new_ray, cmin, cmax);
-          //  if (rec.hitted)
-           // {
-                //if (rec.mesh_id != pdf_sample.id)
-                //{
-                //    continue;
-                //}
-                float dist = length(dir);
+            //  HittableRecord rec = traverse_bvh_stack(new_ray, cmin, cmax);
+            //  if (rec.hitted)
+            // {
+            // if (rec.mesh_id != pdf_sample.id)
+            //{
+            //    continue;
+            //}
+            float dist = length(dir);
 
-                dir = cdir;
-                float pdf = dist * dist / max(dot(N, dir) * pdf_sample.area, 0.01);
+            dir = cdir;
+            float pdf = (dist * dist) / (max(dot(N, dir) , 0.0001));
 
-                pdf_sample.pdf = pdf;
+            pdf_sample.pdf = pdf;
 
-                return pdf_sample;
-                //      mvr = dumb_brdf(r, record, roughness_value, metal_value, result.attenuation, dir, N);
-//            }
-
+            return pdf_sample;
+            //      mvr = dumb_brdf(r, record, roughness_value, metal_value, result.attenuation, dir, N);
+            //            }
         }
     }
     PdfSampleRecord pdf_sample = sample_random(point, N);
@@ -375,7 +430,7 @@ PdfSampleRecord sample_point(vec3 N, vec3 point)
     return pdf_sample;
 }
 
-MaterialRecord material_hit(HittableRecord record, Ray r)
+MaterialRecord material_hit_info(HittableRecord record, Ray r)
 {
     Mesh current_mesh = meshes[record.mesh_id];
 
@@ -405,17 +460,20 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
         emit *= material_tex_query(emit_T, record.uv).xyz;
     }
 
+    //emit = sqrt(emit);
+
     result.do_scatter = true;
     if (length(emit) > 0.9)
     {
         result.do_scatter = false;
     }
 
+
     vec3 fact = albedo_T.factor.xyz;
     float alpha = albedo_T.factor.w;
     if (base < 0)
     {
-        result.attenuation = fact;
+        result.albedo = fact;
     }
     else
     {
@@ -424,18 +482,23 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
         {
             fuv = record.uv2;
         }
-        result.attenuation = material_tex_query(albedo_T, fuv) * fact;
+        vec4 col = material_tex_query_w(albedo_T, fuv);
+        result.albedo = col.rgb * fact;
 
-        alpha = 1.0;
-        //        alpha = texture(textures, vec3(record.uv, base)).w;
+        alpha *= col.a;
     }
 
     vec3 T = ((record.tangent));
     vec3 N = ((record.normal));
     vec3 B = (record.bittangent);
 
+    if (dot(N, r.direction) > 0)
+    {
+        N = -N;
+    }
     vec3 og_normal = record.normal;
 
+    result.oN = og_normal;
     vec3 unit_direction = vec_unit(r.direction);
 
     if (normal >= 0)
@@ -466,6 +529,10 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
         T = normalize(vec3(0, N.z, -N.y) * inversesqrt(N.y * N.y + N.z * N.z));
     }
     B = normalize(cross(N, T));
+
+    result.N = N;
+    result.T = T;
+    result.B = B;
 // debug
 #if 0
     if (true)
@@ -501,137 +568,170 @@ MaterialRecord material_hit(HittableRecord record, Ray r)
 
     result.emitted = emit;
 
-    // y = roughtness
-    // z = metalness
-    vec3 oattenuation = result.attenuation;
-
-    vec3 dir;
-
     const float idx = 1.5;
 
     float refract_ratio = 1.0 / idx;
-    // if (!record.front)
-    // {
-    //     refract_ratio = idx;
-    // }
+    result.ior = refract_ratio;
+
+    // y = roughtness
+    // z = metalness
+
+    float roughness_value = clamp(metal_roughness.y, 0.0001, 1);
+    float metal_value = clamp(metal_roughness.z, 0, 1);
+
+    result.roughness = roughness_value;
+    result.metallic = metal_value;
 
     float cos_theta = min((dot(-unit_direction, N)), 1.0);
     float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
 
-    float diffuse_ratio = 1.0 - (metal_roughness.z * metal_roughness.z);
-    vec3 H = N;
+    result.is_specular = (reflectance(cos_theta, result.ior) > random()) || (random() < (result.metallic) * 0.5); // specular
+    result.incident = r.direction;
 
-    float roughness_value = clamp(metal_roughness.y, 0.0001, 1);
-    float metal_value = clamp(metal_roughness.z, 0, 1);
+    result.point = record.point;
+
+    result.transparent = alpha < random();
+
+    if(result.transparent)
+    {
+        result.is_specular = true; // consider all transparent as specular
+    }
+    return result;
+}
+
+MaterialQueryRecord material_query(MaterialRecord record, Ray r)
+{
     bool is_specular = false;
-    if (reflectance(cos_theta, refract_ratio) > random()) // specular
+    //
+    vec3 H = record.N;
+    vec3 dir = vec3(0);
+    vec3 unit_direction = normalize(r.direction);
+
+        float r1 = random();
+        float r2 = random();
+    if (record.is_specular) // specular
     {
         is_specular = true;
         // https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf
 
-        //  dir = reflect(unit_direction, record.normal);
-        // dir = vec_unit(dir + (vec3_random_unit() * (random())) * clamp(metal_roughness.y, 0, 1));
-        H = importance_sample(roughness_value, random(), random());
+        H = importance_sample(record.roughness, r1, r2);
 
-        H = normalize(H.x * T + H.y * B + H.z * N);
-        if (dot(H, unit_direction) > 0)
+        H = normalize(H.x * record.T + H.y * record.B + H.z * record.N);
+
+        if (dot(H, record.N) < 0)
         {
             H = -H;
         }
-        dir = normalize(reflect(unit_direction, H));
+        dir = (reflect(unit_direction, H));
     }
     else
     {
-        float r1 = random();
-        float r2 = random();
-        if (random() < (metal_value * 0.5))
-        {
-            H = importance_sample(roughness_value, r1, r2);
-
-            H = normalize(H.x * T + H.y * B + H.z * N);
-
-            if (dot(H, unit_direction) > 0)
-            {
-                H = -H;
-            }
-            dir = reflect(unit_direction, H);
-        }
-        else
-        {
+            // dir = reflect(unit_direction, record.N);
             dir = cosine_sample_hemisphere(r1, r2);
-
-            // V= -I
-            // H = (V + L) / 2 <=> = norm(V + L)
-            //     H = normalize(dir + (-unit_direction));
-            //     if(dot(H, unit_direction) > 0)
-            //     {
-            //         H = -H;
-            //     }
-        }
-        //  vec3 ndir = vec_unit(record.normal+ (vec3_random_unit() * (random())) *  clamp(metal_roughness.y, 0, 1));
-
-        dir = vec_unit(dir);
     }
 
-    MaterialValRecord mvr = dumb_brdf(r, record, roughness_value, metal_value, result.attenuation, dir, N);
+    dir = normalize(dir);
+    MaterialQueryRecord result;
+    result.scatter.origin = record.point;
+    result.scatter.direction = dir;
+    result.scatter.inv_direction = 1 / dir;
+
+    result.is_specular = is_specular;
+    result.pdf = 1;
+
+    result.H = normalize(dir + unit_direction);
+
+    return result;
+}
+
+MaterialQueryRecord material_query_pdf(MaterialRecord record, Ray r, float prob)
+{
+    MaterialQueryRecord result;
+    vec3 dir;
 
 
-    if ( result.do_scatter  &&!is_specular && random() < 0.5 )
+    if(record.transparent)
     {
-
-        vec3 olddir = dir;
+        result.scatter.direction = r.direction;
+        result.scatter.inv_direction = 1 / r.direction;
+        result.scatter.origin = record.point;
+        result.pdf = 1;
+        result.scatter_pdf = 1;
+        return result;
+    }
+    if (record.do_scatter && !record.is_specular && random() > 0.5)
+    {
 
         int maxv = 0;
 
-        PdfSampleRecord pdf_sample = sample_point(N, record.point);
+        PdfSampleRecord pdf_sample = sample_point(record.N, record.point);
 
-        if (pdf_sample.pdf == 0)
+        if (pdf_sample.pdf <= 0.0001)
         {
+
+            result = material_query(record, r);
             result.pdf = 1;
 
             result.scatter_pdf = 1;
 
-        //    result.emitted = vec3(0, 1, 0);
-        //    result.do_scatter = false;
-        //    return result;
+            //    result.emitted = vec3(0, 1, 0);
+            //    result.do_scatter = false;
+            //    return result;
         }
         else
         {
 
             dir = normalize(-(record.point - pdf_sample.random_point));
 
-            mvr = dumb_brdf(r, record, roughness_value, metal_value, result.attenuation, dir, N);
-            result.scatter_pdf = mvr.pdf;
-            result.attenuation = mvr.color;
+            result.scatter.direction = dir;
+            result.scatter.origin = record.point;
+            result.scatter.inv_direction = 1.0 / dir;
+           // result.is_specular = false;
             result.pdf = pdf_sample.pdf;
-        //    result.emitted = vec3(1, 0, 0);
-        //    result.do_scatter = false;
-        //    return result;
+
+            //    result.emitted = vec3(1, 0, 0);
+            //    result.do_scatter = false;
+            //    return result;
         }
     }
     else
     {
+        
+        result = material_query(record, r);
+
         result.pdf = 1;
 
         result.scatter_pdf = 1;
+
     }
-
-    result.attenuation = mvr.color;
-// debug
-#if 0
-    if(true)
-    {
-        result.emitted = vec3(pdf, result.scatter_pdf, 0);
-        result.do_scatter = false;
-        return result;
-    }
-#endif
-
-    result.scatter = Ray(record.point, dir, vec3(1));
-
-    result.scatter.inv_direction = vec3(1) / result.scatter.direction;
 
     return result;
+}
+MaterialQueryRecord material_update_attenuation(MaterialQueryRecord c, MaterialRecord record)
+{
+
+    MaterialQueryRecord query = c;
+    MaterialValRecord mvr = dumb_brdf(record.roughness, record.metallic, record.incident, record.albedo, query.scatter.direction, record.N);
+
+   if(!query.is_specular)
+    {
+        query.scatter_pdf = mvr.pdf;
+    
+    }
+    else 
+    {
+        query.scatter_pdf = 1;
+        query.pdf = 1;
+   
+    }
+   
+        query.attenuation = mvr.color;
+   // result.pdf = pdf_sample.pdf;
+    //    result.emitted = vec3(1, 0, 0);
+    //    result.do_scatter = false;
+    //    return result;
+
+    return query;
 }
 
 HittableRecord world_hit(Ray r)
@@ -699,7 +799,7 @@ vec3 light_off = vec_unit(vec3(-3.9618, -3.142, -1.3474));
 vec4 sky_color(Ray r)
 {
 
-    // return vec4(vec3(0.9922, 0.9843, 0.8275) * (100), 1);
+    return vec4(vec3(0.251, 0.612, 1) + vec3(1, 1, 1), 1);
     vec3 unit_direction = vec_unit(r.direction);
     float rad = (0.009285) / 4;
     float ldir = map(clamp(dot(-light_off, unit_direction), 1.0 - rad, 1.0), 1.0 - rad, 1.0, 0, 1);
@@ -726,7 +826,23 @@ vec4 ray_color(Ray r, float x, float y, uint maxv)
     int depth = 0;
 
 #ifdef SHOW_DEPTH
-    return vec4(float(rec.depth) / 32, float(rec.depth) / 256, float(rec.depth) / 512, 1);
+
+    if (rec.depth < 5)
+    {
+        return vec4(0, 0, float(rec.depth) / 10 + 0.5, 1);
+    }
+    else if (rec.depth < 12)
+    {
+        return vec4(0, float(rec.depth) / 24 + 0.5, 0, 1);
+    }
+    else if (rec.depth < 32)
+    {
+        return vec4(float(rec.depth) / 64.0 + 0.5, 0, 0, 1);
+    }
+    else
+    {
+        return vec4(0, float(rec.depth) / 64, 0, 1);
+    }
 #endif
     if (!rec.hitted)
     {
@@ -736,12 +852,37 @@ vec4 ray_color(Ray r, float x, float y, uint maxv)
     float accum = 1.0;
     while (depth <= maxv)
     {
-        MaterialRecord material = material_hit(rec, r);
-
+        MaterialRecord material = material_hit_info(rec, r);
+        MaterialQueryRecord query;
         if (material.do_scatter)
         {
-            r = material.scatter;
-            result = result * (vec4(material.attenuation, 1.0) * material.scatter_pdf) / (material.pdf+0.001);
+            if(material.transparent)
+            {
+                r.origin = rec.point;
+                r.direction = r.direction;
+            }
+            else 
+            {
+
+            query = material_query_pdf(material, r, 0.5);
+            query = material_update_attenuation(query, material);
+
+            r = query.scatter;
+            result = result * (vec4(query.attenuation, 1.0) * query.scatter_pdf) / (query.pdf + 0.001);
+
+            }
+            //   return vec4((vec3(1) + query.N) / 2.0, 1.0);
+            //if(material.is_specular)
+            //{
+            //    return vec4(0,0,0,1);
+            //}
+            //else
+            //{
+            //    return vec4(1,1,1,1);
+            //}
+            // vec3 test = vec3(1,1,1);
+            // vec3 r = test.x * material.T + test.y * material.B + test.z * material.N;
+            //       return vec4((query.scatter.direction + vec3(1)) / 2.0, 1);
         }
         else
         {
@@ -749,6 +890,8 @@ vec4 ray_color(Ray r, float x, float y, uint maxv)
 
             return result;
         }
+
+
 
         depth += 1;
 
@@ -773,4 +916,79 @@ vec4 ray_color(Ray r, float x, float y, uint maxv)
     return result;
 }
 
+/*
+vec4 ray_color_direct(Ray r, float x, float y, uint maxv)
+{
+
+    int last_hit = -1;
+    HittableRecord rec = world_hit(r);
+    vec4 result = vec4(1);
+
+    int depth = 0;
+
+#ifdef SHOW_DEPTH
+    return vec4(float(rec.depth) / 32, float(rec.depth) / 256, float(rec.depth) / 512, 1);
+#endif
+    if (!rec.hitted)
+    {
+        //  return vec4(0, 1, 0, 1);
+        return sky_color(r);
+    }
+    float accum = 1.0;
+    MaterialRecord material = material_hit_info(rec, r);
+
+    if (!material.do_scatter)
+    {
+        result = result * (vec4(material.emitted, 1.0));
+
+        return result;
+    }
+    result = vec4(0,0,0,1);
+
+    float acc = 0;
+    while(depth <= maxv)
+    {
+
+        MaterialQueryRecord query = material_query_pdf(material, r, 1.0);
+        query = material_update_attenuation(query, material);
+        vec4 current = vec4(0);
+
+        if(query.pdf == 0)
+        {
+            continue;
+        }
+        current = (vec4(query.attenuation, 1.0) * query.scatter_pdf) / (query.pdf + 0.001);
+        Ray light_ray = query.scatter;
+
+        HittableRecord light_record = world_hit(light_ray);
+        MaterialRecord material2 = material_hit_info(light_record, light_ray);
+
+        if (!material2.do_scatter)
+        {
+            result += current * (vec4(material2.emitted, 1.0));
+
+            acc += 1;
+        }
+        depth += 1;
+
+    }
+
+    if(acc == 0)
+    {
+        return vec4(0,0,0,1);
+    }
+    result /= float(acc);
+    //    r.direction = -light_off;
+    //    rec = world_hit(r, x, y);
+
+    //    if(!rec.hitted)
+    //    {
+    //        result = result * sky_color(r);
+    //        return result;
+    //
+    //    }
+    return result;
+}
+#endif
+*/
 #endif
