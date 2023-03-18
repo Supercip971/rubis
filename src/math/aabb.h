@@ -14,12 +14,35 @@ static inline bool aabb_intersect(const AABB *a, const AABB *b)
            (a->min.z <= b->max.z && a->max.z >= b->min.z);
 }
 
+static inline AABB aabb_inter(const AABB *a, const AABB *b)
+{
+    if(!aabb_intersect(a, b))
+    {
+        return (AABB){
+            .min = vec3_create(0, 0, 0),
+            .max = vec3_create(0, 0, 0),
+        };
+    }
+
+    return (AABB){
+        .min = vec3_max(a->min, b->min),
+        .max = vec3_min(a->max, b->max),
+    };
+}
 
 static inline Vec3 aabb_centroid(const AABB *a)
 {
     Vec3 a_center = vec3_add(a->min, vec3_mul_val(vec3_sub(a->max, a->min), 0.5));
 
     return a_center;
+}
+
+static inline Vec3 aabb_offset(const AABB *a, Vec3 pos) 
+{
+    Vec3 a_size = vec3_sub(a->max, a->min);
+    Vec3 a_offset = vec3_sub(pos, a->min);
+    Vec3 a_offset_norm = vec3_div(a_offset, a_size);
+    return a_offset_norm;
 }
 static inline AABB aabb_create(Vec3 min, Vec3 max)
 {

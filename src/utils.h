@@ -30,3 +30,7 @@
 
 #define RAD2DEG(x) (x) * (180.0f / M_PI)
 #define DEG2RAD(x) (x) * (M_PI / 180.0f)
+
+static inline float map(float value, float min1, float max1, float min2, float max2) {
+  return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
+}
