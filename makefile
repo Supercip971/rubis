@@ -58,7 +58,7 @@ $(BUILD_DIR)/%.spv: $(SRC_DIR)/%.fs
 $(BUILD_DIR)/%.spv: $(SRC_DIR)/%.vs
 	@$(MKCWD)
 	@echo " VS [ $@ ] $<"
-	@glslc -O -fshader-stage=vert $< -o $@
+	@glslc --target-env=vulkan1.3 --target-spv=spv1.5 -std=460core -Isrc/shaders/ -O -MD -fshader-stage=vert $< -o $@
 
 
 $(BUILD_DIR)/%.spv: $(SRC_DIR)/shaders/comp.comp
