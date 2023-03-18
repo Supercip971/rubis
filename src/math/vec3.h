@@ -37,7 +37,15 @@ static inline float vec3_dim(Vec3 self, VecDimension dim)
     }
     return 0;
 }
-
+static inline void vec3_dim_set(Vec3 *self, VecDimension dim, float value)
+{
+    switch(dim)
+    {
+        case VDIM_X: self->x = value; break;
+        case VDIM_Y: self->y = value; break;
+        case VDIM_Z: self->z = value; break;
+    }
+}
 #define vec3$(X, Y, Z) (vec3_create((X), (Y), (Z)))
 
 static inline Vec3 vec3_inv(Vec3 vec)
