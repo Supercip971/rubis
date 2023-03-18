@@ -17,3 +17,25 @@ bool triangle_in_plane_aabb(Vec3 pa, Vec3 pb, Vec3 pc, AAPlane plane, AABB* resu
 bool is_aabb_inside_plane(AABB box, AAPlane plane);
 
 Vec3 plane_line_intersection(AAPlane plane, Vec3 p, Vec3 direction);
+
+
+// if we have a box that looks like this: 
+
+// |-----------------|
+// |                 |
+// |                 |
+// |                 |
+// |                 |
+// |-----------------|
+
+// the splitted order will be: 
+// [A]              [B]
+// |--------|--------|
+// |        |        |
+// |        |        |
+// |   A    |    B   |
+// |        |        |
+// |--------|--------|
+//       [plane]
+
+bool aabb_plane_intersection(AABB box, AAPlane plane, AABB* a, AABB* b);

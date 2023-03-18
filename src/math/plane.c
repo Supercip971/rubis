@@ -143,3 +143,23 @@ Vec3 plane_line_intersection(AAPlane plane, Vec3 p, Vec3 direction)
     float t = ((plane.t) - vec3_dim(p, plane.dim)) / vec3_dim(direction, plane.dim);
     return vec3_add(p, vec3_mul_val(direction, t));
 }
+
+bool aabb_plane_intersection(AABB box, AAPlane plane, AABB* a, AABB* b)
+{
+    float min_v = vec3_dim(box.min, plane.dim);
+    float max_v = vec3_dim(box.max, plane.dim);
+
+    
+    if(!(min_v <= plane.t && max_v >= plane.t))
+    {
+        return false;
+    }
+
+    *a = box;
+    *b = box;
+
+    vec3_dim_set(&a->max, plane.dim, plane.t);
+    vec3_dim_set(&b->min, plane.dim, plane.t);
+
+    return true;
+}
