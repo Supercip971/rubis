@@ -22,12 +22,12 @@ struct camera
 //#define FOV 60
 
 
-camera camera_init(vec3 pos, vec3 to, vec3 up, float aperture, float focus_disk)
+camera camera_init(vec3 pos, vec3 to, vec3 up, float aperture, float focus_disk, float ratio)
 {
 
     float vt = tan(((M_PI / 180.f) * FOV) / 2.f);
     float he = 2.f * vt;
-    float wi = he * (16.f / 9.f);
+    float wi = he * (ratio);
 
     vec3 w = normalize(pos - to);
     vec3 u = normalize(cross(up, w));

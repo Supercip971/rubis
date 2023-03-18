@@ -7,7 +7,7 @@
 #extension GL_ARB_gpu_shader_int64 : enable       // Debug - heatmap value
 
 #extension GL_EXT_shader_explicit_arithmetic_types_int64 : require
-
+#extension GL_EXT_debug_printf : enable
 #extension GL_EXT_nonuniform_qualifier : enable
 
 #extension GL_EXT_ray_tracing : enable
@@ -68,7 +68,7 @@ void main()
     const uint y = gl_GlobalInvocationID.y;
     const vec2 cc = vec2(x / window_width , y / window_height );
     random_init(cc);
-    camera cam = camera_init(ubo.camera_pos.xyz, vec3(ubo.camera_target.xyz), vec3(0, 1, 0), 0, 9.3);
+    camera cam = camera_init(ubo.camera_pos.xyz, vec3(ubo.camera_target.xyz), vec3(0, 1, 0), 0, 9.3, window_width / window_height);
 
     vec4 prev = vec4(0);
     if (ubo.t >= float(2))
@@ -83,9 +83,11 @@ void main()
     float u = ((float(x) + random()) / (window_width - 1));
     float v = ((float(y) + random()) / (window_height - 1));
 
+
     Ray r = camera_ray(cam, u, v);
     r.inv_direction = vec3(1) / r.direction;
-    color = ray_color(r, u, v, ubo.bounce_limit);
+    color += ray_color(r, u, v, ubo.bounce_limit);
 
-    imageStore(buf, ivec2(x, y), ((prev * (ubo.t)) + color) / ((ubo.t + 1)));
+
+    imageStore(buf, ivec2(x, y), ((prev * (ubo.t)) + (color)) / ((ubo.t + 1)));
 }
