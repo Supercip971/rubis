@@ -6,6 +6,9 @@ layout(location = 2) in vec4 inTangent;
 layout(location = 3) in vec2 texCoord1;
 layout(location = 4) in vec2 texCoord2;
 
+#define M_PI 3.14159265f
+
+#include "hittable/meshes.comp"
 
 layout(std140, binding = 1) readonly uniform UniformBufferObject
 {
@@ -26,6 +29,12 @@ layout(std140, binding = 1) readonly uniform UniformBufferObject
 }
 ubo;
 
+layout( push_constant ) uniform constants
+{
+    int mesh_index;
+    int material_index;
+} PushConstants;
+
 
 layout(location = 0) out vec3 fragColor;
 void main() {
@@ -36,5 +45,12 @@ void main() {
     gl_Position = ubo.proj * ubo.view *vec4(inPosition.xyz, 1.0) ;
 
 	gl_Position.y = -gl_Position.y;	
-    fragColor = inColor.xyz;
+    PbrtTexture albedo_T = material_load_tex(int(PushConstants.material_index), 0);
+
+    vec2 uv = tc;
+    if(albedo_T.tid == 1)
+    {
+        uv = tb;
+    }
+    fragColor = material_tex_query(albedo_T, uv) * albedo_T.factor.xyz;
 }

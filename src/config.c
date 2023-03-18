@@ -9,6 +9,7 @@ Config default_cfg = {
     .show_raster = false,
     .scale_divider = 1,
     .use_fsr = true,
+    .r_fov = 39.75,
 };
 Config get_config()
 {

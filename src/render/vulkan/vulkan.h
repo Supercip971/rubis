@@ -46,6 +46,11 @@ typedef struct
 
 } VulkanConfig;
 
+typedef struct 
+{
+    _Alignas(4) int mesh_id;
+    _Alignas(4) int material_offset;
+} VulkanConstants;
 typedef struct
 {
     VkQueue queue;

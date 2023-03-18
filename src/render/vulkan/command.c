@@ -7,6 +7,7 @@
 #include <ui/ui.h>
 #include <vulkan/vulkan_core.h>
 #include "render/vulkan/vertex.h"
+#include "render/vulkan/vulkan.h"
 void vulkan_cmd_pool_init(VulkanCtx *ctx)
 {
     QueueFamilyIndices queue_family_idx = vulkan_pick_queue_family(ctx);
@@ -160,6 +161,11 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
 
                 VkDeviceSize offsets[] = {data_start * 4 * sizeof(float)};
 
+                VulkanConstants node = {
+                    .mesh_id = i,
+                    .material_offset = mesh.material.start,
+                };
+                vkCmdPushConstants(ctx->cmd_buffer, ctx->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(VulkanConstants), &node);
                 vkCmdBindVertexBuffers(ctx->cmd_buffer, 0, 1, vertex_buffers, offsets);
                 vkCmdDraw(ctx->cmd_buffer, data_size / SVERTEX_PACKED_COUNT, 1, 0, 0);
             }

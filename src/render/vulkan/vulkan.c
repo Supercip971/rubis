@@ -278,7 +278,7 @@ int vulkan_frame(VulkanCtx *self)
 
     Matrix4x4 view = matrix_lookat(self->cam_pos, cam_look, vec3$(0,1,0));
 
-    Matrix4x4 proj = matrix_perspective(45, (float)self->aligned_width / (float)self->aligned_height, 0.1, 1000);
+    Matrix4x4 proj = matrix_perspective(get_config().r_fov, (float)self->aligned_width / (float)self->aligned_height, 0.001, 1000);
 
     for(int x = 0; x < 4; x++)
     {
@@ -290,7 +290,7 @@ int vulkan_frame(VulkanCtx *self)
     }
 #if 1
 
-    if (!get_config().show_raster &&vkGetFenceStatus(self->logical_device, self->compute_fence) == VK_SUCCESS)
+    if (vkGetFenceStatus(self->logical_device, self->compute_fence) == VK_SUCCESS)
     {
 
         //     VkCommandBuffer cmd = vk_start_single_time_command(self);

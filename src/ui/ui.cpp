@@ -108,6 +108,8 @@ extern "C" void ui_begin(UiInfo info)
     ImGui::SliderInt("Rays bounce", &current.rays_bounce, 1, 12);
     ImGui::SliderInt("Render divider", &current.scale_divider, 1, 8);
 
+    ImGui::SliderFloat("Rasterizer fov", &current.r_fov, 10.f, 90.f);
+    
  	ImGui::Checkbox("Use amd FSR", &current.use_fsr);
 
 

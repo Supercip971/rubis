@@ -24,6 +24,7 @@ typedef struct Config
     bool show_raster;
     int scale_divider;
     bool use_fsr;
+    float r_fov;
 } Config;
 
 Config get_config();
