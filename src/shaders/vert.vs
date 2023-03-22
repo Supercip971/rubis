@@ -6,6 +6,7 @@ layout(location = 2) in vec4 inTangent;
 layout(location = 3) in vec2 texCoord1;
 layout(location = 4) in vec2 texCoord2;
 
+#extension GL_EXT_nonuniform_qualifier : require
 #define M_PI 3.14159265f
 
 #include "hittable/meshes.comp"

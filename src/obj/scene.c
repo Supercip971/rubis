@@ -314,7 +314,7 @@ void scene_emissive_indices_init(Scene *self)
         {
             continue;
         }
-        if (emit.id == -1 && emit.factor.x + emit.factor.y + emit.factor.z < 20)
+        if (emit.id == -1 && emit.factor.x + emit.factor.y + emit.factor.z < 3)
         {
             continue;
         }

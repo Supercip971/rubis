@@ -34,12 +34,14 @@ layout(std140, binding = 5) readonly buffer BvhBuf
     Bvh bvhs[];
 };
 
-layout(binding = 6) uniform sampler2DArray textures;
+
+layout (binding = 6) uniform texture2D textures[];
 layout(binding = 7) uniform sampler2D skymap;
 layout(std140, binding = 8) readonly buffer Lights
 {
     uint lights[];
 };
+layout(binding = 9) uniform sampler tex_sampler;
 #define FROM_SIBLING 1
 #define FROM_PARENT 2
 #define FROM_CHILD 3
@@ -341,7 +343,7 @@ vec3 material_tex_query(PbrtTexture tex, vec2 uv)
 
     mat3 matrix = translation * scale;
     vec2 uvTransformed = (matrix * vec3(uv.xy, 1)).xy;
-    vec3 result = texture(textures, vec3(uvTransformed, tex.id)).rgb;
+    vec3 result = texture(sampler2D(textures[tex.id], tex_sampler), uvTransformed).rgb;
     return result;
 }
 
@@ -353,7 +355,7 @@ vec4 material_tex_query_w(PbrtTexture tex, vec2 uv)
 
     mat3 matrix = translation * scale;
     vec2 uvTransformed = (matrix * vec3(uv.xy, 1)).xy;
-    vec4 result = texture(textures, vec3(uvTransformed, tex.id));
+    vec4 result = texture(sampler2D(textures[tex.id], tex_sampler), uvTransformed);
     return result;
 }
 vec3 cosine_sample_hemisphere(float r1, float r2)

@@ -75,6 +75,12 @@ typedef struct
     VkImageView view; // optional
 } VulkanTex;
 
+typedef struct 
+{
+    vec_t(VulkanTex) textures;
+
+    vec_t(VkDescriptorImageInfo) final_info;
+} VulkanTexArrays;
 typedef vec_t(VulkanTex) VulkanTexs;
 
 typedef struct
@@ -148,7 +154,8 @@ typedef struct
     VkDescriptorPool descriptor_pool;
     uint32_t frame_id;
 
-    VulkanTex combined_textures;
+    VulkanTexArrays combined_textures;
+   // VulkanTex _combined_textures;
     VulkanTex skymap;
     VulkanTex comp_targ;
     VulkanTex frag_targ;
@@ -158,6 +165,7 @@ typedef struct
 
     VulkanTexs overlay_images;
 
+    VulkanTex scene_sampler;
     Vec3 cam_pos;
     Vec3 cam_look;
     Vec3 cam_up;

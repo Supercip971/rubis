@@ -2,6 +2,7 @@
 #include <render/vulkan/command.h>
 #include <render/vulkan/textures.h>
 #include <vulkan/vulkan_core.h>
+#include "render/vulkan/vulkan.h"
 
 VulkanBuffer vulkan_scene_texture_data_init(VulkanCtx *ctx, uint32_t *final_sizex, uint32_t *final_sizey)
 {
@@ -236,7 +237,7 @@ void vulkan_shader_shared_texture_init(VulkanCtx *ctx, VulkanTex *self, int widt
     self->height = height;
 }
 
-void vulkan_scene_texture_load(VulkanCtx *ctx, VulkanTex *self, VulkanBuffer *buffer, int depth, int width, int height)
+static void vulkan_scene_texture_load_impl(VulkanCtx *ctx, VulkanTex *self, VulkanBuffer *buffer, int depth, int width, int height, bool sampler)
 {
 
     VkImageCreateInfo image_info = {
@@ -276,20 +277,59 @@ void vulkan_scene_texture_load(VulkanCtx *ctx, VulkanTex *self, VulkanBuffer *bu
     swap_image_layout(ctx, self->image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, depth, false, false);
 
     self->desc_info.imageView = image_view_create(ctx, self->image, depth, false);
-    self->desc_info.sampler = image_sampler_create(ctx);
+    self->desc_info.sampler = (sampler ? image_sampler_create(ctx) : VK_NULL_HANDLE);
     self->desc_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     self->width = width;
     self->height = height;
 }
 
+void vulkan_scene_texture_load(VulkanCtx *ctx, VulkanTex *self, VulkanBuffer *buffer, int depth, int width, int height)
+{
+    vulkan_scene_texture_load_impl(ctx, self, buffer, depth, width, height, true);
+}
+static void vulkan_scene_ressource_texture_init(VulkanCtx *ctx, VulkanTexArrays *result)
+{
+    vec_init(&result->textures);
+    TexLists texs = ctx->scene.textures;
+
+    VulkanBuffer staging_buf;
+    for (int i = 0; i < texs.length; i++)
+    {
+
+        VulkanTex tex;
+
+        unsigned int tex_size = texs.data[i].width * texs.data[i].height * sizeof(uint8_t) * 4; // 4 channel
+        staging_buf = vk_buffer_alloc(ctx, tex_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        void *data = vk_buffer_map(ctx, staging_buf);
+
+        memcpy(data, texs.data[i].data, tex_size);
+
+        vk_buffer_unmap(ctx, staging_buf);
+        // vulkan_scene_texture_load(ctx, &ctx->skymap, &staging_buf, 1, ctx->scene.skymap.width, ctx->scene.skymap.height);
+        vulkan_scene_texture_load_impl(ctx, &tex, &staging_buf, 1, texs.data[i].width, texs.data[i].height, false);
+
+        vk_buffer_free(ctx, staging_buf);
+
+        vec_push(&result->textures, tex);
+    }
+
+    vec_init(&result->final_info);
+    for(int i = 0; i < result->textures.length; i++)
+    {
+        vec_push(&result->final_info, result->textures.data[i].desc_info);
+    }
+}
+
+static void vulkan_scene_sampler_init(VulkanCtx* ctx)
+{
+    ctx->scene_sampler.desc_info = (VkDescriptorImageInfo) {
+        .sampler  = image_sampler_create(ctx),
+        .imageView = VK_NULL_HANDLE,
+        .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+}
 void vulkan_scene_textures_init(VulkanCtx *ctx)
 {
-    // FIXME: stop doing fricking dumb thing and use a texture atlas
-    // this is only << temporary >>, as I need 1917156118 things to test 1 feature
-    // I hope this message get deleted as soon as possible.
-    // Now I can say that my raytracer consumes more memory than vscode (not 100% of the time tho).
-    uint32_t maxw = 0;
-    uint32_t maxh = 0;
     TexLists texs = ctx->scene.textures;
     VulkanBuffer staging_buf;
 
@@ -297,10 +337,8 @@ void vulkan_scene_textures_init(VulkanCtx *ctx)
 
     if (texs.length != 0)
     {
+        vulkan_scene_ressource_texture_init(ctx, &ctx->combined_textures);
 
-        staging_buf = vulkan_scene_texture_data_init(ctx, &maxw, &maxh);
-        vulkan_scene_texture_load(ctx, &ctx->combined_textures, &staging_buf, texs.length, maxw, maxh);
-        vk_buffer_free(ctx, staging_buf);
     }
     if (ctx->scene.skymap.height != 0)
     {
@@ -316,14 +354,16 @@ void vulkan_scene_textures_init(VulkanCtx *ctx)
         vulkan_scene_texture_load(ctx, &ctx->skymap, &staging_buf, 1, ctx->scene.skymap.width, ctx->scene.skymap.height);
         vk_buffer_free(ctx, staging_buf);
     }
+
+    vulkan_scene_sampler_init(ctx);
 }
 void vulkan_scene_textures_deinit(VulkanCtx *ctx)
 {
 
-    vkDestroyImageView(ctx->logical_device, ctx->combined_textures.desc_info.imageView, NULL);
-    vkDestroySampler(ctx->logical_device, ctx->combined_textures.desc_info.sampler, NULL);
-    vkDestroyImage(ctx->logical_device, ctx->combined_textures.image, NULL);
-    vkFreeMemory(ctx->logical_device, ctx->combined_textures.mem, NULL);
+    //  vkDestroyImageView(ctx->logical_device, ctx->combined_textures.desc_info.imageView, NULL);
+    //  vkDestroySampler(ctx->logical_device, ctx->combined_textures.desc_info.sampler, NULL);
+    //  vkDestroyImage(ctx->logical_device, ctx->combined_textures.image, NULL);
+    //  vkFreeMemory(ctx->logical_device, ctx->combined_textures.mem, NULL);
 
     vkDestroyImageView(ctx->logical_device, ctx->skymap.desc_info.imageView, NULL);
     vkDestroySampler(ctx->logical_device, ctx->skymap.desc_info.sampler, NULL);
@@ -335,5 +375,6 @@ void vulkan_scene_textures_deinit(VulkanCtx *ctx)
     vkDestroyImage(ctx->logical_device, ctx->fragment_image.image, NULL);
     vkFreeMemory(ctx->logical_device, ctx->fragment_image.mem, NULL);
 
+    vkDestroySampler(ctx->logical_device, ctx->scene_sampler.desc_info.sampler, NULL);
     (void)ctx;
 }

@@ -84,13 +84,19 @@ static bool vulkan_is_device_suitable(VulkanCtx *self, VkPhysicalDevice device)
 {
     VkPhysicalDeviceProperties properties;
     vkGetPhysicalDeviceProperties(device, &properties);
-    VkPhysicalDeviceFeatures features;
-    vkGetPhysicalDeviceFeatures(device, &features);
+    VkPhysicalDeviceFeatures2 features;
+    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+
+    VkPhysicalDeviceDescriptorIndexingFeatures indexing_features = {};
+    indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+
+    indexing_features.runtimeDescriptorArray = VK_TRUE;
+    features.pNext = &indexing_features;
+    vkGetPhysicalDeviceFeatures2(device, &features);
 
     QueueFamilyIndices idx = vulkan_find_queue_family(self, device);
 
     if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ||
-        !features.geometryShader ||
         !idx._present ||
         !idx._has_present_family ||
         !vulkan_check_device_extensions(device))

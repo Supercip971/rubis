@@ -96,6 +96,14 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
     }
 
     VkPhysicalDeviceFeatures features = {};
+    
+    VkPhysicalDeviceDescriptorIndexingFeaturesEXT feat = 
+    {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT,
+        .runtimeDescriptorArray = VK_TRUE,
+        .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
+        .pNext = NULL,
+    };
     features.fragmentStoresAndAtomics = VK_TRUE;
     VkDeviceCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -103,8 +111,16 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
         .queueCreateInfoCount = queue_create_infos.length,
         .enabledExtensionCount = sizeof(device_required_exts) / sizeof(device_required_exts[0]),
         .ppEnabledExtensionNames = device_required_exts,
-        .pEnabledFeatures = &features,
+        .pEnabledFeatures = NULL,
     };
+
+    VkPhysicalDeviceFeatures2 features2 = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        .pNext = &feat, 
+        .features = features,
+    };
+
+    create_info.pNext = &features2;
 
     vulkan_load_validation_layer_device(&create_info);
     vk_try$(vkCreateDevice(ctx->physical_device, &create_info, NULL, &ctx->logical_device));
