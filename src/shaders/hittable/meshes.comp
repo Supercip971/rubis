@@ -33,6 +33,7 @@ layout(std140, binding = 5) readonly buffer BvhBuf
 {
     Bvh bvhs[];
 };
+
 layout(binding = 6) uniform sampler2DArray textures;
 layout(binding = 7) uniform sampler2D skymap;
 layout(std140, binding = 8) readonly buffer Lights
@@ -357,6 +358,7 @@ vec4 material_tex_query_w(PbrtTexture tex, vec2 uv)
 }
 vec3 cosine_sample_hemisphere(float r1, float r2)
 {
+
     float phi = 2.0 * M_PI * r1;
 
     float rt_r2 = sqrt(r2);
@@ -425,7 +427,7 @@ PdfSampleRecord sample_point(vec3 N, vec3 point)
 
     dir = normalize(dir);
 
-    float pdf = dist * dist / (dot(N, dir) * pdf_sample.area);
+    float pdf = dist * dist / (dot(N, dir) );
     pdf_sample.pdf = 0;
     return pdf_sample;
 }
@@ -482,11 +484,12 @@ MaterialRecord material_hit_info(HittableRecord record, Ray r)
         {
             fuv = record.uv2;
         }
-        vec4 col = material_tex_query_w(albedo_T, fuv);
-        result.albedo = col.rgb * fact;
+        vec4 col =   material_tex_query_w(albedo_T, fuv);
+        result.albedo = (col.rgb) * fact;
 
         alpha *= col.a;
     }
+   // result.albedo = linear_to_srgb(result.albedo);
 
     vec3 T = ((record.tangent));
     vec3 N = ((record.normal));
@@ -628,6 +631,7 @@ MaterialQueryRecord material_query(MaterialRecord record, Ray r)
     {
             // dir = reflect(unit_direction, record.N);
             dir = cosine_sample_hemisphere(r1, r2);
+            dir = normalize(dir.x * record.T + dir.y * record.B + dir.z * record.N);
     }
 
     dir = normalize(dir);
