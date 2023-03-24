@@ -65,20 +65,20 @@ static inline AABB aabb_create_triangle(Vec3 pa, Vec3 pb, Vec3 pc)
         .max = vec3_max(pa, vec3_max(pb, pc)),
     };
 
-    if(c.max.x - c.min.x <= 0.0000001)
+    if(c.max.x - c.min.x <= 0.00001)
     {
-        c.min.x -= 0.0000001;
-        c.max.x += 0.0000001;
+        c.min.x -= 0.00001;
+        c.max.x += 0.00001;
     }
-    if(c.max.y - c.min.y <= 0.0000001)
+    if(c.max.y - c.min.y <= 0.00001)
     {
-        c.min.y -= 0.0000001;
-        c.max.y += 0.0000001;
+        c.min.y -= 0.00001;
+        c.max.y += 0.00001;
     }
-    if(c.max.z - c.min.z <= 0.0000001)
+    if(c.max.z - c.min.z <= 0.00001)
     {
-        c.min.z -= 0.0000001;
-        c.max.z += 0.0000001;
+        c.min.z -= 0.00001;
+        c.max.z += 0.00001;
     }
     return c;
 }

@@ -7,7 +7,7 @@
 #include "utils/color.comp"
 #include "utils/ray.comp"
 
-layout(set = 0, std140, binding = 1) readonly buffer MeshesBufData
+layout(set = 0, std140, binding = 1) readonly restrict buffer MeshesBufData 
 {
     vec4 buf_datas[];
 };
@@ -52,11 +52,16 @@ PbrtTexture material_load_tex(int begin, int off)
 {
     const int scale = 3;
     PbrtTexture result;
-    result.id = int(buf_datas[begin + off * 3].x);
-    result.tid = int(buf_datas[begin + off * 3].y);
-    result.factor = buf_datas[begin + off * 3 + 1];
-    result.offset = buf_datas[begin + off * 3 + 2].xy;
-    result.scale = buf_datas[begin + off * 3 + 2].zw;
+    vec4 first = vec4(buf_datas[begin + off * scale]);
+    vec4 second = vec4(buf_datas[begin + off * scale + 1]);
+    vec4 third = vec4(buf_datas[begin + off * scale + 2]);
+    result.id = int(first.x);
+    result.tid = int(first.y);
+    result.factor = second;
+    result.offset = third.xy;
+    result.scale = third.zw;
+    return result;
+}
     return result;
 }
 HittableRecord process_leaf(Ray r, int id, int vert, float cmin, float cmax)
@@ -336,25 +341,26 @@ vec3 inverse_reflection(vec3 dir, vec3 reflected)
 
 vec3 material_tex_query(PbrtTexture tex, vec2 uv)
 {
-    mat3 translation = mat3(1, 0, 0, 0, 1, 0, tex.offset.x, tex.offset.y, 1);
+    mat3 translation = mat3(1, 0, 0, 0, 1, 0, tex.offset.x + 1, tex.offset.y + 1, 1);
 
     mat3 scale = mat3(tex.scale.x * 1, 0, 0, 0, tex.scale.y * 1, 0, 0, 0, 1);
 
     mat3 matrix = translation * scale;
     vec2 uvTransformed = (matrix * vec3(uv.xy, 1)).xy;
-    vec3 result = texture(sampler2D(textures[tex.id], tex_sampler), uvTransformed).rgb;
+
+    vec3 result = texture(sampler2D(textures[nonuniformEXT(tex.id)], tex_sampler), uvTransformed).rgb;
     return result;
 }
 
 vec4 material_tex_query_w(PbrtTexture tex, vec2 uv)
 {
-    mat3 translation = mat3(1, 0, 0, 0, 1, 0, tex.offset.x, tex.offset.y, 1);
+    mat3 translation = mat3(1, 0, 0, 0, 1, 0, tex.offset.x + 1, tex.offset.y + 1, 1);
 
-    mat3 scale = mat3(tex.scale.x * 1, 0, 0, 0, tex.scale.y * 1, 0, 0, 0, 1);
+    mat3 scale = mat3(tex.scale.x, 0, 0, 0, tex.scale.y, 0, 0, 0, 1);
 
     mat3 matrix = translation * scale;
     vec2 uvTransformed = (matrix * vec3(uv.xy, 1)).xy;
-    vec4 result = texture(sampler2D(textures[tex.id], tex_sampler), uvTransformed);
+    vec4 result = texture(sampler2D(textures[nonuniformEXT(tex.id)], tex_sampler), uvTransformed);
     return result;
 }
 vec3 cosine_sample_hemisphere(float r1, float r2)

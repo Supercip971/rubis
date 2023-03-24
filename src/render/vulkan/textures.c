@@ -296,17 +296,21 @@ static void vulkan_scene_ressource_texture_init(VulkanCtx *ctx, VulkanTexArrays 
     for (int i = 0; i < texs.length; i++)
     {
 
-        VulkanTex tex;
-
-        unsigned int tex_size = texs.data[i].width * texs.data[i].height * sizeof(uint8_t) * 4; // 4 channel
+        VulkanTex tex = {};
+        Image* current = &texs.data[i];
+       
+        unsigned int tex_size = current->width * current->height * sizeof(uint8_t) * 4; // 4 channel
         staging_buf = vk_buffer_alloc(ctx, tex_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        void *data = vk_buffer_map(ctx, staging_buf);
-
-        memcpy(data, texs.data[i].data, tex_size);
+        volatile uint8_t *data = vk_buffer_map(ctx, staging_buf);
+        printf("loading texture[%i] %ux%u (%u)\n", i, current->width, current->height, tex_size);
+        for (size_t j = 0; j < tex_size; j++)
+        {
+            data[j] = current->data[j];
+        }
 
         vk_buffer_unmap(ctx, staging_buf);
         // vulkan_scene_texture_load(ctx, &ctx->skymap, &staging_buf, 1, ctx->scene.skymap.width, ctx->scene.skymap.height);
-        vulkan_scene_texture_load_impl(ctx, &tex, &staging_buf, 1, texs.data[i].width, texs.data[i].height, false);
+        vulkan_scene_texture_load_impl(ctx, &tex, &staging_buf, 1, current->width, current->height, false);
 
         vk_buffer_free(ctx, staging_buf);
 
@@ -314,32 +318,28 @@ static void vulkan_scene_ressource_texture_init(VulkanCtx *ctx, VulkanTexArrays 
     }
 
     vec_init(&result->final_info);
-    for(int i = 0; i < result->textures.length; i++)
+    for (int i = 0; i < result->textures.length; i++)
     {
         vec_push(&result->final_info, result->textures.data[i].desc_info);
     }
 }
 
-static void vulkan_scene_sampler_init(VulkanCtx* ctx)
+static void vulkan_scene_sampler_init(VulkanCtx *ctx)
 {
-    ctx->scene_sampler.desc_info = (VkDescriptorImageInfo) {
-        .sampler  = image_sampler_create(ctx),
-        .imageView = VK_NULL_HANDLE,
+    ctx->scene_sampler.desc_info = (VkDescriptorImageInfo){
+        .sampler = image_sampler_create(ctx),
+        .imageView = NULL,
         .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
 }
 void vulkan_scene_textures_init(VulkanCtx *ctx)
 {
-    TexLists texs = ctx->scene.textures;
     VulkanBuffer staging_buf;
 
     vulkan_shader_shared_texture_init(ctx, &ctx->fragment_image, ctx->aligned_width, ctx->aligned_height, true);
 
-    if (texs.length != 0)
-    {
-        vulkan_scene_ressource_texture_init(ctx, &ctx->combined_textures);
+    vulkan_scene_ressource_texture_init(ctx, &ctx->combined_textures);
 
-    }
     if (ctx->scene.skymap.height != 0)
     {
 
@@ -364,7 +364,12 @@ void vulkan_scene_textures_deinit(VulkanCtx *ctx)
     //  vkDestroySampler(ctx->logical_device, ctx->combined_textures.desc_info.sampler, NULL);
     //  vkDestroyImage(ctx->logical_device, ctx->combined_textures.image, NULL);
     //  vkFreeMemory(ctx->logical_device, ctx->combined_textures.mem, NULL);
-
+    for(int i = 0; i < ctx->combined_textures.textures.length; i++)
+    {
+        vkDestroyImageView(ctx->logical_device, ctx->combined_textures.textures.data[i].desc_info.imageView, NULL);
+        vkDestroyImage(ctx->logical_device, ctx->combined_textures.textures.data[i].image, NULL);
+        vkFreeMemory(ctx->logical_device, ctx->combined_textures.textures.data[i].mem, NULL);
+    }
     vkDestroyImageView(ctx->logical_device, ctx->skymap.desc_info.imageView, NULL);
     vkDestroySampler(ctx->logical_device, ctx->skymap.desc_info.sampler, NULL);
     vkDestroyImage(ctx->logical_device, ctx->skymap.image, NULL);

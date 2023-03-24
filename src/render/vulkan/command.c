@@ -50,7 +50,11 @@ void vulkan_compute_cmd_buffer_record(VulkanCtx *ctx)
 
         vkCmdBindDescriptorSets(ctx->comp_buffer,
                                 VK_PIPELINE_BIND_POINT_COMPUTE,
-                                ctx->pipeline_layout, 0, 1, &ctx->descriptor_set, 0, 0);
+                                ctx->compute_pipeline_layout, 0, 1, &ctx->descriptor_set, 0, 0);
+
+        //    vkCmdPushConstants(ctx->cmd_buffer, ctx->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VulkanConstants), (void*)&ctx->cfg);
+
+        vkCmdPushConstants(ctx->comp_buffer, ctx->compute_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VulkanConstants), (void *)&ctx->cfg);
 
         int divider = get_config().scale_divider * ctx->threads_size;
         vkCmdDispatch(ctx->comp_buffer, ctx->comp_targ.width / divider, ctx->comp_targ.height / divider, 1);
