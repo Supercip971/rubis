@@ -1,9 +1,15 @@
 #pragma once
-
+#include <stddef.h>
 #define MAYBE_UNUSED [[maybe_unused]]
 
-#define umax(x, y) ((x) > (y) ? (x) : (y))
-#define umin(x, y) ((x) < (y) ? (x) : (y))
+static inline size_t umax(size_t x, size_t y) {
+  return x > y ? x : y;
+}
+static inline size_t umin(size_t x, size_t y) {
+  return x < y ? x : y;
+}
+
+
 #define umax_s(x, y) ({                     \
     __auto_type __x_val = (x);              \
     __auto_type __y_val = (y);              \

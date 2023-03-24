@@ -101,6 +101,7 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
     {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT,
         .runtimeDescriptorArray = VK_TRUE,
+        .descriptorBindingPartiallyBound = VK_TRUE,
         .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
         .pNext = NULL,
     };

@@ -29,9 +29,9 @@ struct Pixel
     vec4 value;
 };
 
-layout(binding = 4) uniform sampler2D buf;
+layout(binding = 3) uniform sampler2D buf;
 
-layout(std140, binding = 1) readonly uniform UniformBufferObject
+layout(std140, push_constant ) uniform UniformBufferObject
 {
     float width;
     float height;
@@ -44,15 +44,14 @@ layout(std140, binding = 1) readonly uniform UniformBufferObject
     float aperture;
     float focus_disk;
 
-    mat4 proj;
-    mat4 view;
-
     uint bounce_limit;
     uint scale;
 
     uint use_fsr;
-}
-ubo;
+    int mesh_index;
+    int material_index;
+} ubo;
+
 
 uint width = uint(ubo.width);
 uint height = uint(ubo.height);

@@ -1,4 +1,5 @@
 #include <render/vulkan/vulkan.h>
+#include <stdint.h>
 #include <vulkan/vulkan_core.h>
 #include "math/mat4.h"
 #include "render/vulkan/depth.h"
@@ -145,7 +146,7 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
         },
         .instance = 0,
         .frame_id = 0,
-        .threads_size = 8,
+        .threads_size = 4,
         .scene = *scene};
 
     printf("loading bvh %i...\n", scene->meshes.length);
@@ -199,7 +200,7 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
     ui_init((void*)window_handle, self);
     clock_gettime(CLOCK_REALTIME, &start);
 
-    self->cfg = vk_buffer_map(self, self->config_buf);
+   // self->cfg = vk_buffer_map(self, self->config_buf);
 
     return 0;
 }
@@ -256,36 +257,36 @@ int vulkan_frame(VulkanCtx *self)
     ui_end();
     Vec3 cam_look = vec3_add(self->cam_look, self->cam_pos);
 
-    if (!vec3_eq(self->cfg->cam_pos, self->cam_pos) ||
-        !vec3_eq(self->cfg->cam_look, cam_look))
+    if (!vec3_eq(self->cfg.cam_pos, self->cam_pos) ||
+        !vec3_eq(self->cfg.cam_look, cam_look))
     {
         self->frame_id = 0;
     }
 
-    self->cfg->bounce_count = (get_config().rays_bounce);
-    self->cfg->cam_pos = self->cam_pos;
-    self->cfg->focus_disc = self->cam_focus_disk;
-    self->cfg->aperture = self->cam_aperture;
-    self->cfg->cam_look = cam_look;
-    self->cfg->scale = get_config().scale_divider;
-    self->cfg->use_fsr = get_config().use_fsr;
+    self->cfg.bounce_count = (get_config().rays_bounce);
+    self->cfg.cam_pos = self->cam_pos;
+    self->cfg.focus_disc = self->cam_focus_disk;
+    self->cfg.aperture = self->cam_aperture;
+    self->cfg.cam_look = cam_look;
+    self->cfg.scale = get_config().scale_divider;
+    self->cfg.use_fsr = get_config().use_fsr;
 
 
 
-    self->cfg->width = self->aligned_width;
-    self->cfg->height = self->aligned_height;
-    self->cfg->t = self->frame_id;
+    self->cfg.width = self->aligned_width;
+    self->cfg.height = self->aligned_height;
+    self->cfg.t = self->frame_id;
 
-    Matrix4x4 view = matrix_lookat(self->cam_pos, cam_look, vec3$(0,1,0));
+   // Matrix4x4 view = matrix_lookat(self->cam_pos, cam_look, vec3$(0,1,0));
 
-    Matrix4x4 proj = matrix_perspective(get_config().r_fov, (float)self->aligned_width / (float)self->aligned_height, 0.001, 1000);
+   // Matrix4x4 proj = matrix_perspective(get_config().r_fov, (float)self->aligned_width / (float)self->aligned_height, 0.001, 1000);
 
     for(int x = 0; x < 4; x++)
     {
         for(int y = 0; y < 4; y++)
         {
-            self->cfg->view_matrix[x][y]= view.value[x][y];
-            self->cfg->proj_matrix[x][y]= proj.value[x][y];
+         //   self->cfg.view_matrix[x][y]= view.value[x][y];
+         //   self->cfg.proj_matrix[x][y]= proj.value[x][y];
         }
     }
 #if 1

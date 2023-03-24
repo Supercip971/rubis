@@ -31,14 +31,14 @@ void vulkan_compute_pipeline(VulkanCtx *ctx)
             .module = comp_mod,
             .pName = "main",
         },
-        .layout = ctx->pipeline_layout,
+        .layout = ctx->compute_pipeline_layout,
     };
 
     vkCreateComputePipelines(ctx->logical_device, VK_NULL_HANDLE, 1, &info, NULL, &ctx->compute.raw_pipeline);
 }
 
 
-void vulkan_graphics_pipeline_init(VulkanCtx *ctx, VkPipeline* target, VkPipelineLayout* layout ,const char* vpath, const char* fpath)
+void vulkan_graphics_pipeline_init(VulkanCtx *ctx, VkPipeline* target, VkPipelineLayout* layout ,const char* vpath, const char* fpath, VkShaderStageFlagBits stage, bool use_vertices)
 {
     Buffer frag_code = read_file(fpath);
     Buffer vert_code = read_file(vpath);
@@ -147,7 +147,7 @@ void vulkan_graphics_pipeline_init(VulkanCtx *ctx, VkPipeline* target, VkPipelin
     };
 
     VkPushConstantRange push_constant = {
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+        .stageFlags = stage,
         .offset = 0,
         .size = sizeof(VulkanConstants),
     };
@@ -162,6 +162,8 @@ void vulkan_graphics_pipeline_init(VulkanCtx *ctx, VkPipeline* target, VkPipelin
 
     vk_try$(vkCreatePipelineLayout(ctx->logical_device, &pipeline_create, NULL, layout));
 
+    
+    
     VkGraphicsPipelineCreateInfo graphic_pipeline = {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
         .stageCount = infos.length,
@@ -174,12 +176,22 @@ void vulkan_graphics_pipeline_init(VulkanCtx *ctx, VkPipeline* target, VkPipelin
         .pMultisampleState = &multisampling_create_info,
         .pColorBlendState = &color_blending,
         .pDepthStencilState = &depth_stencil,
-
         .layout = *layout,
         .renderPass = ctx->render_pass,
         .subpass = 0,
     };
 
+    if(!use_vertices)
+    {
+        vt_input = (VkPipelineVertexInputStateCreateInfo){
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .vertexBindingDescriptionCount = 0,
+        .pVertexBindingDescriptions = NULL,
+        .vertexAttributeDescriptionCount = 0,
+        .pVertexAttributeDescriptions = NULL,
+    };
+
+    }
     vk_try$(vkCreateGraphicsPipelines(ctx->logical_device, VK_NULL_HANDLE, 1, &graphic_pipeline, NULL, target));
 
     vkDestroyShaderModule(ctx->logical_device, frag_mod, NULL);
@@ -189,10 +201,28 @@ void vulkan_graphics_pipeline_init(VulkanCtx *ctx, VkPipeline* target, VkPipelin
 
 void vulkan_pipeline_init(VulkanCtx *ctx)
 {
+ 
 
-    vulkan_graphics_pipeline_init(ctx, &ctx->gfx_pipeline, &ctx->pipeline_layout, "build/shaders/vert.spv", "build/shaders/frag.spv");
-    vulkan_graphics_pipeline_init(ctx, &ctx->compute_preview_pipeline, &ctx->compute_preview_pipeline_layout, "build/shaders/vert_cview.spv", "build/shaders/frag_cview.spv");
+    VkPushConstantRange push_constant = {
+        .stageFlags =  VK_SHADER_STAGE_COMPUTE_BIT,
+        .offset = 0,
+        .size = sizeof(VulkanConstants),
+    };
 
+    VkPipelineLayoutCreateInfo pipeline_create = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+        .setLayoutCount = 1,
+        .pSetLayouts = &ctx->descriptor_layout,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &push_constant,
+    };
+
+
+    //vulkan_graphics_pipeline_init(ctx, &ctx->gfx_pipeline, &ctx->pipeline_layout, "build/shaders/vert.spv", "build/shaders/frag.spv", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, true); 
+    
+    vulkan_graphics_pipeline_init(ctx, &ctx->compute_preview_pipeline, &ctx->compute_preview_pipeline_layout, "build/shaders/vert_cview.spv", "build/shaders/frag_cview.spv", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, false);
+
+    vk_try$(vkCreatePipelineLayout(ctx->logical_device, &pipeline_create, NULL, &ctx->compute_pipeline_layout));
 
     vulkan_compute_pipeline(ctx);
 }
@@ -204,7 +234,7 @@ void vulkan_pipeline_deinit(VulkanCtx *ctx)
     vkDestroyPipeline(ctx->logical_device, ctx->gfx_pipeline, NULL);
     vkDestroyPipeline(ctx->logical_device, ctx->compute_preview_pipeline, NULL);
 
-    vkDestroyPipelineLayout(ctx->logical_device, ctx->pipeline_layout, NULL);
+    //vkDestroyPipelineLayout(ctx->logical_device, ctx->pipeline_layout, NULL);
     vkDestroyPipelineLayout(ctx->logical_device, ctx->compute_preview_pipeline_layout, NULL);
 
 

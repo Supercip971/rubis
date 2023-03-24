@@ -25,8 +25,10 @@ typedef struct
     VkDeviceMemory raw_memory;
 } VulkanBuffer;
 
-typedef struct
+
+typedef struct 
 {
+
     _Alignas(4) float width;
     _Alignas(4) float height;
     _Alignas(4) unsigned int t;
@@ -37,20 +39,16 @@ typedef struct
     _Alignas(4) float aperture;
     _Alignas(4) float focus_disc;
 
-    _Alignas(16) float proj_matrix[4][4];
-    _Alignas(16) float view_matrix[4][4];
 
     _Alignas(4) unsigned int bounce_count;
     _Alignas(4) unsigned int scale;
     _Alignas(4) bool use_fsr;
 
-} VulkanConfig;
-
-typedef struct 
-{
     _Alignas(4) int mesh_id;
     _Alignas(4) int material_offset;
 } VulkanConstants;
+
+_Static_assert(sizeof(VulkanConstants) < 125, "VulkanConstants is not 256 bytes");
 typedef struct
 {
     VkQueue queue;
@@ -107,6 +105,8 @@ typedef struct
     VkExtent2D extend;
     VkFormat swapchain_image_format;
     VkPipelineLayout pipeline_layout;
+    VkPipelineLayout compute_pipeline_layout;
+
 
     VkPipeline gfx_pipeline;
     VkPipelineLayout compute_preview_pipeline_layout;
@@ -184,7 +184,8 @@ typedef struct
     int threads_size;
 
     vec_t(VkQueue) submitting;
-    volatile VulkanConfig *cfg;
+    volatile VulkanConstants cfg;
+   // volatile VulkanConfig *cfg;
 } VulkanCtx;
 
 int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene);

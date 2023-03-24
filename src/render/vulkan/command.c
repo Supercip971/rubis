@@ -161,11 +161,10 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
 
                 VkDeviceSize offsets[] = {data_start * 4 * sizeof(float)};
 
-                VulkanConstants node = {
-                    .mesh_id = i,
-                    .material_offset = mesh.material.start,
-                };
-                vkCmdPushConstants(ctx->cmd_buffer, ctx->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(VulkanConstants), &node);
+                VulkanConstants node = ctx->cfg;
+                node.mesh_id = i;
+                node.material_offset = mesh.material.start;
+                vkCmdPushConstants(ctx->cmd_buffer, ctx->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VulkanConstants), &node);
                 vkCmdBindVertexBuffers(ctx->cmd_buffer, 0, 1, vertex_buffers, offsets);
                 vkCmdDraw(ctx->cmd_buffer, data_size / SVERTEX_PACKED_COUNT, 1, 0, 0);
             }
@@ -183,6 +182,7 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
         {
             vkCmdBindPipeline(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->compute_preview_pipeline);
 
+            vkCmdPushConstants(ctx->cmd_buffer, ctx->compute_preview_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(VulkanConstants), (void *)&ctx->cfg);
             vkCmdBindDescriptorSets(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->compute_preview_pipeline_layout, 0, 1, &ctx->descriptor_set, 0, NULL);
             vkCmdDraw(ctx->cmd_buffer, 6, 1, 0, 0);
  

@@ -7,7 +7,7 @@
 #include "utils/color.comp"
 #include "utils/ray.comp"
 
-layout(std140, binding = 2) readonly buffer MeshesBufData
+layout(set = 0, std140, binding = 1) readonly buffer MeshesBufData
 {
     vec4 buf_datas[];
 };
@@ -24,24 +24,23 @@ struct Mesh
     vec4 aabb2;
 };
 
-layout(std140, binding = 3) readonly buffer MeshesBuf
+layout(set = 0, std140, binding = 2) readonly buffer MeshesBuf
 {
     Mesh meshes[];
 };
 
-layout(std140, binding = 5) readonly buffer BvhBuf
+layout(set = 0, std140, binding = 4) readonly buffer BvhBuf
 {
     Bvh bvhs[];
 };
 
-
-layout (binding = 6) uniform texture2D textures[];
-layout(binding = 7) uniform sampler2D skymap;
-layout(std140, binding = 8) readonly buffer Lights
+layout(set = 0, binding = 5) uniform texture2D textures[];
+layout(set = 0, binding = 6) uniform sampler2D skymap;
+layout(set = 0, std140, binding = 7) readonly buffer Lights
 {
     uint lights[];
 };
-layout(binding = 9) uniform sampler tex_sampler;
+layout(set = 0, binding = 8) uniform sampler tex_sampler;
 #define FROM_SIBLING 1
 #define FROM_PARENT 2
 #define FROM_CHILD 3

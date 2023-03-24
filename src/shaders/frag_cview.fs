@@ -18,9 +18,8 @@ struct Pixel
     vec4 value;
 };
 
-layout(binding = 4) uniform sampler2D buf;
-
-layout(std140, binding = 1) readonly uniform UniformBufferObject
+layout(binding = 3) uniform sampler2D buf;
+layout(std140, push_constant ) uniform UniformBufferObject
 {
     float width;
     float height;
@@ -33,15 +32,15 @@ layout(std140, binding = 1) readonly uniform UniformBufferObject
     float aperture;
     float focus_disk;
 
-    mat4 proj;
-    mat4 view;
 
     uint bounce_limit;
     uint scale;
 
     uint use_fsr;
-}
-ubo;
+    int mesh_index;
+    int material_index;
+} ubo;
+
 
 uint width = uint(ubo.width);
 uint height = uint(ubo.height);
@@ -187,7 +186,7 @@ vec3 aces(vec3 x)
     const float c = 2.43;
     const float d = 0.59;
     const float e = 0.14;
-    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+    return ((x * (a * x + b)) / (x * (c * x + d) + e));
 }
 void main()
 {
@@ -218,7 +217,7 @@ void main()
         color = image_value(fragCoord.xy).rgb;
     }
 
-    outColor = vec4(linear_to_srgb(aces(color)), 1.0f);
+    outColor = vec4(linear_to_srgb(aces((color))), 1.0f);
     //
     //    {
     //        vec4 color = vec4(0.0);
