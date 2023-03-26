@@ -46,7 +46,7 @@ typedef struct
     PbrtMaterialImage base;
     PbrtMaterialImage metallic_roughness;
     PbrtMaterialImage emit;
-    
+    PbrtMaterialImage transmission; 
     Material final;
 } GltfMaterial;
 

@@ -28,7 +28,7 @@ int read_texture(PbrtMaterialImage *img, cJSON *v, GltfCtx *self)
 
 
     img->id = self->textures.data[v2->valueint];
-
+    printf("[GLTF - TEXTURE] %i\n", img->id);
     cJSON* tcoord = cJSON_GetObjectItem(v, "texCoord");
     if(tcoord)
     {
@@ -159,6 +159,7 @@ void gltf_materials_parse(GltfCtx *self)
             else  
             {
                 current.base.factor = vec3$(1, 1, 1);
+                current.alpha = 1.0;
             }
 
             cJSON *metallic_roughness = cJSON_GetObjectItem(pbr, "metallicRoughnessTexture");
@@ -217,16 +218,14 @@ void gltf_materials_parse(GltfCtx *self)
             current.emit.id = -1;
             current.emit.factor = vec3$(0, 0, 0);
         }
-
+        cJSON* exts = cJSON_GetObjectItem(material, "extensions");
         cJSON *emit_fact = cJSON_GetObjectItem(material, "emissiveFactor");
         if (emit_fact != NULL)
         {
             current.emit.factor = vec3$(cJSON_GetArrayItem(emit_fact, 0)->valuedouble, cJSON_GetArrayItem(emit_fact, 1)->valuedouble, cJSON_GetArrayItem(emit_fact, 2)->valuedouble);
 
             cJSON *emissive_stren = cJSON_GetObjectItem(
-                cJSON_GetObjectItem(
-                    cJSON_GetObjectItem(material, "extensions"),
-                    "KHR_materials_emissive_strength"),
+                cJSON_GetObjectItem(exts, "KHR_materials_emissive_strength"),
                 "emissiveStrength");
 
             if (emissive_stren != NULL)
@@ -236,14 +235,49 @@ void gltf_materials_parse(GltfCtx *self)
 
             printf("emit: %f %f %f\n", current.emit.factor.x, current.emit.factor.y, current.emit.factor.z);
         }
+        cJSON* transmission =  cJSON_GetObjectItem(exts, "KHR_materials_transmission");
 
+        if(transmission)
+        {
+            cJSON* trans_tex = cJSON_GetObjectItem(transmission, "transmissionTexture");
+
+
+            if(cJSON_GetObjectItem(transmission, "transmissionFactor") == NULL)
+            {
+                if(!trans_tex)
+                {
+
+                    current.transmission.factor.x = 0;
+
+                }
+                else {
+                
+                 current.transmission.factor.x = 1;
+                }
+
+
+            }
+            else
+            {
+                current.transmission.factor.x = cJSON_GetObjectItem(transmission, "transmissionFactor")->valuedouble;
+            }
+
+            read_texture(&current.transmission, trans_tex, self);
+            printf("transmission!\n");
+        }
+        else
+        {
+            current.transmission.factor.x = 0;
+        }
         Pbrt final = (Pbrt){
             .base = current.base,
             .is_color = current.is_color,
             .normal = current.normal,
             .emit = current.emit,
             .metallic_roughness = current.metallic_roughness,
+            .transmission = current.transmission,
             .alpha = current.alpha,
+            
         };
         current.final = scene_push_pbrt(self->target, final);
 
@@ -269,6 +303,10 @@ void gltf_materials_parse(GltfCtx *self)
         .metallic_roughness = {
             .id = -1,
             .factor = vec3$(0, 0, 0.5),
+        },
+        .transmission = {
+            .id = -1,
+            .factor = vec3$(0, 0, 0),
         },
         .alpha = 1.0,
     };
