@@ -105,8 +105,26 @@ PdfSampleRecord sample_triangle(uint id, uint mid)
 
     vec3 ab = pb - pa;
     vec3 ac = pc - pa;
-    vec3 p = pa + random() * ab + random() * ac;
+
+    float u_1 = random();
+    float u_2 = random();
+    if (u_1 < u_2)
+    {
+        u_1 = u_1 / 2;
+        u_2 = u_2 - u_1;
+    }
+    else
+    {
+        u_2 = u_2 / 2;
+        u_1 = u_1 - u_2;
+    }
+    vec3 p = pa + u_1 * ab + u_2 * ac;
+
     float area = 0.5 * length(cross(ab, ac));
+    if (area < 0.00001)
+    {
+        area = 0.00001;
+    }
     float pdf = 1.0 / area;
     return PdfSampleRecord(p, area, pdf, mid);
 }
