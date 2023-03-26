@@ -114,11 +114,15 @@ PdfSampleRecord sample_random(vec3 origin, vec3 n)
 {
     int id = clamp(int(random() * float(lights.length())), 0, lights.length() - 1);
 
-    Mesh current_mesh = meshes[lights[id]];
+    Mesh current_mesh = meshes[lights[nonuniformEXT(id)]];
 
-    uint vid = current_mesh.mesh_data_start + int(random() * float((current_mesh.mesh_data_end - current_mesh.mesh_data_start) / VERTEX_SIZE - 1)) * VERTEX_SIZE;
+    const int triangle_size = 3 * VERTEX_SIZE;
+    int offset = int(random() * float((current_mesh.mesh_data_end - current_mesh.mesh_data_start) / triangle_size));
+    offset = int(clamp(offset, 0, (current_mesh.mesh_data_end - current_mesh.mesh_data_start) / triangle_size - 1));
+    offset = offset * triangle_size;
+    uint vid = current_mesh.mesh_data_start + uint(offset);
 
-    return sample_triangle(vid, lights[id]);
+    return sample_triangle(vid, lights[nonuniformEXT(id)]);
 }
 
 HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f);
