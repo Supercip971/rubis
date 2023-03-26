@@ -292,6 +292,18 @@ static void vulkan_scene_ressource_texture_init(VulkanCtx *ctx, VulkanTexArrays 
     vec_init(&result->textures);
     TexLists texs = ctx->scene.textures;
 
+    if(texs.length == 0)
+    {
+       Image empty = (Image)
+        {
+            .data = malloc(16 * sizeof(uint32_t)),
+            .width = 4,
+            .height = 4,
+        };
+        
+        vec_push(&ctx->scene.textures, empty);
+        texs = ctx->scene.textures; 
+    }
     VulkanBuffer staging_buf;
     for (int i = 0; i < texs.length; i++)
     {
