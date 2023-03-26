@@ -96,6 +96,9 @@ typedef struct
     PbrtMaterialImage base; // only if is_color == false
     PbrtMaterialImage metallic_roughness;
     PbrtMaterialImage emit;
+    PbrtMaterialImage transmission;
+
+
     float alpha;
 
 } Pbrt;

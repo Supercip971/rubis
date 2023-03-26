@@ -250,6 +250,8 @@ Pbrt scene_get_full_pbrt(Scene *self, int offset)
     PbrtMaterialImage normal = scene_get_pbrt(self, offset + 3);
     PbrtMaterialImage metallic_roughness = scene_get_pbrt(self, offset + 6);
     PbrtMaterialImage emit = scene_get_pbrt(self, offset + 9);
+    PbrtMaterialImage trans = scene_get_pbrt(self, offset + 12);
+
 
     return (Pbrt){
         .base = base,
@@ -257,6 +259,7 @@ Pbrt scene_get_full_pbrt(Scene *self, int offset)
         .metallic_roughness = metallic_roughness,
         .emit = emit,
         .alpha = base.factor._padding,
+        .transmission = trans,
         .is_color = (base.id == -1),
     };
 }
@@ -276,6 +279,8 @@ Material scene_push_pbrt(Scene *self, Pbrt pbrt)
     scene_ref_push_material_texture(self, &mat, pbrt.normal);
     scene_ref_push_material_texture(self, &mat, pbrt.metallic_roughness);
     scene_ref_push_material_texture(self, &mat, pbrt.emit);
+    scene_ref_push_material_texture(self, &mat, pbrt.transmission);
+
 
     return mat;
 }
