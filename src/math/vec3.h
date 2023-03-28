@@ -46,6 +46,40 @@ static inline void vec3_dim_set(Vec3 *self, VecDimension dim, float value)
         case VDIM_Z: self->z = value; break;
     }
 }
+static inline VecDimension pick_dim(Vec3 a, Vec3 b)
+{
+    float dx = fabs(a.x - b.x);
+    float dy = fabs(a.y - b.y);
+    float dz = fabs(a.z - b.z);
+
+    if (dx >= dy && dx >= dz)
+    {
+        return VDIM_X;
+    }
+    else if (dy >= dx && dy >= dz)
+    {
+        return VDIM_Y;
+    }
+    return VDIM_Z;
+}
+static inline bool is_vec3_dim_superior(Vec3 point, Vec3 maxc, Vec3 minc, VecDimension dim)
+{
+
+    if (dim == VDIM_X)
+    {
+        float center = (maxc.x + minc.x) / 2;
+        return point.x >= center;
+    }
+    else if (dim == VDIM_Y)
+    {
+        float center = (maxc.y + minc.y) / 2;
+
+        return point.y >= center;
+    }
+    float center = (maxc.z + minc.z) / 2;
+
+    return point.z >= center;
+}
 #define vec3$(X, Y, Z) (vec3_create((X), (Y), (Z)))
 
 static inline Vec3 vec3_inv(Vec3 vec)

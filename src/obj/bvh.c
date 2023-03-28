@@ -112,47 +112,8 @@ void bvh_dump(BvhList *self, BvhEntry *entry, int depth)
         bvh_dump(self, &self->data[entry->ra], depth + 1);
     }
 }
-// probably don't know what this does in 1 month
-// this tries to create a bvh using a linear memory (usable for gpu) without any pointers
-// this is probably really inefficient:
-// x + x/2 + x/4 ...
-// n + (n)
-// but as we are using it once, I may not want to make it faster (for now)
 
-VecDimension pick_dim(Vec3 a, Vec3 b)
-{
-    float dx = fabs(a.x - b.x);
-    float dy = fabs(a.y - b.y);
-    float dz = fabs(a.z - b.z);
 
-    if (dx >= dy && dx >= dz)
-    {
-        return VDIM_X;
-    }
-    else if (dy >= dx && dy >= dz)
-    {
-        return VDIM_Y;
-    }
-    return VDIM_Z;
-}
-bool is_vec3_dim_superior(Vec3 point, Vec3 maxc, Vec3 minc, VecDimension dim)
-{
-
-    if (dim == VDIM_X)
-    {
-        float center = (maxc.x + minc.x) / 2;
-        return point.x >= center;
-    }
-    else if (dim == VDIM_Y)
-    {
-        float center = (maxc.y + minc.y) / 2;
-
-        return point.y >= center;
-    }
-    float center = (maxc.z + minc.z) / 2;
-
-    return point.z >= center;
-}
 
 bool triangle_bounding_with(Triangle tri, AAPlane plane, AABB *box)
 {
