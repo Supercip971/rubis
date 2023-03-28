@@ -146,7 +146,7 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
         },
         .instance = 0,
         .frame_id = 0,
-        .threads_size = 4,
+        .threads_size = 16,
         .scene = *scene};
 
     printf("loading bvh %i...\n", scene->meshes.length);
@@ -347,7 +347,7 @@ int vulkan_frame(VulkanCtx *self)
 #endif
     if (vkGetFenceStatus(self->logical_device, self->in_flight_fence) == VK_SUCCESS)
     {
-        vk_try$(vkResetFences(self->logical_device, 1, &self->in_flight_fence));
+      vk_try$(vkResetFences(self->logical_device, 1, &self->in_flight_fence));
 
         uint32_t image_idx = 0;
 
@@ -381,6 +381,10 @@ int vulkan_frame(VulkanCtx *self)
 
         };
         vk_try$(vkQueuePresentKHR(self->present_queue, &present_info));
+       // printf("a2\n");
+
+
+
     }
     else if(!get_config().show_raster)
     {

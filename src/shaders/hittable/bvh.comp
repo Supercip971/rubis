@@ -7,10 +7,12 @@ struct Bvh
     int is_next_a_bvh;
     vec4 aabb_min;
     vec4 aabb_max;
-    int la;
-    int lb;
-    int ra;
-    int rb;
+    uint la;
+    uint lb;
+    uint lraw;
+    uint ra;
+    uint rb;
+    uint rraw;
 };
 
 #endif

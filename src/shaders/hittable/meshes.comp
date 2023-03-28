@@ -75,27 +75,18 @@ PbrtTexture material_load_tex_d(vec4 a, vec4 b, vec4 c)
     result.scale = c.zw;
     return result;
 }
-HittableRecord process_leaf(Ray r, int id, int vert, float cmin, float cmax)
+HittableRecord process_leaf(Ray r, uint raw, uint id, uint vert, float cmin, float cmax)
 {
-    Mesh current_mesh = meshes[id];
+  //  Mesh current_mesh = meshes[id];
 
-    vec3 pa = buf_datas[current_mesh.mesh_data_start + vert * VERTICES_SIZE + 0 * VERTEX_SIZE].xyz;
-    vec3 pb = buf_datas[current_mesh.mesh_data_start + vert * VERTICES_SIZE + 1 * VERTEX_SIZE].xyz;
-    vec3 pc = buf_datas[current_mesh.mesh_data_start + vert * VERTICES_SIZE + 2 * VERTEX_SIZE].xyz;
+    vec3 pa = buf_datas[raw + vert * VERTICES_SIZE + 0 * VERTEX_SIZE].xyz;
+    vec3 pb = buf_datas[raw + vert * VERTICES_SIZE + 1 * VERTEX_SIZE].xyz;
+    vec3 pc = buf_datas[raw + vert * VERTICES_SIZE + 2 * VERTEX_SIZE].xyz;
 
     HittableRecord res = hit_triangle(cmin, cmax, r, pa, pb, pc);
 
-    res.mesh_id = id;
-    res.vert_id = vert;
-
-    if (res.hitted)
-    {
-        //float alpha = material_load_tex(int(current_mesh.material_data_start), 0).factor.w;
-        //if (random() > (alpha))
-        //{
-        //    res.hitted = false;
-        //}
-    }
+    res.mesh_id = int(id);
+    res.vert_id = int(vert);
 
     return res;
 }
@@ -268,27 +259,25 @@ struct CacheRecord
 int cache_off = 0;
 int cache_len = 0;
 CacheRecord cache[3];
+
+uint stack[STACK_SIZE];
 HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
 {
 
-    int stack[STACK_SIZE];
-    float cmax_stack[STACK_SIZE];
-    int current = bvhs[0].la;
+    HittableRecord res;
+    res.hitted = false;
     float cmin = cmin_f;
     float cmax = cmax_f;
+    
     int i = 0;
     int sp = 0;
     int depth = 0;
     stack[sp] = 0;
     sp++;
-    HittableRecord res;
-    res.hitted = false;
-
-    bool direction = true;
+    const bool direction = true;
     int ccount = 0;
 
     mat4 m = mat4(1);
-
 #ifdef SHOW_DEPTH
     Bvh dcur = bvhs[stack[0]];
 
@@ -301,16 +290,15 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
     {
         sp--; // pop
 
-        Bvh cur = bvhs[stack[sp]];
-
+        Bvh cur = bvhs[nonuniformEXT(stack[sp])];
         if (cur.is_next_a_bvh == 0)
         {
 
-            HittableRecord rec2 = process_leaf(r, cur.la, cur.lb, cmin, cmax);
+            HittableRecord rec2 = process_leaf(r, cur.lraw, uint(cur.la), uint(cur.lb), cmin, cmax);
+
 #ifdef SHOW_DEPTH
             ccount++;
 #endif
-
             if (rec2.hitted)
             {
                 cmax = rec2.t;
@@ -322,7 +310,7 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
             }
             if (cur.ra != 0)
             {
-                rec2 = process_leaf(r, cur.ra, cur.rb, cmin, cmax);
+                rec2 = process_leaf(r, cur.rraw, uint(cur.ra),uint( cur.rb), cmin, cmax);
 #ifdef SHOW_DEPTH
 
                 ccount++;
@@ -348,64 +336,35 @@ HittableRecord traverse_bvh_stack(Ray r, float cmin_f, float cmax_f)
         }
         else
         {
-            Bvh lb = bvhs[cur.la];
-            Bvh rb = bvhs[cur.ra];
-            if (direction)
+            Bvh lb = bvhs[nonuniformEXT(cur.la)];
+            Bvh rb = bvhs[nonuniformEXT(cur.ra)];
+            if (aabb_hit(r, lb, cmin, cmax))
             {
-                if (aabb_hit(r, lb, cmin, cmax))
-                {
 
-                    stack[sp] = cur.la;
-                    //   cmax_stack[sp] = cmax;
-                    sp++;
+                stack[sp] = uint(cur.la);
+                //   cmax_stack[sp] = cmax;
+                sp++;
 
 #ifdef SHOW_DEPTH
-                    depth = max(depth, sp + 1);
+                depth = max(depth, sp + 1);
 #endif
-                }
-                if (aabb_hit(r, rb, cmin, cmax))
-                {
-
-                    stack[sp] = cur.ra;
-                    //   cmax_stack[sp] = cmax;
-
-                    sp++;
-#ifdef SHOW_DEPTH
-                    depth = max(depth, sp + 1);
-#endif
-                }
             }
-            else
+            if (aabb_hit(r, rb, cmin, cmax))
             {
 
-                if (aabb_hit(r, rb, cmin, cmax))
-                {
+                stack[sp] = uint(cur.ra);
+                //   cmax_stack[sp] = cmax;
 
-                    stack[sp] = cur.ra;
-                    //   cmax_stack[sp] = cmax;
-
-                    sp++;
+                sp++;
 #ifdef SHOW_DEPTH
-                    depth = max(depth, sp + 1);
+                depth = max(depth, sp + 1);
 #endif
-                }
-                if (aabb_hit(r, lb, cmin, cmax))
-                {
-
-                    stack[sp] = cur.la;
-                    //   cmax_stack[sp] = cmax;
-                    sp++;
-
-#ifdef SHOW_DEPTH
-                    depth = max(depth, sp + 1);
-#endif
-                }
             }
         }
     }
 
 #ifdef SHOW_DEPTH
-    res.depth = ccount;
+    res.depth = depth;
 #endif
     return res;
 }

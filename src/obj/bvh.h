@@ -9,10 +9,14 @@ typedef struct __attribute__((packed))
     _Alignas(16) AABB box;
 
     // LA is the index of the mesh, and LB is the element of the mesh (triangle) 
-    _Alignas(4) int la;
-    _Alignas(4) int lb; 
-    _Alignas(4) int ra;
-    _Alignas(4) int rb;
+    _Alignas(4) unsigned int la;
+    _Alignas(4) unsigned int lb; 
+    _Alignas(4) unsigned int lraw;
+    _Alignas(4) unsigned int ra;
+    _Alignas(4) unsigned int rb;
+    _Alignas(4) unsigned int rraw;
+
+
 } BvhEntry;
 
 typedef vec_t(BvhEntry) BvhList;

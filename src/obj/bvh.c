@@ -33,8 +33,10 @@ BvhEntry bvh_make_mesh_fusion(BvhEntry left, BvhEntry right)
         .is_next_a_bvh = false,
         .la = left.la,
         .lb = left.lb,
+        .lraw = left.lraw,
         .ra = right.la,
         .rb = right.lb,
+        .rraw = right.lraw,
         //    .parent = 0,
         .box = aabb_surrounding(&left.box, &right.box),
     };
@@ -266,14 +268,15 @@ void sbvh_init(BvhList *self, int entry_id, Scene *scene)
         // bool valid_diff = aabb_near_same(&final_a, &final_b);
         if (is_valid && best_sah < msah)
         {
-
             BvhEntry new_l_entry = {
                 .box = best_a,
                 .is_next_a_bvh = true,
                 .la = entry->la,
                 .lb = entry->lb,
+                .lraw = entry->lraw,
                 .ra = entry->ra,
                 .rb = entry->rb,
+                .rraw = entry->rraw,
             };
             BvhEntry new_r_entry = {
                 .box = best_b,
@@ -281,9 +284,12 @@ void sbvh_init(BvhList *self, int entry_id, Scene *scene)
                 .is_next_a_bvh = true,
                 .la = entry->la,
                 .lb = entry->lb,
+                .lraw = entry->lraw,
                 .ra = entry->ra,
                 .rb = entry->rb,
+                .rraw = entry->rraw,
             };
+
 
             int base_id = self->length;
             vec_push(self, new_l_entry);
@@ -836,8 +842,10 @@ void bvh_init(BvhList *self, Scene *target)
                     .is_next_a_bvh = false,
                     .la = i,
                     .lb = c,
+                    .lraw = m.vertices.start,
                     .ra = 0,
                     .rb = 0,
+                    .rraw = 0,
                 };
 
                 ElementOnList on_list = {

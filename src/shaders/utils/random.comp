@@ -1,17 +1,7 @@
 #ifndef RANDOM_COMP
 #define RANDOM_COMP
 
-layout(std140, binding = 1) readonly uniform UniformBufferObjectRandom
-{
-    float width;
-    float height;
-    uint t;
-    vec4 camera_pos;
 
-    vec4 camera_target;
-    vec4 camera_up;
-}
-rubo;
 
 struct RandomResult
 {
@@ -72,7 +62,7 @@ vec2 seed = vec2(0);
 bool loaded = false;
 void seed_random_init(vec2 v)
 {
-    seed += vec2( ((rubo.t )));
+    seed += vec2( ((ubo.t )));
 
     if(seed.x > 1000.0)
     {
