@@ -57,6 +57,15 @@ VulkanBuffer vk_buffer_alloc(VulkanCtx *ctx, size_t len, VkBufferUsageFlags flag
         .memoryTypeIndex = find_memory_type(ctx, memRequirements.memoryTypeBits, properties, len),
     };
 
+    VkMemoryAllocateFlagsInfo allocationFlags = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO,
+        .flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT,
+    };
+    if ((flags & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT) == VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+    {
+        allocate.pNext = &allocationFlags;
+    }
+
     vk_try$(vkAllocateMemory(ctx->logical_device, &allocate, NULL, &buf.raw_memory));
 
     vk_try$(vkBindBufferMemory(ctx->logical_device, buf.buffer, buf.raw_memory, 0));
