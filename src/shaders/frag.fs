@@ -229,6 +229,7 @@ void main()
     else
     {
         color = image_value(fragCoord.xy).rgb;
+   //     color = image_value(fragCoord.xy).rgb;
     }
 
     outColor = vec4(linear_to_srgb(aces((color +fragColor )/2)), 1.0f);
