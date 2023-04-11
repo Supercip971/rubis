@@ -62,12 +62,12 @@ vec3 vec_reflect(vec3 v, vec3 n)
 
 vec3 vec_refract(vec3 uv, vec3 n, float etai_over_etat)
 {
-    /*
+    
     float cos_theta = min(dot(-uv, n), 1.0);
     vec3 r_out_perp = etai_over_etat * (uv + cos_theta * n);
     vec3 r_out_parallel = -sqrt(abs(1 - squared_len(r_out_perp))) * n;
-    return r_out_perp + r_out_parallel;*/
-    return refract(uv, n, etai_over_etat);
+    return r_out_perp + r_out_parallel;
+   // return refract(uv, n, etai_over_etat);
 }
 
 float reflectance(float cosine, float ref_idx)
@@ -75,6 +75,22 @@ float reflectance(float cosine, float ref_idx)
     float ro = (1.0 - ref_idx) / (1.0 + ref_idx);
     ro = ro * ro;
     return ro + (1.0 - ro) * pow((1.0 - cosine), 5.0);
+}
+float diel_fresnel_value(float ndotv, float eta)
+{
+    float k = 1 - eta * eta * (1.0 - ndotv * ndotv);
+
+    if (k < 0.0)
+    {
+        return 1.0;
+    }
+
+    float r = sqrt(max(k, 0));
+
+    float rs = (eta * r - ndotv) / (eta * r + ndotv);
+    float rp = (eta * ndotv - r) / (eta * ndotv + r);
+
+    return (rs * rs + rp * rp) / 2;
 }
 vec3 vec3_random_unit_in_disk()
 {
