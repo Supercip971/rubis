@@ -5,11 +5,17 @@
 // forced include order for clang-format using comments
 #include <X11/Xlib-xcb.h>
 //
+#include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_xcb.h>
 
 const char *device_required_exts[] = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME,
+    VK_KHR_16BIT_STORAGE_EXTENSION_NAME,
+    VK_KHR_8BIT_STORAGE_EXTENSION_NAME,
+    VK_KHR_RAY_QUERY_EXTENSION_NAME,
+    VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, 
 };
 
 bool vulkan_check_device_extensions(VkPhysicalDevice device)
@@ -96,16 +102,32 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
     }
 
     VkPhysicalDeviceFeatures features = {};
-    
-    VkPhysicalDeviceDescriptorIndexingFeaturesEXT feat = 
+
+    VkPhysicalDevice16BitStorageFeatures storage16_feat = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES,
+        .storageBuffer16BitAccess = VK_TRUE,
+        .uniformAndStorageBuffer16BitAccess = VK_TRUE,
+        .storagePushConstant16 = VK_FALSE,
+        .storageInputOutput16 = VK_TRUE,
+        .pNext = NULL,
+    };
+    VkPhysicalDeviceDescriptorIndexingFeaturesEXT index_feat = 
     {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT,
         .runtimeDescriptorArray = VK_TRUE,
         .descriptorBindingPartiallyBound = VK_TRUE,
         .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
-        .pNext = NULL,
+        .pNext = &storage16_feat,
+    };
+
+    VkPhysicalDeviceBufferDeviceAddressFeatures addr_feat = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
+        .bufferDeviceAddress = VK_TRUE,
+        .pNext = &index_feat,
     };
     features.fragmentStoresAndAtomics = VK_TRUE;
+    features.shaderInt16 = VK_TRUE;
+
     VkDeviceCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
         .pQueueCreateInfos = queue_create_infos.data,
@@ -115,13 +137,39 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
         .pEnabledFeatures = NULL,
     };
 
+
+    
     VkPhysicalDeviceFeatures2 features2 = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-        .pNext = &feat, 
+        .pNext = &addr_feat, 
         .features = features,
     };
 
-    create_info.pNext = &features2;
+    VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_feat = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,
+        .rayTracingPipeline = VK_TRUE,
+        .pNext = &features2,
+    };
+
+    VkPhysicalDeviceRayQueryFeaturesKHR ray_query_feat = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
+        .rayQuery = VK_TRUE,
+        .pNext = &ray_feat,
+    };
+
+    VkPhysicalDeviceAccelerationStructureFeaturesKHR accel_feat = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+        .accelerationStructure = VK_TRUE,
+        .pNext = &ray_query_feat,
+    };
+  //VkPhysicalDeviceVulkan12Features features12 = {
+  //      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+  //      .pNext = &features2, 
+  //      .bufferDeviceAddress = VK_TRUE,
+  //  };
+
+
+    create_info.pNext = &accel_feat;
 
     vulkan_load_validation_layer_device(&create_info);
     vk_try$(vkCreateDevice(ctx->physical_device, &create_info, NULL, &ctx->logical_device));
