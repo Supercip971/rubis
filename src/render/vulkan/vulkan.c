@@ -166,6 +166,7 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
     {
         vulkan_debug_init(self);
     }
+    init_loader(&self->instance);
 
     vulkan_render_surface_init(self, window_handle);
 
