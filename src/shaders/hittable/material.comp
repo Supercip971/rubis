@@ -24,6 +24,7 @@ struct MaterialRecord
     bool is_transmissive;
     float t;
     vec3 incident;
+    bool front;
     bool transparent;
 };
 
@@ -184,23 +185,7 @@ float smith_ggx(vec3 h, vec3 s, vec3 so, float alpha)
     //    return  (-1 + sqrt(1 + (1 / (a*a)))) / 2;
 }
 // https://registry.khronos.org/OpenGL-Refpages/gl4/html/refract.xhtml
-float diel_fresnel_value(float ndotv)
-{
-    const float eta = 1 / 1.5;
-    float k = 1 - eta * eta * (1.0 - ndotv * ndotv);
 
-    if (k < 0.0)
-    {
-        return 0;
-    }
-
-    float r = sqrt(max(k, 0));
-
-    float rs = (eta * r - ndotv) / (eta * r + ndotv);
-    float rp = (eta * ndotv - r) / (eta * ndotv + r);
-
-    return (rs * rs + rp * rp) / 2;
-}
 float fresnel_value(float ndotv)
 {
     float c = clamp(1.0 - ndotv, 0.0, 1.0);
@@ -235,7 +220,7 @@ struct MaterialValRecord
     vec3 color;
 };
 
-MaterialValRecord dumb_brdf(float roughness, float metallic, vec3 incident, vec3 base, vec3 next, vec3 mnormal, float transmission, float ior)
+MaterialValRecord dumb_brdf(float roughness, float metallic, vec3 incident, vec3 base, vec3 next, vec3 mnormal, float transmission, float ior, bool front)
 {
     MaterialValRecord result;
     roughness = clamp(roughness, 0.0001, 0.9999);
@@ -250,27 +235,36 @@ MaterialValRecord dumb_brdf(float roughness, float metallic, vec3 incident, vec3
     vec3 wO = v;
     vec3 wI = l;
     vec3 h = normalize(l + v);
+
+    if (dot(n, v) <= 0)
+    {
+        n = -n;
+    }
+    if (dot(l, n) <= 0)
+    {
+        h = normalize(l + v * ior);
+    }
+
     vec3 o_h = h;
 
-    if (dot(o_h, v) < 0)
-    {
-        h = -h;
-    }
-    if (h.x == 0 && h.y == 0 && h.z == 0)
-    {
-        result.color = vec3(0, 1, 1);
-        return result;
-    }
+    // if (dot(h, n) < 0)
+    // {
+    //     h = -h;
+    // }
+
     // vec3 r = reflect(-l, n);
 
-    float NdotH = clamp(abs(dot(n, h)), 0.001, 1);
-
+    float NdotH = clamp(abs(dot(n, h)), 0.00001, 1);
+    //{
+    //    result.color = vec3(NdotH, 0, 0);
+    //    return result;
+    //}
     float NdotV = clamp_01_1(dot(n, v));
 
     float VdotH = clamp_01_1(dot(v, h));
 
     float NdotL = clamp_01_1(dot(n, l));
-    float LdotH = clamp_01_1(dot(l, h));
+    float LdotH = clamp_01_1(abs(dot(l, h)));
 
     float u = VdotH;
 
@@ -281,6 +275,8 @@ MaterialValRecord dumb_brdf(float roughness, float metallic, vec3 incident, vec3
     float alpha_sq_c = max(0.001f * 0.001f, alpha_sq);
 
     // D
+
+    // (1 - HdotN * (1 - HdotN)
     float ggx_d_denom = (alpha_sq_c - 1.0) * (NdotH) * (NdotH) + 1;
 
     float ggx_d = (alpha_sq_c) / (M_PI * ggx_d_denom * ggx_d_denom);
@@ -297,13 +293,13 @@ MaterialValRecord dumb_brdf(float roughness, float metallic, vec3 incident, vec3
 
     vec3 FL = fresnel(vec3(1), fd90, NdotL);
     vec3 FV = fresnel(vec3(1), fd90, NdotV);
-    float fVH = diel_fresnel_value(abs(dot(v, h)));
+    float fVH = diel_fresnel_value(abs(dot(v, h)), ior);
 
     //  float FH = fresnel_value((LdotH));
     // vec3 F = fresnel(f0,min(60 * luminance(f0), 1.0),  NdotL);
     vec3 Fd = FL * FV * base * (1 / M_PI);
     //    vec3 F = fresnel(f0,1,  NdotV);
-    vec3 F = fresnel(f0, min(60 * luminance(f0), 1.0), LdotH);
+    vec3 F = fresnel(f0, min(60 * luminance(f0), 1.0), VdotH);
 
     vec3 specular = vec3(((F * ggx_g * ggx_d)));
 
@@ -321,18 +317,25 @@ MaterialValRecord dumb_brdf(float roughness, float metallic, vec3 incident, vec3
 
     float nF = 1 - fVH;
 
-    float tdenom = dot(l, h) + dot(v, h) * ior;
+    float tdenom = abs(dot(l, h)) + abs(dot(v, h)) * ior;
     if (true)
     {
-        //   float G  = smith_ggx(n, l,v, roughness) * smith_ggx(n, v,l, roughness);
+        //    float G  = smith_ggx(n, l,v, roughness) * smith_ggx(n, v,l, roughness);
 
-        // trans = (nF) * base * ggx_d * G * ior * ior * 4*  (1/ (tdenom*tdenom));
-        trans = base * specular * (1 / (tdenom * tdenom));
+        //   float D_beck = exp((NdotH * NdotH - 1) / (alpha_sq * NdotH * NdotH)) / (M_PI * alpha_sq * NdotH * NdotH * NdotH * NdotH);
+        float G = smith_ggx(n, l, v, roughness) * smith_ggx(n, v, l, roughness);
+        trans = (nF)*base * max(ggx_d, 1.0) * G * ior * ior * 4 * (1 / (tdenom * tdenom));
+
+        // trans = (nF) * base  ;
+
+        //   trans = G *  nF * base * ior * ior * 4 * 1/(tdenom * tdenom);
     }
     else
     {
         trans = vec3(0);
     }
+
+    // trans = vec3(1);
 
     vec3 res = mix((diffuse_ratio * Fd), trans, transmission) + specular * specular_ratio;
 

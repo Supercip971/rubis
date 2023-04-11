@@ -380,17 +380,51 @@ MaterialRecord material_hit_info(HittableRecord record, Ray r)
 
     result.emitted = emit;
 
-    const float idx = 1.5;
+    // https://en.wikipedia.org/wiki/Cauchy%27s_equation
+
+    // https://en.wikipedia.org/wiki/Refractive_index#Refractive_index_of_glass
+
+   // const float sel_g = random();
+   // const float sel_b = random();
+   // const float sel_r = random();
+
+    //  const float selected_wave_length = mix(390, 710, random());
+
+    float selected_wave_length =0;
+    float c = random();
+    float cc = random();
+    if (c <= 0.33) // {1/3}
+    {
+        selected_wave_length = mix(620, 770, cc);
+    }
+    else if (c <= 0.66) // {2/3} * (1/2) = 1/3
+    {
+        selected_wave_length = mix(495, 570, cc);
+    }
+    else
+    {
+        selected_wave_length = mix(450, 495, cc);
+    }
+    const float transmission_refractive_coeff = 0.02342;
+
+    // result.refraction_wavelength = selected_wave_length;
+
+    // Borosilicate glass BK
+    const float idx = 1.7 + transmission_refractive_coeff / (selected_wave_length * selected_wave_length * 0.001 * 0.001);
 
     float refract_ratio = 1.0 / idx;
 
     result.ior = refract_ratio;
 
-    if (dot(og_normal, N) < 0)
-    {
-        refract_ratio = idx;
-        result.ior = refract_ratio;
-    }
+
+    result.transparent = (alpha < random()) ? true : false;
+
+    transmission *= (1 - result.metallic);
+
+    bool transmissive = transmission > random();
+   // bool is_trans = !result.transparent && ;
+    //
+    
 
     // y = roughtness
     // z = metalness
@@ -401,28 +435,37 @@ MaterialRecord material_hit_info(HittableRecord record, Ray r)
     result.roughness = roughness_value;
     result.metallic = metal_value;
 
-    float cos_theta = min((dot(-unit_direction, N)), 1.0);
+
+    
+    float cos_theta = ((dot(-unit_direction, N)));
+
+
     float sin_theta = sqrt(max(1.0 - cos_theta * cos_theta, 0.0));
 
-    result.is_specular = (reflectance(cos_theta, result.ior) > random()); // specular
+    result.is_specular = (diel_fresnel_value(cos_theta, result.ior) > random()); // specular
     result.incident = r.direction;
 
     result.point = record.point;
 
-    result.transparent = (alpha < random()) ? true : false;
     result.t = record.t;
     if (result.transparent)
     {
         result.is_specular = true; // consider all transparent as specular
     }
-
-    transmission *= (1 - result.metallic);
+    
+    
 
     result.transmission = transmission;
     if (!result.transparent && !result.is_specular)
     {
         result.is_specular = false;
-        result.is_transmissive = (transmission > random());
+        result.is_transmissive = transmissive;
+    if (!record.front && transmissive)
+    {
+        refract_ratio = idx;
+        result.ior = refract_ratio;
+    }
+
     }
     else
     {
@@ -432,6 +475,24 @@ MaterialRecord material_hit_info(HittableRecord record, Ray r)
     {
         result.is_specular = true;
     }
+
+    if (result.is_transmissive)
+    {
+        result.albedo = result.albedo * 3* wavelength_to_color(selected_wave_length);
+        //  result.albedo = vec3(1);
+    }
+
+    
+
+      if (false)
+      {
+          result.emitted = vec3(float(record.front), float(!record.front), 0) ;
+
+          result.do_scatter = false;
+          return result;
+      }
+
+    result.front = record.front;
     // result.is_specular = false;
     //    result.is_specular = true;
     //    result.transparent = false;
@@ -487,26 +548,26 @@ MaterialQueryRecord material_query(MaterialRecord record, Ray r)
         H = importance_sample(record.roughness, r1, r2);
 
         H = normalize(H.x * record.T + H.y * record.B + H.z * record.N); // surface normal
-        if (dot(H, record.N) < 0)
+
+        // vec3 diff = H - record.N;
+
+        //        dir = normalize(unit_direction + diff);
+
+        if(dot(H, -unit_direction) < 0)
         {
             H = -H;
         }
+        dir = vec_refract(unit_direction, H, record.ior);
+        if(dot(unit_direction, dir) < 0)
+        {
+            dir = -dir;
+        }
+        //   dir = unit_direction;
 
-        vec3 diff = H - record.N;
+        //   H = normalize(record.N);
+        //   dir = unit_direction + diff;
 
-        dir = normalize(unit_direction + diff);
-
-        // dir = refract(unit_direction, record.N, record.ior);
-        // dir = unit_direction + diff;
-        //  if(dot(dir, record.N) > 0)
-        //  {
-        //      dir = -dir;
-        //  }
-        // if (dot(H, np) < 0)
-        //{
-        //    H = -H;
-        //}
-        // dir = (reflect(unit_direction, H));
+        //    dir = (reflect(unit_direction, H));
     }
     else
     {
@@ -518,6 +579,15 @@ MaterialQueryRecord material_query(MaterialRecord record, Ray r)
     }
     // dir = record.N;
     dir = normalize(dir);
+
+    if (!record.is_transmissive && !record.transparent)
+    {
+        if (dot(dir, record.N) < 0)
+        {
+            dir = -dir;
+        }
+    }
+
     MaterialQueryRecord result;
     result.scatter.origin = record.point;
     result.scatter.direction = dir;
