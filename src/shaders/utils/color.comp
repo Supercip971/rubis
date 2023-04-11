@@ -3,7 +3,7 @@
 
 float srgb_to_linear_v(float srgb)
 {
-    if(srgb <= 0.04045f)
+    if (srgb <= 0.04045f)
     {
         srgb = srgb / 12.92f;
     }
@@ -20,13 +20,13 @@ vec3 srgb_to_linear(vec3 v)
 }
 float linear_v_to_srgb(float linear)
 {
-    if(linear <= 0.0031308f)
+    if (linear <= 0.0031308f)
     {
         linear = linear * 12.92f;
     }
     else
     {
-        linear = 1.055 * pow(linear, 1.f/2.4f) - 0.055;
+        linear = 1.055 * pow(linear, 1.f / 2.4f) - 0.055;
     }
     return linear;
 }
@@ -34,5 +34,42 @@ float linear_v_to_srgb(float linear)
 vec3 linear_to_srgb(vec3 v)
 {
     return vec3(linear_v_to_srgb(v.x), linear_v_to_srgb(v.y), linear_v_to_srgb(v.z));
+}
+
+float wlength_g(float x, float mu, float sigma1, float sigma2)
+{
+    float y = 0.f;
+
+    float mc = 0;
+    if (x >= mu)
+    {
+        mc = (x - mu) / sigma2;
+    }
+    else
+    {
+        mc = (x - mu) / sigma1;
+    }
+
+    return exp(-0.5f * mc * mc);
+}
+vec3 wavelength_to_color(float wavelength)
+{
+
+    const float x = wlength_g(wavelength, 599.8, 37.9, 31) * 1.056  + 
+              wlength_g(wavelength, 442.0, 16.0, 26.7) * 0.362+ 
+              wlength_g(wavelength, 501.1, 20.4, 26.2) * -0.065;
+
+    const float y = wlength_g(wavelength, 568.8, 46.9, 40.5) * 0.821  +
+                wlength_g(wavelength, 530.9, 16.3, 31.1) * 0.286;
+
+    const float z = wlength_g(wavelength, 437.0, 11.8, 36.0) * 1.217  +
+                wlength_g(wavelength, 459.0, 26.0, 13.8) * 0.681;
+
+
+    const mat3 xyz_to_rgb = mat3(2.36461, -0.89654, -0.46807,
+                           -0.51517, 1.42641, 0.08876,
+                           0.00520, -0.01441, 1.00962);
+
+    return xyz_to_rgb * vec3(x, y, z)  ;
 }
 #endif
