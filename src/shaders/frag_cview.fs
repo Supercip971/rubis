@@ -19,7 +19,7 @@ struct Pixel
 };
 
 layout(binding = 3) uniform sampler2D buf;
-layout(std140, push_constant ) uniform UniformBufferObject
+layout(std140, push_constant) uniform UniformBufferObject
 {
     float width;
     float height;
@@ -32,15 +32,14 @@ layout(std140, push_constant ) uniform UniformBufferObject
     float aperture;
     float focus_disk;
 
-
     uint bounce_limit;
     uint scale;
 
     uint use_fsr;
     int mesh_index;
     int material_index;
-} ubo;
-
+}
+ubo;
 
 uint width = uint(ubo.width);
 uint height = uint(ubo.height);
@@ -56,80 +55,109 @@ vec2 image_uv(vec2 uv)
     return (vec2(u, v));
 }
 
-#define INV_SQRT_OF_2PI 0.39894228040143267793994605993439  // 1.0/SQRT_OF_2PI
+#define INV_SQRT_OF_2PI 0.39894228040143267793994605993439 // 1.0/SQRT_OF_2PI
 #define INV_PI 0.31830988618379067153776752674503
 
-    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//  Copyright (c) 2018-2019 Michele Morrone
-//  All rights reserved.
-//
-//  https://michelemorrone.eu - https://BrutPitt.com
-//
-//  me@michelemorrone.eu - brutpitt@gmail.com
-//  twitter: @BrutPitt - github: BrutPitt
-//  
-//  https://github.com/BrutPitt/glslSmartDeNoise/
-//
-//  This software is distributed under the terms of the BSD 2-Clause license
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-//  smartDeNoise - parameters
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//
-//  sampler2D tex     - sampler image / texture
-//  vec2 uv           - actual fragment coord
-//  float sigma  >  0 - sigma Standard Deviation
-//  float kSigma >= 0 - sigma coefficient 
-//      kSigma * sigma  -->  radius of the circular kernel
-//  float threshold   - edge sharpening threshold 
-
-vec4 smartDeNoise(sampler2D tex, vec2 uv, float sigma, float kSigma, float threshold)
-{
-    float radius = round(kSigma*sigma);
-    float radQ = radius * radius;
-
-    float invSigmaQx2 = .5 / (sigma * sigma);      // 1.0 / (sigma^2 * 2.0)
-    float invSigmaQx2PI = INV_PI * invSigmaQx2;    // 1/(2 * PI * sigma^2)
-
-    float invThresholdSqx2 = .5 / (threshold * threshold);     // 1.0 / (sigma^2 * 2.0)
-    float invThresholdSqrt2PI = INV_SQRT_OF_2PI / threshold;   // 1.0 / (sqrt(2*PI) * sigma^2)
-
-    vec4 centrPx = texture(tex,uv); 
-
-    float zBuff = 0.0;
-    vec4 aBuff = vec4(0.0);
-    vec2 size = vec2(textureSize(tex, 0));
-
-    vec2 d;
-    for (d.x=-radius; d.x <= radius; d.x++) {
-        float pt = sqrt(radQ-d.x*d.x);       // pt = yRadius: have circular trend
-        for (d.y=-pt; d.y <= pt; d.y++) {
-            float blurFactor = exp( -dot(d , d) * invSigmaQx2 ) * invSigmaQx2PI;
-
-            vec4 walkPx =  texture(tex,uv+d/size);
-            vec4 dC = walkPx-centrPx;
-            float deltaFactor = exp( -dot(dC, dC) * invThresholdSqx2) * invThresholdSqrt2PI * blurFactor;
-
-            zBuff += deltaFactor;
-            aBuff += deltaFactor*walkPx;
-        }
-    }
-    return aBuff/zBuff;
-}
-vec4 image_sample(vec2 uv)
-{
-    return smartDeNoise(buf, uv, 9, 3*9, 0.135); 
-}
 
 
 vec4 image_value(vec2 uv)
 {
     return (texture(buf, image_uv(uv)));
 }
+const float kernel[25] = {
+    1.0 / 256.0, 1.0 / 64.0, 3.0 / 128.0, 1.0 / 64.0, 1.0 / 256.0,
+    1.0 / 64.0, 1.0 / 16.0, 3.0 / 32.0, 1.0 / 16.0, 1.0 / 64.0,
+    3.0 / 128.0, 3.0 / 32.0, 9.0 / 64.0, 3.0 / 32.0, 3.0 / 128.0,
+    1.0 / 64.0, 1.0 / 16.0, 3.0 / 32.0, 1.0 / 16.0, 1.0 / 64.0,
+    1.0 / 256.0, 1.0 / 64.0, 3.0 / 128.0, 1.0 / 64.0, 1.0 / 256.0};
+
+struct raytraceInfo
+{
+    vec4 albedo;
+    vec4 normal;
+    vec4 position;
+};
+layout(set = 0, binding = 9, std140) readonly buffer info
+{
+    raytraceInfo infos[];
+};
+
+raytraceInfo read_pixel(float x, float y)
+{
+    const float height = float(ubo.height) / float(ubo.scale);
+    const float width = float(ubo.width) / float(ubo.scale);
+    return infos[uint(x * width) + uint(uint(height * y) * ubo.width)];
+}
+vec3 get_pixel_watrous(vec2 uv)
+{
+    vec3 final_color = vec3(0.0);
+    vec4 sum = vec4(0.0);
+    vec2 step = vec2(1. / width, 1. / height); // resolution
+
+    vec2 ruv = vec2(uv);
+
+    raytraceInfo pix = read_pixel(ruv.x, 1-ruv.y);
+    vec4 cval = vec4(pix.albedo.xyz, 1.0);
+    vec4 nval = vec4(pix.normal.xyz, 1.0);
+    vec4 pval = vec4(pix.position.xyz, 1.0);
+    float cum_w = 0.0;
+
+    float n_phi = 0.3;
+    float c_phi = 0.2;
+    float stepwidth = 2;
+    float p_phi = 0.3;
+
+  //  for(float stepwidth = 1.0f; stepwidth < 16; stepwidth*= 2.0f)
+  //  {
+
+    for (int i = 0; i < 25; i++)
+    {
+
+        vec2 offset = vec2((i % 5) - 2, (i / 5) - 2) * stepwidth;
+        vec2 coord = uv + (offset / vec2(width, height));
+
+        ruv = vec2(coord);
+        raytraceInfo npix = read_pixel(ruv.x, 1-ruv.y);
+    
+        vec4 ctmp = vec4(image_value(ruv).rgb, 1.0);
+        vec4 col = vec4(npix.albedo.rgb, 1.0);
+
+
+        vec4 t = cval - col;
+        float dist2 = dot(t, t);
+        float c_w = min(exp(-(dist2) / c_phi), 1.0);
+
+        vec4 ntmp = vec4(npix.normal.xyz, 1.0);
+        t = nval - ntmp;
+        dist2 = max(dot(t, t) / (stepwidth * stepwidth), 0.0);
+        float n_w = min(exp(-(dist2) / n_phi), 1.0);
+
+        vec4 ptmp = vec4(npix.position.xyz, 1.0);
+        t = pval - ptmp;
+        dist2 = dot(t, t);
+        float p_w = min(exp(-(dist2) / p_phi), 1.0);
+        float weight = c_w * n_w * p_w;
+        sum += ctmp * weight * kernel[i];
+        cum_w += weight * kernel[i];
+        // ----
+
+      //  coord.x = clamp(coord.x, 0.0, 1.0);
+      //  coord.y = clamp(coord.y, 0.0, 1.0);
+      //  vec3 color = image_value(coord).rgb;
+      //  color *= kernel[i];
+      //  final_color += color;
+  //  }
+
+    }
+    return (sum / cum_w).rgb;
+}
 #include "./fsr/ffx_a.comp"
 
 AF4 FsrEasuRF(AF2 p)
 {
+
+
     AF4 c = (textureGather(buf, (p / ubo.scale), 0));
     return c;
 }
@@ -146,11 +174,12 @@ AF4 FsrEasuBF(AF2 p)
 }
 vec4 CurrFilter_easu(AU2 pos, uvec4 bias[4]);
 
-
 uvec4 rbias[4];
 AF4 FsrRcasLoadF(ASU2 p)
 {
-    return CurrFilter_easu(AU2(p.x ,p.y ), rbias);
+
+   // AF4 c = get_pixel_watrous(p.x, p.y);
+    return CurrFilter_easu(AU2(p.x, p.y), rbias);
 }
 void FsrRcasInputF(inout AF1 r, inout AF1 g, inout AF1 b) {}
 
@@ -167,7 +196,6 @@ vec4 CurrFilter_easu(AU2 pos, uvec4 bias[4])
     FsrEasuF(c, uvec2(pos), bias[0], bias[1], bias[2], bias[3]);
     return vec4(c, 1.0);
 }
-
 
 vec4 CurrFilter_rcas(AU2 pos, uvec4 bias)
 {
@@ -188,6 +216,7 @@ vec3 aces(vec3 x)
     const float e = 0.14;
     return ((x * (a * x + b)) / (x * (c * x + d) + e));
 }
+
 void main()
 {
 
@@ -195,29 +224,29 @@ void main()
     if (ubo.use_fsr == 1)
     {
 
-        uvec4 conf; 
+        uvec4 conf;
         FsrRcasCon(conf, 2);
-
 
         FsrEasuCon(rbias[0], rbias[1], rbias[2], rbias[3],
                    float(width) / float(ubo.scale), float(height) / float(ubo.scale),
                    float(width) / float(ubo.scale), float(height) / float(ubo.scale),
                    float(width), float(height));
 
-        //bias[0].x = 0;
+        // bias[0].x = 0;
 
-      //  vec4 nc = CurrFilter_easu(AU2(fragCoord.x * width , (1 - fragCoord.y) * height ), rbias);
+        //  vec4 nc = CurrFilter_easu(AU2(fragCoord.x * width , (1 - fragCoord.y) * height ), rbias);
         vec4 rc = CurrFilter_rcas(AU2(fragCoord.x * width, (1 - fragCoord.y) * height), conf);
 
         color = rc.rgb;
-      
     }
     else
     {
-        color = image_value(fragCoord.xy).rgb;
+             color = image_value(vec2(fragCoord.x, fragCoord.y)).rgb;
+   
+   //     color = read_pixel(fragCoord.x, fragCoord.y).normal.rgb;
     }
 
-    outColor = vec4(linear_to_srgb(aces((color))), 1.0f);
+    outColor = vec4((aces((color))), 1.0f);
     //
     //    {
     //        vec4 color = vec4(0.0);
