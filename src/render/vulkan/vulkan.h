@@ -82,6 +82,32 @@ typedef struct
 } VulkanTexArrays;
 typedef vec_t(VulkanTex) VulkanTexs;
 
+
+typedef struct __attribute__((packed)) 
+{
+    _Alignas(16) Vec3 albedo;
+    _Alignas(16) Vec3 normal;
+    _Alignas(16) Vec3 position;
+} PixelInfo;
+typedef struct
+{
+    VkAccelerationStructureGeometryKHR geometries;
+    VkAccelerationStructureBuildRangeInfoKHR ranges;
+
+    VkAccelerationStructureKHR handle;
+
+    int requested_size;
+    int scratch_size;
+    VkAccelerationStructureCreateFlagsKHR flags;
+    VkAccelerationStructureBuildGeometryInfoKHR build_info;
+    VulkanBuffer buffer;
+
+    VkDeviceAddress handle_addr;
+} AccelerationStructure;
+
+typedef vec_t(AccelerationStructure) AccelerationStructures;
+
+
 typedef struct
 {
     VkApplicationInfo app_info;
@@ -146,6 +172,8 @@ typedef struct
 
     VulkanBuffer mesh_buf;
     VulkanBuffer emissive_buf;
+    VulkanBuffer result_info_buf;
+
 
     VulkanBuffer mesh_data_buf;
     VulkanBuffer bvh_buf;
@@ -186,6 +214,13 @@ typedef struct
 
     vec_t(VkQueue) submitting;
     volatile VulkanConstants cfg;
+
+    VkAccelerationStructureKHR tlas;
+
+    VkDeviceAddress tlas_address;
+
+    AccelerationStructures accels;
+
    // volatile VulkanConfig *cfg;
 } VulkanCtx;
 

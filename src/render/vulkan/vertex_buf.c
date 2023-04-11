@@ -5,7 +5,7 @@ void vulkan_vertex_buffer_init(VulkanCtx* self)
 {
     size_t len = self->scene.data.length * sizeof(float) * 4;
 
-    self->vertex_buffer = vk_buffer_alloc(self, len, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    self->vertex_buffer = vk_buffer_alloc(self, len, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     void * mapped_data = vk_buffer_map(self, self->vertex_buffer);
 
