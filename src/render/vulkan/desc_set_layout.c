@@ -3,6 +3,7 @@
 #include <render/vulkan/desc_set_layout.h>
 #include <vulkan/vulkan_core.h>
 #include "obj/scene.h"
+#include "render/vulkan/vulkan.h"
 
 typedef struct
 {
@@ -12,6 +13,7 @@ typedef struct
     VkDescriptorImageInfo *image;
     int count;
     VkDescriptorBindingFlagsEXT binding_flags;
+    VkAccelerationStructureKHR* accel_structure;
 } ShaderDescriptor;
 
 typedef vec_t(ShaderDescriptor) ShaderDescriptors;
@@ -22,19 +24,24 @@ static void scene_buf_init(VulkanCtx *ctx)
     size_t mesh_emit_size = umax(16, sizeof(EmissiveIndex) * ctx->scene.mesh_emissive_indices.length);
 
     size_t mesh_data_buf_size = umax(16, sizeof(Vec3) * ctx->scene.data.length);
-    size_t mesh_bvh_size = umax(16, sizeof(BvhEntry) * ctx->bvh_data.length);
+    //size_t mesh_bvh_size = umax(16, sizeof(BvhEntry) * ctx->bvh_data.length);
 
-    VkBufferUsageFlags compute_buffer_usage_flag = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+    VkBufferUsageFlags compute_buffer_usage_flag = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT ;
 
     ctx->mesh_buf = vk_buffer_alloc(ctx, mesh_buf_size, compute_buffer_usage_flag, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     ctx->emissive_buf = vk_buffer_alloc(ctx, mesh_emit_size, compute_buffer_usage_flag, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
+
     ctx->mesh_data_buf = vk_buffer_alloc(ctx, mesh_data_buf_size, compute_buffer_usage_flag, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    ctx->bvh_buf = vk_buffer_alloc(ctx, mesh_bvh_size, compute_buffer_usage_flag, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+ //   ctx->bvh_buf = vk_buffer_alloc(ctx, mesh_bvh_size, compute_buffer_usage_flag, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 }
 
 static void vulkan_descriptor_buffer_init(VulkanCtx *ctx)
 {
+
+    size_t info_buf_size = umax(16, sizeof(PixelInfo) * ctx->aligned_width * ctx->aligned_height);
+    ctx->result_info_buf = vk_buffer_alloc(ctx, info_buf_size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     ctx->computing_image = vk_buffer_alloc(ctx, 4 * sizeof(float) * ctx->aligned_width * ctx->aligned_height, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     // ctx->fragment_image = vk_buffer_alloc(ctx, 4 * sizeof(float) * ctx->aligned_width * ctx->aligned_height, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     // ctx->config_buf = vk_buffer_alloc(ctx, sizeof(*ctx->cfg), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -89,11 +96,17 @@ void shader_descriptors_init(VulkanCtx *ctx, ShaderDescriptors *desc)
                    }));
     // 4
     vec_push(desc, ((ShaderDescriptor){
-                       .target = &ctx->bvh_buf,
+                       .accel_structure = &ctx->tlas,
                        .flag = VK_SHADER_STAGE_COMPUTE_BIT,
-                       .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                       .type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
                        .count = 1,
                    }));
+   // vec_push(desc, ((ShaderDescriptor){
+   //                    .target = &ctx->bvh_buf,
+   //                    .flag = VK_SHADER_STAGE_COMPUTE_BIT,
+   //                    .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+   //                    .count = 1,
+   //                }));
     // 5
     vec_push(desc, ((ShaderDescriptor){
                        .image = ctx->combined_textures.final_info.data,
@@ -123,6 +136,17 @@ void shader_descriptors_init(VulkanCtx *ctx, ShaderDescriptors *desc)
                        .type = VK_DESCRIPTOR_TYPE_SAMPLER,
                        .count = 1,
                    }));
+
+    // 9
+    vec_push(desc, ((ShaderDescriptor){
+                       .target= &ctx->result_info_buf,
+                       .flag = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                       .count = 1,
+                   }));
+
+    // 10
+
 }
 
 static void vulkan_desc_pool_init(VulkanCtx *ctx, ShaderDescriptors descriptors)
@@ -235,6 +259,27 @@ static void vulkan_desc_layout_update(VulkanCtx *ctx, ShaderDescriptors descript
             continue;
         }
 
+        else if(current.type == VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR)
+        {
+            VkWriteDescriptorSetAccelerationStructureKHR desc_acceleration = {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+                .accelerationStructureCount = 1,
+                .pAccelerationStructures = current.accel_structure,
+            };
+
+            VkWriteDescriptorSet desc_write = {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstArrayElement = 0,
+                .dstBinding = i,
+                .descriptorType = current.type,
+                .descriptorCount = current.count,
+                .dstSet = ctx->descriptor_set,
+                .pNext = &desc_acceleration,
+            };
+
+            vkUpdateDescriptorSets(ctx->logical_device, 1, &desc_write, 0, NULL);
+            continue;
+        }
         VkDescriptorBufferInfo buffer_info = {
             .buffer = current.target->buffer,
             .offset = 0,
@@ -278,7 +323,7 @@ void vulkan_desc_layout_deinit(VulkanCtx *ctx)
 
     // vk_buffer_free(ctx, ctx->fragment_image);
 
-    vk_buffer_free(ctx, ctx->bvh_buf);
+    //vk_buffer_free(ctx, ctx->bvh_buf);
 
     vk_buffer_free(ctx, ctx->mesh_buf);
 
@@ -290,8 +335,9 @@ void scene_buf_value_init(VulkanCtx *ctx)
 {
     size_t mesh_buf_size = sizeof(Mesh) * ctx->scene.meshes.length;
     size_t mesh_data_buf_size = sizeof(Vec3) * ctx->scene.data.length;
-    size_t mesh_bvh_size = sizeof(BvhEntry) * ctx->bvh_data.length;
+    size_t mesh_bvh_size = 0;
     size_t mesh_idx_size = sizeof(EmissiveIndex) * ctx->scene.mesh_emissive_indices.length;
+
 
     VulkanBuffer temp_buf = vk_buffer_alloc(ctx,
                                             fmax(fmax(fmax(mesh_buf_size, mesh_data_buf_size), mesh_bvh_size), mesh_idx_size),
@@ -313,8 +359,8 @@ void scene_buf_value_init(VulkanCtx *ctx)
     vk_buffer_copy(ctx, ctx->mesh_data_buf, temp_buf);
 
     // bvh buffer
-    memcpy((void *)dat, ctx->bvh_data.data, mesh_bvh_size);
-    vk_buffer_copy(ctx, ctx->bvh_buf, temp_buf);
+   // memcpy((void *)dat, ctx->bvh_data.data, mesh_bvh_size);
+   // vk_buffer_copy(ctx, ctx->bvh_buf, temp_buf);
 
     vk_buffer_unmap(ctx, temp_buf);
     vk_buffer_set(ctx, ctx->computing_image, (uint32_t)(0.0f));

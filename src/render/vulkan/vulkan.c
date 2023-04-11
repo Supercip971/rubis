@@ -12,9 +12,11 @@
 #include <render/vulkan/debug.h>
 #include <render/vulkan/desc_set_layout.h>
 #include <render/vulkan/device.h>
+#include <render/vulkan/loader/ext.h>
 #include <render/vulkan/framebuffer.h>
 #include <render/vulkan/img_view.h>
 #include <render/vulkan/layer.h>
+#include <render/vulkan/acceleration_structure.h>
 #include <render/vulkan/logical.h>
 #include <render/vulkan/vertex_buf.h>
 #include <render/vulkan/pipeline.h>
@@ -146,11 +148,11 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
         },
         .instance = 0,
         .frame_id = 0,
-        .threads_size = 16,
+        .threads_size = 8,
         .scene = *scene};
 
     printf("loading bvh %i...\n", scene->meshes.length);
-    bvh_init(&self->bvh_data, scene);
+//    bvh_init(&self->bvh_data, scene);
     printf("loaded bvh\n");
 
     int width = 0, height = 0;
@@ -188,7 +190,7 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
     vulkan_vertex_buffer_init(self);
     vulkan_shader_shared_texture_init(self, &self->comp_targ, self->aligned_width, self->aligned_height, false);
     vulkan_shader_shared_texture_init(self, &self->frag_targ, self->aligned_width, self->aligned_height, true);
-
+    init_acceleration_structure(self);
     vulkan_desc_set_layout(self);
 
     vulkan_pipeline_init(self);
@@ -212,6 +214,8 @@ int vulkan_deinit(VulkanCtx *self)
     ui_deinit(self);
     vk_buffer_unmap(self, self->config_buf);
     vulkan_sync_deinit(self);
+
+    deinit_acceleration_structure(self);
     vulkan_vertex_buffer_deinit(self);
 
     vulkan_depth_target_deinit(self);
