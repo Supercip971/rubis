@@ -258,8 +258,11 @@ int vulkan_frame(VulkanCtx *self)
     ui_end();
     Vec3 cam_look = vec3_add(self->cam_look, self->cam_pos);
 
+
+    float fov_dif = fabs(self->cfg.fov - get_config().r_fov);
     if (!vec3_eq(self->cfg.cam_pos, self->cam_pos) ||
-        !vec3_eq(self->cfg.cam_look, cam_look))
+        !vec3_eq(self->cfg.cam_look, cam_look) ||
+        fov_dif > 0.001)
     {
         self->frame_id = 0;
     }
@@ -277,6 +280,8 @@ int vulkan_frame(VulkanCtx *self)
     self->cfg.width = self->aligned_width;
     self->cfg.height = self->aligned_height;
     self->cfg.t = self->frame_id;
+
+    self->cfg.fov = get_config().r_fov;
 
    // Matrix4x4 view = matrix_lookat(self->cam_pos, cam_look, vec3$(0,1,0));
 

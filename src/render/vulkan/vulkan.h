@@ -46,6 +46,7 @@ typedef struct
 
     _Alignas(4) int mesh_id;
     _Alignas(4) int material_offset;
+    _Alignas(4) float fov;
 } VulkanConstants;
 
 _Static_assert(sizeof(VulkanConstants) < 125, "VulkanConstants is not 256 bytes");

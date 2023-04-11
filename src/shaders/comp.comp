@@ -41,6 +41,7 @@ layout(std140, push_constant) uniform UniformBufferObject
     uint use_fsr;
     int mesh_index;
     int material_index;
+    float fov;
 }
 ubo;
 
