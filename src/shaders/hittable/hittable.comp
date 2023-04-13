@@ -18,6 +18,7 @@ struct HittableRecord
     float t;
     bool front;
     int mesh_id;
+    float refraction_wavelength;
     #ifdef SHOW_DEPTH
     int depth;
     #endif
@@ -34,8 +35,10 @@ HittableRecord update_face_normal(HittableRecord record, Ray r, vec3 outward)
 }
 
 //#define is_near_zero(_val) ((float(_val*100) > -0.00001) && (float(_val*100) < 0.00001))
+//#define is_near_zero(_val) (abs((_val * 99999)) < 0.0000001)
 #define is_near_zero(_val) (abs((_val) * 1000) < 0.0001)
 #define is_vec_near_zero(_vec) (is_near_zero((_vec).x) && is_near_zero((_vec).y) && is_near_zero((_vec).z))
+
 
 
 HittableRecord hit_triangle_provide_info(Ray r, vec3 posa, vec3 posb, vec3 posc, vec2 uva, vec2 uvb, vec2 uvc, HittableRecord from)
@@ -58,17 +61,20 @@ HittableRecord hit_triangle(float tmin, float tmax, Ray r, vec3 posa, vec3 posb,
     vec3 v0 = posa;
     vec3 v1 = posb;
     vec3 v2 = posc;
-    vec3 edge_1 = v1 - v0;
-    vec3 edge_2 = v2 - v0;
-    vec3 h = cross(r.direction, edge_2);
+    vec3 edge_1 = (v1 - v0);
+    vec3 edge_2 = (v2 - v0);
+    vec3 h = cross((r.direction), (edge_2));
 
-    
+   // if(dot(r.direction, cross(edge_1,edge_2)) > 0.0)
+   // {
+   //     return record;
+   // }
     float a = dot(edge_1, h);
     if (is_near_zero(a))
     {
         return record;
     }
-    float inv_a = 1.0f / a;
+    float inv_a = 1.0f / (a);
     vec3 s = r.origin - v0;
     float u = inv_a * dot(s, h);
     if (u < 0.0 || u > 1.0)

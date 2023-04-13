@@ -1,0 +1,122 @@
+
+#ifndef SAMPLING_COMP
+#define SAMPLING_COMP 
+
+#include "layouts.comp"
+
+struct PdfSampleRecord
+{
+    vec3 random_point;
+    float area;
+    float pdf;
+    uint id;
+
+    vec3 light_normal;
+};
+
+PdfSampleRecord sample_triangle(uint id, uint mid)
+{
+    vec3 pa = buf_datas[id + 0 * VERTEX_SIZE].xyz;
+    vec3 pb = buf_datas[id + 1 * VERTEX_SIZE].xyz;
+    vec3 pc = buf_datas[id + 2 * VERTEX_SIZE].xyz;
+
+    vec3 ab = pb - pa;
+    vec3 ac = pc - pa;
+
+    float u_1 = random();
+    float u_2 = random();
+    if (u_1 < u_2)
+    {
+        u_1 = u_1 / 2;
+        u_2 = u_2 - u_1;
+    }
+    else
+    {
+        u_2 = u_2 / 2;
+        u_1 = u_1 - u_2;
+    }
+    vec3 p = pa + u_1 * ab + u_2 * ac;
+
+    float area = 0.5 * length(cross(ab, ac));
+    if (area < 0.00001)
+    {
+        area = 0.00001;
+    }
+    float pdf = 1.0 / area;
+    return PdfSampleRecord(p, area, pdf, mid, normalize(cross(ab,ac)));
+}
+
+PdfSampleRecord sample_random(vec3 origin, vec3 n)
+{
+    int id = clamp(int(random() * float(lights.length())), 0, lights.length() - 1);
+
+    Mesh current_mesh = meshes[lights[nonuniformEXT(id)]];
+
+    const int triangle_size = 3 * VERTEX_SIZE;
+    int offset = int(random() * float((current_mesh.mesh_data_end - current_mesh.mesh_data_start) / triangle_size));
+    offset = int(clamp(offset, 0, (current_mesh.mesh_data_end - current_mesh.mesh_data_start) / triangle_size - 1));
+    offset = offset * triangle_size;
+    uint vid = current_mesh.mesh_data_start + uint(offset);
+
+    return sample_triangle(vid, lights[nonuniformEXT(id)]);
+}
+
+
+vec3 cosine_sample_hemisphere(float r1, float r2)
+{
+
+    float phi = 2.0 * M_PI * r1;
+
+    float rt_r2 = sqrt(r2);
+    float x = cos(phi) * rt_r2;
+    float y = sin(phi) * rt_r2;
+
+    float z = sqrt(max(0.0, 1.0 - x * x - y * y));
+    return normalize(vec3(x, y, z));
+}
+
+vec3 importance_sample(float r, float r1, float r2)
+{
+    float phi = 2.0 * M_PI * r1;
+
+    float rt_r2 = sqrt(max(r2, 0.0));
+    float z = sqrt(max(1 - r2, 0.0));
+    float x = r * cos(phi) * rt_r2;
+    float y = r * sin(phi) * rt_r2;
+
+    return normalize(vec3(x, y, z));
+}
+
+PdfSampleRecord sample_point(vec3 N, vec3 point)
+{
+
+    bool continue_v = true;
+    int maxv = 0;
+    PdfSampleRecord pdf_sample = sample_random(point, N);
+    vec3 dir = -(point - pdf_sample.random_point);
+
+    if (dot(dir, N) <= 0.000001)
+    {
+        float pdf = -1;
+
+        pdf_sample.pdf = pdf;
+
+        return pdf_sample;
+    }
+    else
+    {
+        vec3 cdir = normalize(dir);
+        Ray new_ray = Ray(point, cdir, 1 / cdir);
+        float dist = length(dir);
+
+        dir = cdir;
+        float pdf = (dist * dist) / (abs(dot(dir, N)) * abs(pdf_sample.area));
+
+        pdf_sample.pdf = pdf;
+
+        return pdf_sample;
+        //      mvr = dumb_brdf(r, record, roughness_value, metal_value, result.attenuation, dir, N);
+        //            }
+    }
+}
+#endif

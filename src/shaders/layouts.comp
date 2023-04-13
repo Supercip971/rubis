@@ -1,0 +1,40 @@
+#ifndef LAYOUTS_COMP
+#define LAYOUTS_COMP
+
+
+
+#define VERTEX_SIZE 4
+
+layout(binding = 4, set = 0) uniform accelerationStructureEXT TLAS;
+layout(set = 0, std140, binding = 1) readonly restrict buffer MeshesBufData
+{
+    vec4 buf_datas[];
+};
+
+struct Mesh
+{
+    uint type;
+    uint material_type;
+    uint material_data_start;
+    uint material_data_end;
+    uint mesh_data_start;
+    uint mesh_data_end;
+    vec4 aabb1;
+    vec4 aabb2;
+};
+
+layout(set = 0, std140, binding = 2) readonly buffer MeshesBuf
+{
+    Mesh meshes[];
+};
+
+layout(set = 0, binding = 5) uniform texture2D textures[];
+layout(set = 0, binding = 6) uniform sampler2D skymap;
+layout(set = 0, std140, binding = 7) readonly buffer Lights
+{
+    uint lights[];
+};
+
+layout(set = 0, binding = 8) uniform sampler tex_sampler;
+
+#endif

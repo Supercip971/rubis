@@ -246,7 +246,7 @@ void main()
    //     color = read_pixel(fragCoord.x, fragCoord.y).normal.rgb;
     }
 
-    outColor = vec4((aces((color))), 1.0f);
+    outColor = vec4(aces(pow(((color)), vec3(1/2.2))), 1.0f);
     //
     //    {
     //        vec4 color = vec4(0.0);

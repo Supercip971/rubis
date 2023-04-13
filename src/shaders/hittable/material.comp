@@ -1,358 +1,468 @@
 #ifndef MATERIAL_COMP
 #define MATERIAL_COMP
-
 #include "hittable/hittable.comp"
+#include "hittable/brdf.comp"
+#include "hittable/material.comp"
+
+
+#include "hittable/textures.comp"
+
+
 #include "utils/ray.comp"
+#include "layouts.comp"
+#include "hittable/sampling.comp"
 
-struct MaterialRecord
+
+
+MaterialRecord material_hit_info(HittableRecord record, Ray r)
 {
-    bool do_scatter;
-    vec3 albedo;
-    float alpha;
-    float metallic;
-    float roughness;
-    float ior;
-    float pdf;
-    vec3 emitted;
-    bool is_specular;
-    vec3 N;
-    vec3 oN;
-    vec3 T;
-    vec3 B;
-    vec3 point;
-    float transmission;
-    bool is_transmissive;
-    float t;
-    vec3 incident;
-    bool front;
-    bool transparent;
-};
+    Mesh current_mesh = meshes[record.mesh_id];
 
-struct MaterialQueryRecord
-{
-    Ray scatter;
-    vec3 H;
-    bool is_specular;
-    float pdf;
-    float scatter_pdf;
-    vec3 attenuation;
-};
-// BASED on gltf sample implementation
-// https://github.com/KhronosGroup/glTF-Sample-Viewer/blob/master/source/Renderer/shaders/brdf.glsl
-// using: https://google.github.io/filament/Filament.md.html#materialsystem/specularbrdf/geometricshadowing(specularg) optimizations
+    MaterialRecord result;
+    result.emitted = vec3(0, 0, 0);
+    const int start_v = int(current_mesh.material_data_start);
+    PbrtTexture albedo_T = material_load_tex(start_v, 0);
+    PbrtTexture normal_T = material_load_tex(start_v, 1);
+    PbrtTexture metallic_roughness_T = material_load_tex(start_v, 2);
+    PbrtTexture emit_T = material_load_tex(start_v, 3);
+    PbrtTexture transmission_T = material_load_tex(start_v, 4);
 
-// note: this is inaccurate but fast :tm:
+    int base = int(albedo_T.id);
+    int base_tid = int(albedo_T.tid);
 
-struct brdf_impl
-{
-    vec3 n;
-    vec3 h;
-    vec3 l;
-    vec3 v;
-    float roughness;
-    float metallic;
-    float a;
-};
+    int metal = int(metallic_roughness_T.id);
+    int metal_tid = int(metallic_roughness_T.tid);
 
-struct PbrtTexture
-{
-    int id;
-    int tid;
-    vec4 factor;
-    vec2 offset;
-    vec2 scale;
-};
-float heaviside(float x)
-{
-    return x <= 0.0 ? 0.0 : 1.0;
-}
+    int normal = int(normal_T.id);
+    int normal_tid = int(normal_T.tid);
 
-float g1_ggx(brdf_impl s, vec3 c, float k)
-{
-    float n_dot_c = max(dot(s.n, c), 0.0);
-    return n_dot_c / (n_dot_c * (1.0 - k) + k);
-}
-float g_ggx(brdf_impl s)
-{
-    float k = ((s.a + 1.0) * (s.a + 1.0)) / 8.0;
-    return g1_ggx(s, s.l, k) * g1_ggx(s, s.v, k);
-}
+    int emitid = int(emit_T.id);
 
-float ga_ggx(brdf_impl s)
-{
-    float n_dot_l = dot(s.n, s.l);
-    float n_dot_v = dot(s.n, s.v);
-    float h_dot_l = dot(s.h, s.l);
-    float h_dot_v = dot(s.h, s.v);
-    float sq_a = s.a * s.a;
+    vec3 emit = emit_T.factor.xyz;
 
-    float lu = 2 * abs(n_dot_l) * heaviside(h_dot_l);
-    float ru = 2 * abs(n_dot_v) * heaviside(h_dot_v);
-
-    float ld = abs(n_dot_l) + sqrt(sq_a + (1 - sq_a) * (n_dot_l * n_dot_l));
-    float rd = abs(n_dot_v) + sqrt(sq_a + (1 - sq_a) * (n_dot_v * n_dot_v));
-
-    return (lu / ld) * (ru / rd);
-}
-float d_ggx(brdf_impl s)
-{
-    float n_dot_h = dot(s.n, s.h);
-
-    float up = s.a * s.a;
-
-    float down = ((n_dot_h * n_dot_h) * (s.a * s.a - 1.0f) + 1.0f);
-
-    return (up / (M_PI * down * down));
-}
-
-float v_ggx(brdf_impl s)
-{
-
-    float n_dot_l = dot(s.n, s.l);
-    float n_dot_v = dot(s.n, s.v);
-    float h_dot_l = dot(s.h, s.l);
-    float h_dot_v = dot(s.h, s.v);
-    float sq_a = s.a * s.a;
-
-    float lu = heaviside(h_dot_l);
-    float ru = heaviside(h_dot_v);
-
-    float ld = abs(n_dot_l) + sqrt(sq_a + (1.0 - sq_a) * (n_dot_l * n_dot_l));
-    float rd = abs(n_dot_v) + sqrt(sq_a + (1.0 - sq_a) * (n_dot_v * n_dot_v));
-
-    return (lu / ld) * (ru / rd);
-}
-
-float specular(brdf_impl s)
-{
-    // float g = g_ggx(s);
-    float d = d_ggx(s);
-    float v = v_ggx(s);
-    return d * v;
-}
-
-vec3 diffuse(vec3 color)
-{
-    return (1.0 / M_PI) * color;
-}
-
-vec3 conductor_fresnell(brdf_impl s, vec3 col, float f0)
-{
-    float f = f0 + (1 - f0) * pow(1.0 - abs(dot(s.v, s.h)), 5);
-    return f * col;
-}
-
-/*
-vec3 fresnell(float VdH, vec3 f, float bsdf)
-{
-    return bsdf * (f + (1 - f) * pow(1 - abs(VdH), 5));
-}
-*/
-
-vec3 fresnel_mix(float ior, vec3 base, vec3 layer, float VdH)
-{
-    float f0 = ((1 - ior) / (1 + ior));
-    f0 = f0 * f0;
-    float fr = f0 + (1 - f0) * pow((1 - abs(VdH)), 5);
-    return mix(base, layer, fr);
-}
-
-float smith_g_1(vec3 h, vec3 s, vec3 so, float alpha)
-{
-
-    float a = alpha * alpha;
-    float h_dot_s = abs(dot(h, s));
-    float b = h_dot_s * h_dot_s;
-
-    return h_dot_s * sqrt(max(a + h_dot_s * (h_dot_s - a * h_dot_s), 0));
-    //    float a = h_dot_s / (max(0.00001f,alpha) * sqrt(1 - min(0.9999999f,h_dot_s * h_dot_s)));
-
-    // \dfraf{-1 + \sqrt{1 + \dfrac{1}{a^2}}}{2}
-    //    return  (-1 + sqrt(1 + (1 / (a*a)))) / 2;
-}
-
-float smith_ggx(vec3 h, vec3 s, vec3 so, float alpha)
-{
-
-    float a = alpha * alpha;
-    float h_dot_s = abs(dot(h, s));
-    float b = h_dot_s * h_dot_s;
-
-    return 1 / (h_dot_s * sqrt(max(a + b - a * b, 0)));
-    //    float a = h_dot_s / (max(0.00001f,alpha) * sqrt(1 - min(0.9999999f,h_dot_s * h_dot_s)));
-
-    // \dfraf{-1 + \sqrt{1 + \dfrac{1}{a^2}}}{2}
-    //    return  (-1 + sqrt(1 + (1 / (a*a)))) / 2;
-}
-// https://registry.khronos.org/OpenGL-Refpages/gl4/html/refract.xhtml
-
-float fresnel_value(float ndotv)
-{
-    float c = clamp(1.0 - ndotv, 0.0, 1.0);
-    float c2 = c * c;
-    // c^5
-    return c2 * c2 * c;
-}
-vec3 fresnel(vec3 f_0, float f90, float ndotv)
-{
-    return f_0 + (vec3(f90) - f_0) * fresnel_value(ndotv);
-}
-
-float ggx_smith_lambda(float a)
-{
-    return (-1.0 + sqrt(1 + (1.0 / (a * a)))) * 0.5;
-}
-
-float clamp_01_1(float v)
-{
-    return clamp(abs(v), 0.00001f, 1);
-}
-
-float luminance(vec3 c)
-{
-    return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
-}
-
-struct MaterialValRecord
-{
-    float pdf;
-    float scatter_pdf;
-    vec3 color;
-};
-
-MaterialValRecord dumb_brdf(float roughness, float metallic, vec3 incident, vec3 base, vec3 next, vec3 mnormal, float transmission, float ior, bool front)
-{
-    MaterialValRecord result;
-    roughness = clamp(roughness, 0.0001, 0.9999);
-    metallic = clamp(metallic, 0.0001, 0.9999);
-    vec3 n = (mnormal);
-    vec3 v = (-incident);
-    vec3 l = (next);
-
-    // l = wI
-    // v = wO
-
-    vec3 wO = v;
-    vec3 wI = l;
-    vec3 h = normalize(l + v);
-
-    if (dot(n, v) <= 0)
+    if (emitid >= 0)
     {
-        n = -n;
-    }
-    if (dot(l, n) <= 0)
-    {
-        h = normalize(l + v * ior);
+        emit *= material_tex_query(emit_T, record.uv).xyz;
     }
 
-    vec3 o_h = h;
+    float transmission = transmission_T.factor.x;
 
-    // if (dot(h, n) < 0)
-    // {
-    //     h = -h;
-    // }
+    int transmission_id = int(transmission_T.id);
 
-    // vec3 r = reflect(-l, n);
+    int transmission_tid = int(transmission_T.tid);
 
-    float NdotH = clamp(abs(dot(n, h)), 0.00001, 1);
-    //{
-    //    result.color = vec3(NdotH, 0, 0);
-    //    return result;
-    //}
-    float NdotV = clamp_01_1(dot(n, v));
-
-    float VdotH = clamp_01_1(dot(v, h));
-
-    float NdotL = clamp_01_1(dot(n, l));
-    float LdotH = clamp_01_1(abs(dot(l, h)));
-
-    float u = VdotH;
-
-    roughness = max(roughness, 0.01);
-    float alpha = roughness * roughness;
-
-    float alpha_sq = float(alpha) * float(alpha);
-    float alpha_sq_c = max(0.001f * 0.001f, alpha_sq);
-
-    // D
-
-    // (1 - HdotN * (1 - HdotN)
-    float ggx_d_denom = (alpha_sq_c - 1.0) * (NdotH) * (NdotH) + 1;
-
-    float ggx_d = (alpha_sq_c) / (M_PI * ggx_d_denom * ggx_d_denom);
-
-    // # G
-
-    float ggx_g = 0.5 / (((smith_g_1(n, l, v, alpha) + smith_g_1(n, v, l, alpha))));
-
-    // ## Fresnel
-
-    vec3 f0 = mix(vec3(0.04), base, metallic);
-
-    float fd90 = 0.5 + 2 * LdotH * LdotH * roughness;
-
-    vec3 FL = fresnel(vec3(1), fd90, NdotL);
-    vec3 FV = fresnel(vec3(1), fd90, NdotV);
-    float fVH = diel_fresnel_value(abs(dot(v, h)), ior);
-
-    //  float FH = fresnel_value((LdotH));
-    // vec3 F = fresnel(f0,min(60 * luminance(f0), 1.0),  NdotL);
-    vec3 Fd = FL * FV * base * (1 / M_PI);
-    //    vec3 F = fresnel(f0,1,  NdotV);
-    vec3 F = fresnel(f0, min(60 * luminance(f0), 1.0), VdotH);
-
-    vec3 specular = vec3(((F * ggx_g * ggx_d)));
-
-    // vec3 F_m = fresnel(f0, (1),  LdotH);
-
-    // vec3 specular_m = vec3(clamp(((F_m * ggx_g * ggx_d )), vec3(0), vec3(1)));
-
-    float diffuse_ratio = 0.5 * (1.0 - metallic);
-
-    float specular_ratio = 1.0 - diffuse_ratio;
-
-    vec3 trans = vec3(0);
-
-    // is reflection
-
-    float nF = 1 - fVH;
-
-    float tdenom = abs(dot(l, h)) + abs(dot(v, h)) * ior;
-    if (true)
+    if (transmission_id >= 0)
     {
-        //    float G  = smith_ggx(n, l,v, roughness) * smith_ggx(n, v,l, roughness);
+        vec2 fuv = record.uv;
+        if (transmission_tid == 1)
+        {
+            fuv = record.uv2;
+        }
+        transmission *= material_tex_query(transmission_T, record.uv).x;
+    }
 
-        //   float D_beck = exp((NdotH * NdotH - 1) / (alpha_sq * NdotH * NdotH)) / (M_PI * alpha_sq * NdotH * NdotH * NdotH * NdotH);
-        float G = smith_ggx(n, l, v, roughness) * smith_ggx(n, v, l, roughness);
-        trans = (nF)*base * max(ggx_d, 1.0) * G * ior * ior * 4 * (1 / (tdenom * tdenom));
+    result.transmission = transmission;
 
-        // trans = (nF) * base  ;
+    // emit = sqrt(emit);
+    // fixme: check point because it looks weirdo
+    result.do_scatter = true;
+    if (length(emit) > 0.9)
+    {
+        result.do_scatter = false;
+    }
 
-        //   trans = G *  nF * base * ior * ior * 4 * 1/(tdenom * tdenom);
+    vec3 fact = albedo_T.factor.xyz;
+    float alpha = albedo_T.factor.w;
+    if (base < 0)
+    {
+        result.albedo = fact;
     }
     else
     {
-        trans = vec3(0);
+        vec2 fuv = record.uv;
+        if (base_tid == 1)
+        {
+            fuv = record.uv2;
+        }
+        vec4 col = material_tex_query_rgba(albedo_T, fuv);
+        result.albedo = (col.rgb) * fact;
+
+        alpha *= col.a;
     }
 
-    // trans = vec3(1);
+    vec3 T = ((record.tangent));
+    vec3 N = ((record.normal));
+    vec3 B = (record.bittangent);
 
-    vec3 res = mix((diffuse_ratio * Fd), trans, transmission) + specular * specular_ratio;
-
-    if (length(res) > 1)
+    if (dot(N, r.direction) > 0)
     {
-        res = normalize(res);
+        N = -N;
+    }
+    vec3 og_normal = record.normal;
+
+    result.oN = og_normal;
+    vec3 unit_direction = vec_unit(r.direction);
+
+    if (normal >= 0)
+    {
+        vec3 normalv = vec3(1);
+        vec2 fuv = record.uv;
+        if (normal_tid == 1)
+        {
+            fuv = record.uv2;
+        }
+        normalv = (material_tex_query(normal_T, fuv).rgb) * 2.0 - vec3(1.0);
+
+        normalv = (normalize(normalv) * vec3(normal_T.factor.xy, 1.0));
+
+        record.normal = normalize((normalv.x) * T + (normalv.y) * B + (normalv.z) * N);
     }
 
-    result.color = res;
+    // recreate a coordinate system
 
-    result.scatter_pdf = abs(dot(n, l));
-    result.pdf = diffuse_ratio * (abs(dot(n, l)) / M_PI);
+    // https://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors#CoordinateSystemfromaVector
+    N = record.normal;
+    if (abs(N.x) > abs(N.y))
+    {
+        T = normalize(vec3(-N.z, 0, N.x) * inversesqrt(max(N.x * N.x + N.z * N.z, 0.0001)));
+    }
+    else
+    {
+        T = normalize(vec3(0, N.z, -N.y) * inversesqrt(max(N.y * N.y + N.z * N.z, 0.0001)));
+    }
+    B = normalize(cross(N, T));
 
-    result.pdf = mix(result.pdf, ((ggx_d * dot(n, h) * nF * abs(dot(l, h))) / (tdenom * tdenom)), transmission);
-    result.pdf += specular_ratio * (ggx_d / (4 * dot(l, h)));
+    result.N = N;
+    result.T = T;
+    result.B = B;
+
+// debug
+#if 0
+    if (true)
+    {
+        result.emitted = vec3(albedo_T.id, metallic_roughness_T.id, emit_T.id) / 11.0; 
+
+
+        if(albedo_T.id > 11 || metallic_roughness_T.id > 11 || emit_T.id > 11)
+        {
+            result.emitted = vec3(0, 0, 0);
+
+        }
+        result.do_scatter = false;
+        return result;
+    }
+#endif
+
+    vec3 metal_roughness = vec3(1, 1, 1);
+    if (metal >= 0)
+    {
+        vec2 fuv = record.uv;
+        if (metal_tid == 1)
+        {
+            fuv = record.uv2;
+        }
+        metal_roughness = material_tex_query(metallic_roughness_T, fuv);
+    }
+
+    metal_roughness *= metallic_roughness_T.factor.xyz;
+
+    result.emitted = emit;
+
+    // https://en.wikipedia.org/wiki/Cauchy%27s_equation
+
+    // https://en.wikipedia.org/wiki/Refractive_index#Refractive_index_of_glass
+
+    // const float sel_g = random();
+    // const float sel_b = random();
+    // const float sel_r = random();
+
+    //  const float selected_wave_length = mix(390, 710, random());
+
+    float selected_wave_length = 0;
+    float c = random();
+    float cc = random();
+    if (c <= 0.33) // {1/3}
+    {
+        selected_wave_length = mix(620, 770, cc);
+    }
+    else if (c <= 0.66) // {2/3} * (1/2) = 1/3
+    {
+        selected_wave_length = mix(495, 570, cc);
+    }
+    else
+    {
+        selected_wave_length = mix(450, 495, cc);
+    }
+    const float transmission_refractive_coeff = 0.01342;
+
+    // result.refraction_wavelength = selected_wave_length;
+
+    // Borosilicate glass BK
+    const float idx = 1.8 + transmission_refractive_coeff / (selected_wave_length * selected_wave_length * 0.001 * 0.001);
+
+    float refract_ratio = 1.0 / idx;
+
+    result.ior = refract_ratio;
+
+    result.transparent = (alpha < random()) ? true : false;
+
+    transmission *= (1 - result.metallic);
+
+    bool transmissive = transmission > random();
+    // bool is_trans = !result.transparent && ;
+    //
+
+    // y = roughtness
+    // z = metalness
+
+    float roughness_value = clamp(metal_roughness.y, 0.0001, 1);
+    float metal_value = clamp(metal_roughness.z, 0, 1);
+
+    result.roughness = roughness_value;
+    result.metallic = metal_value;
+
+    float cos_theta = ((dot(-unit_direction, N)));
+
+    float sin_theta = sqrt(max(1.0 - cos_theta * cos_theta, 0.0));
+
+    result.is_specular = (diel_fresnel_value(cos_theta, result.ior) > random()); // specular
+    result.incident = r.direction;
+
+    result.point = record.point;
+
+    result.t = record.t;
+    if (result.transparent)
+    {
+        result.is_specular = true; // consider all transparent as specular
+    }
+
+    result.transmission = transmission;
+    if (!result.transparent && !result.is_specular)
+    {
+        result.is_specular = false;
+        result.is_transmissive = transmissive;
+        if (!record.front && transmissive)
+        {
+            refract_ratio = idx;
+            result.ior = refract_ratio;
+        }
+    }
+    else
+    {
+        result.is_transmissive = false;
+    }
+    if (random() < (result.metallic) * 0.5 && !result.is_transmissive)
+    {
+        result.is_specular = true;
+    }
+
+    if (result.is_transmissive)
+    {
+        result.albedo = result.albedo * 3 * wavelength_to_color(selected_wave_length);
+        //  result.albedo = vec3(1);
+    }
+
+    if (false)
+    {
+        result.emitted = vec3(float(record.front), float(!record.front), 0);
+
+        result.do_scatter = false;
+        return result;
+    }
+
+    result.front = record.front;
+    // result.is_specular = false;
+    //    result.is_specular = true;
+    //    result.transparent = false;
+    return result;
+}
+
+MaterialQueryRecord material_query(MaterialRecord record, Ray r)
+{
+
+    bool is_specular = false;
+    //
+    vec3 H = record.N;
+    vec3 dir = vec3(0);
+    vec3 unit_direction = normalize(r.direction);
+
+    float r1 = random();
+    float r2 = random();
+    if (record.transparent)
+    {
+        MaterialQueryRecord result;
+        result.scatter.origin = record.point;
+        result.scatter.direction = unit_direction;
+        result.scatter.inv_direction = 1 / (unit_direction);
+
+        result.is_specular = true;
+        result.pdf = 1;
+
+        result.scatter_pdf = 1;
+        result.H = result.scatter.direction;
+        return result;
+    }
+    if (record.is_specular) // specular
+    {
+        is_specular = true;
+        // https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf
+
+        vec3 np = record.N;
+
+        H = importance_sample(record.roughness, r1, r2);
+
+        H = normalize(H.x * record.T + H.y * record.B + H.z * np);
+
+        if (dot(H, np) < 0)
+        {
+            H = -H;
+        }
+        dir = (reflect(unit_direction, H));
+    }
+    else if (record.is_transmissive)
+    {
+        vec3 np = unit_direction;
+
+        H = importance_sample(record.roughness, r1, r2);
+
+        H = normalize(H.x * record.T + H.y * record.B + H.z * record.N); // surface normal
+
+        // vec3 diff = H - record.N;
+
+        //        dir = normalize(unit_direction + diff);
+
+        if (dot(H, -unit_direction) < 0)
+        {
+            H = -H;
+        }
+        dir = vec_refract(unit_direction, H, record.ior);
+        if (dot(unit_direction, dir) < 0)
+        {
+            dir = -dir;
+        }
+        //   dir = unit_direction;
+
+        //   H = normalize(record.N);
+        //   dir = unit_direction + diff;
+
+        //    dir = (reflect(unit_direction, H));
+    }
+    else
+    {
+
+        // dir = reflect(unit_direction, record.N);
+        dir = cosine_sample_hemisphere(r1, r2);
+        dir = normalize(dir.x * record.T + dir.y * record.B + dir.z * record.N);
+        H = normalize(dir + unit_direction);
+    }
+    // dir = record.N;
+    dir = normalize(dir);
+
+    if (!record.is_transmissive && !record.transparent)
+    {
+        if (dot(dir, record.N) < 0)
+        {
+            dir = -dir;
+        }
+    }
+
+    MaterialQueryRecord result;
+    result.scatter.origin = record.point;
+    result.scatter.direction = dir;
+    result.scatter.inv_direction = 1 / (dir);
+
+    result.is_specular = is_specular;
+    result.pdf = 1;
+    result.H = H;
 
     return result;
 }
 
+MaterialQueryRecord material_query_pdf(MaterialRecord record, Ray r, float prob)
+{
+    MaterialQueryRecord result;
+    vec3 dir;
+
+    if (record.transparent)
+    {
+        result.scatter.direction = r.direction;
+        result.scatter.inv_direction = 1 / r.direction;
+        result.scatter.origin = record.point;
+        result.pdf = 1;
+        result.scatter_pdf = 1;
+        result.H = result.scatter.direction;
+        return result;
+    }
+    if (record.do_scatter && !record.is_specular && random() > prob && !record.is_transmissive)
+    {
+
+        int maxv = 0;
+
+        PdfSampleRecord pdf_sample = sample_point(record.N, record.point);
+
+        if (pdf_sample.pdf <= 0.0001)
+        {
+
+            result = material_query(record, r);
+            result.pdf = 1;
+
+            result.scatter_pdf = 1;
+
+            //    result.emitted = vec3(0, 1, 0);
+            //    result.do_scatter = false;
+            //    return result;
+        }
+        else
+        {
+
+            dir = normalize(-(record.point - pdf_sample.random_point));
+
+            result.scatter.direction = dir;
+            result.scatter.origin = record.point;
+            result.scatter.inv_direction = 1.0 / dir;
+            // result.is_specular = false;
+            result.pdf = pdf_sample.pdf;
+            result.scatter_pdf = 1;
+            //    result.emitted = vec3(1, 0, 0);
+            //    result.do_scatter = false;
+            //    return result;
+        }
+    }
+    else
+    {
+
+        result = material_query(record, r);
+
+        result.pdf = 1;
+
+        result.scatter_pdf = 1;
+    }
+
+    return result;
+}
+MaterialQueryRecord material_update_attenuation(MaterialQueryRecord c, MaterialRecord record)
+{
+
+    MaterialQueryRecord query = c;
+
+    MaterialValRecord mvr = dumb_brdf(record.roughness, record.metallic, record.incident, record.albedo, query.scatter.direction, record.N, record.transmission, record.ior, record.front);
+
+    if (!query.is_specular && !record.transparent && !record.is_transmissive)
+    {
+        query.scatter_pdf = mvr.pdf;
+    }
+    else
+    {
+        query.scatter_pdf = 1;
+        query.pdf = 1;
+    }
+
+    query.attenuation = mvr.color;
+    // result.pdf = pdf_sample.pdf;
+    //    result.emitted = vec3(1, 0, 0);
+    //    result.do_scatter = false;
+    //    return result;
+
+    return query;
+}
 #endif

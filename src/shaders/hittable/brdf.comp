@@ -1,0 +1,352 @@
+#ifndef BRDF_COMP
+#define BRDF_COMP
+
+#include "hittable/hittable.comp"
+#include "utils/ray.comp"
+
+#include "hittable/textures.comp"
+struct MaterialRecord
+{
+    bool do_scatter;
+    vec3 albedo;
+    float alpha;
+    float metallic;
+    float roughness;
+    float ior;
+    float pdf;
+    vec3 emitted;
+    bool is_specular;
+    vec3 N;
+    vec3 oN;
+    vec3 T;
+    vec3 B;
+    vec3 point;
+    float transmission;
+    bool is_transmissive;
+    float t;
+    vec3 incident;
+    bool front;
+    bool transparent;
+};
+
+struct MaterialQueryRecord
+{
+    Ray scatter;
+    vec3 H;
+    bool is_specular;
+    float pdf;
+    float scatter_pdf;
+    vec3 attenuation;
+};
+// BASED on gltf sample implementation
+// https://github.com/KhronosGroup/glTF-Sample-Viewer/blob/master/source/Renderer/shaders/brdf.glsl
+// using: https://google.github.io/filament/Filament.md.html#materialsystem/specularbrdf/geometricshadowing(specularg) optimizations
+
+// note: this is inaccurate but fast :tm:
+
+struct brdf_impl
+{
+    vec3 n;
+    vec3 h;
+    vec3 l;
+    vec3 v;
+    float roughness;
+    float metallic;
+    float a;
+};
+
+
+float heaviside(float x)
+{
+    return x <= 0.0 ? 0.0 : 1.0;
+}
+
+float g1_ggx(brdf_impl s, vec3 c, float k)
+{
+    float n_dot_c = max(dot(s.n, c), 0.0);
+    return n_dot_c / (n_dot_c * (1.0 - k) + k);
+}
+float g_ggx(brdf_impl s)
+{
+    float k = ((s.a + 1.0) * (s.a + 1.0)) / 8.0;
+    return g1_ggx(s, s.l, k) * g1_ggx(s, s.v, k);
+}
+
+float ga_ggx(brdf_impl s)
+{
+    float n_dot_l = dot(s.n, s.l);
+    float n_dot_v = dot(s.n, s.v);
+    float h_dot_l = dot(s.h, s.l);
+    float h_dot_v = dot(s.h, s.v);
+    float sq_a = s.a * s.a;
+
+    float lu = 2 * abs(n_dot_l) * heaviside(h_dot_l);
+    float ru = 2 * abs(n_dot_v) * heaviside(h_dot_v);
+
+    float ld = abs(n_dot_l) + sqrt(sq_a + (1 - sq_a) * (n_dot_l * n_dot_l));
+    float rd = abs(n_dot_v) + sqrt(sq_a + (1 - sq_a) * (n_dot_v * n_dot_v));
+
+    return (lu / ld) * (ru / rd);
+}
+float d_ggx(brdf_impl s)
+{
+    float n_dot_h = dot(s.n, s.h);
+
+    float up = s.a * s.a;
+
+    float down = ((n_dot_h * n_dot_h) * (s.a * s.a - 1.0f) + 1.0f);
+
+    return (up / (M_PI * down * down));
+}
+
+float v_ggx(brdf_impl s)
+{
+
+    float n_dot_l = dot(s.n, s.l);
+    float n_dot_v = dot(s.n, s.v);
+    float h_dot_l = dot(s.h, s.l);
+    float h_dot_v = dot(s.h, s.v);
+    float sq_a = s.a * s.a;
+
+    float lu = heaviside(h_dot_l);
+    float ru = heaviside(h_dot_v);
+
+    float ld = abs(n_dot_l) + sqrt(sq_a + (1.0 - sq_a) * (n_dot_l * n_dot_l));
+    float rd = abs(n_dot_v) + sqrt(sq_a + (1.0 - sq_a) * (n_dot_v * n_dot_v));
+
+    return (lu / ld) * (ru / rd);
+}
+
+float specular(brdf_impl s)
+{
+    // float g = g_ggx(s);
+    float d = d_ggx(s);
+    float v = v_ggx(s);
+    return d * v;
+}
+
+vec3 diffuse(vec3 color)
+{
+    return (1.0 / M_PI) * color;
+}
+
+vec3 conductor_fresnell(brdf_impl s, vec3 col, float f0)
+{
+    float f = f0 + (1 - f0) * pow(1.0 - abs(dot(s.v, s.h)), 5);
+    return f * col;
+}
+
+/*
+vec3 fresnell(float VdH, vec3 f, float bsdf)
+{
+    return bsdf * (f + (1 - f) * pow(1 - abs(VdH), 5));
+}
+*/
+
+vec3 fresnel_mix(float ior, vec3 base, vec3 layer, float VdH)
+{
+    float f0 = ((1 - ior) / (1 + ior));
+    f0 = f0 * f0;
+    float fr = f0 + (1 - f0) * pow((1 - abs(VdH)), 5);
+    return mix(base, layer, fr);
+}
+
+float smith_g_1(vec3 h, vec3 s, vec3 so, float alpha)
+{
+
+    float a = alpha * alpha;
+    float h_dot_s = abs(dot(h, s));
+    float b = h_dot_s * h_dot_s;
+
+    return h_dot_s * sqrt(max(a + h_dot_s * (h_dot_s - a * h_dot_s), 0));
+    //    float a = h_dot_s / (max(0.00001f,alpha) * sqrt(1 - min(0.9999999f,h_dot_s * h_dot_s)));
+
+    // \dfraf{-1 + \sqrt{1 + \dfrac{1}{a^2}}}{2}
+    //    return  (-1 + sqrt(1 + (1 / (a*a)))) / 2;
+}
+
+float smith_ggx(vec3 h, vec3 s, vec3 so, float alpha)
+{
+
+    float a = alpha * alpha;
+    float h_dot_s = abs(dot(h, s));
+    float b = h_dot_s * h_dot_s;
+
+    return 1 / (h_dot_s * sqrt(max(a + b - a * b, 0)));
+    //    float a = h_dot_s / (max(0.00001f,alpha) * sqrt(1 - min(0.9999999f,h_dot_s * h_dot_s)));
+
+    // \dfraf{-1 + \sqrt{1 + \dfrac{1}{a^2}}}{2}
+    //    return  (-1 + sqrt(1 + (1 / (a*a)))) / 2;
+}
+// https://registry.khronos.org/OpenGL-Refpages/gl4/html/refract.xhtml
+
+float fresnel_value(float ndotv)
+{
+    float c = clamp(1.0 - ndotv, 0.0, 1.0);
+    float c2 = c * c;
+    // c^5
+    return c2 * c2 * c;
+}
+vec3 fresnel(vec3 f_0, float f90, float ndotv)
+{
+    return f_0 + (vec3(f90) - f_0) * fresnel_value(ndotv);
+}
+
+float ggx_smith_lambda(float a)
+{
+    return (-1.0 + sqrt(1 + (1.0 / (a * a)))) * 0.5;
+}
+
+float clamp_01_1(float v)
+{
+    return clamp(abs(v), 0.00001f, 1);
+}
+
+float luminance(vec3 c)
+{
+    return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+}
+
+struct MaterialValRecord
+{
+    float pdf;
+    float scatter_pdf;
+    vec3 color;
+};
+
+MaterialValRecord dumb_brdf(float roughness, float metallic, vec3 incident, vec3 base, vec3 next, vec3 mnormal, float transmission, float ior, bool front)
+{
+    MaterialValRecord result;
+    roughness = clamp(roughness, 0.0001, 0.9999);
+    metallic = clamp(metallic, 0.0001, 0.9999);
+    vec3 n = (mnormal);
+    vec3 v = (-incident);
+    vec3 l = (next);
+
+    // l = wI
+    // v = wO
+
+    vec3 wO = v;
+    vec3 wI = l;
+    vec3 h = normalize(l + v);
+
+    if (dot(n, v) <= 0)
+    {
+        n = -n;
+    }
+    if (dot(l, n) <= 0)
+    {
+        h = normalize(l + v * ior);
+    }
+
+    vec3 o_h = h;
+
+    // if (dot(h, n) < 0)
+    // {
+    //     h = -h;
+    // }
+
+    // vec3 r = reflect(-l, n);
+
+    float NdotH = clamp(abs(dot(n, h)), 0.00001, 1);
+    //{
+    //    result.color = vec3(NdotH, 0, 0);
+    //    return result;
+    //}
+    float NdotV = clamp_01_1(dot(n, v));
+
+    float VdotH = clamp_01_1(dot(v, h));
+
+    float NdotL = clamp_01_1(dot(n, l));
+    float LdotH = clamp_01_1(abs(dot(l, h)));
+
+    float u = VdotH;
+
+    roughness = max(roughness, 0.01);
+    float alpha = roughness * roughness;
+
+    float alpha_sq = float(alpha) * float(alpha);
+    float alpha_sq_c = max(0.001f * 0.001f, alpha_sq);
+
+    // D
+
+    // (1 - HdotN * (1 - HdotN)
+    float ggx_d_denom = (alpha_sq_c - 1.0) * (NdotH) * (NdotH) + 1;
+
+    float ggx_d = (alpha_sq_c) / (M_PI * ggx_d_denom * ggx_d_denom);
+
+    // # G
+
+    float ggx_g = 0.5 / (((smith_g_1(n, l, v, alpha) + smith_g_1(n, v, l, alpha))));
+
+    // ## Fresnel
+
+    vec3 f0 = mix(vec3(0.04), base, metallic);
+
+    float fd90 = 0.5 + 2 * LdotH * LdotH * roughness;
+
+    vec3 FL = fresnel(vec3(1), fd90, NdotL);
+    vec3 FV = fresnel(vec3(1), fd90, NdotV);
+    float fVH = diel_fresnel_value(abs(dot(v, h)), ior);
+
+    //  float FH = fresnel_value((LdotH));
+    // vec3 F = fresnel(f0,min(60 * luminance(f0), 1.0),  NdotL);
+    vec3 Fd = FL * FV * base * (1 / M_PI);
+    //    vec3 F = fresnel(f0,1,  NdotV);
+    vec3 F = fresnel(f0, min(60 * luminance(f0), 1.0), VdotH);
+
+    vec3 specular = vec3(((F * ggx_g * ggx_d)));
+
+    // vec3 F_m = fresnel(f0, (1),  LdotH);
+
+    // vec3 specular_m = vec3(clamp(((F_m * ggx_g * ggx_d )), vec3(0), vec3(1)));
+
+    float diffuse_ratio = 0.5 * (1.0 - metallic);
+
+    float specular_ratio = 1.0 - diffuse_ratio;
+
+    vec3 trans = vec3(0);
+
+    // is reflection
+
+    float nF = 1 - fVH;
+
+    float tdenom = abs(dot(l, h)) + abs(dot(v, h)) * ior;
+    if (true)
+    {
+        //    float G  = smith_ggx(n, l,v, roughness) * smith_ggx(n, v,l, roughness);
+
+        //   float D_beck = exp((NdotH * NdotH - 1) / (alpha_sq * NdotH * NdotH)) / (M_PI * alpha_sq * NdotH * NdotH * NdotH * NdotH);
+        float G = smith_ggx(n, l, v, roughness) * smith_ggx(n, v, l, roughness);
+        trans = (nF)*base * max(ggx_d, 1.0) * G * ior * ior * 4 * (1 / (tdenom * tdenom));
+
+        // trans = (nF) * base  ;
+
+        //   trans = G *  nF * base * ior * ior * 4 * 1/(tdenom * tdenom);
+    }
+    else
+    {
+        trans = vec3(0);
+    }
+
+    // trans = vec3(1);
+
+    vec3 res = mix((diffuse_ratio * Fd), trans, transmission) + specular * specular_ratio;
+
+    if (length(res) > 1)
+    {
+        res = normalize(res);
+    }
+
+    result.color = res;
+
+    result.scatter_pdf = abs(dot(n, l));
+    result.pdf = diffuse_ratio * (abs(dot(n, l)) / M_PI);
+
+    result.pdf = mix(result.pdf, ((ggx_d * dot(n, h) * nF * abs(dot(l, h))) / (tdenom * tdenom)), transmission);
+    result.pdf += specular_ratio * (ggx_d / (4 * dot(l, h)));
+
+    return result;
+}
+
+#endif
