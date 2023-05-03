@@ -1,18 +1,13 @@
 #ifndef MATERIAL_COMP
 #define MATERIAL_COMP
-#include "hittable/hittable.comp"
 #include "hittable/brdf.comp"
+#include "hittable/hittable.comp"
 #include "hittable/material.comp"
-
-
-#include "hittable/textures.comp"
-
-
-#include "utils/ray.comp"
-#include "layouts.comp"
 #include "hittable/sampling.comp"
-
-
+#include "hittable/textures.comp"
+#include "layouts.comp"
+#include "utils/color.comp"
+#include "utils/ray.comp"
 
 MaterialRecord material_hit_info(HittableRecord record, Ray r)
 {
@@ -178,6 +173,7 @@ MaterialRecord material_hit_info(HittableRecord record, Ray r)
 
     //  const float selected_wave_length = mix(390, 710, random());
 
+#ifdef USE_RANDOM_WAVELENGTH
     float selected_wave_length = 0;
     float c = random();
     float cc = random();
@@ -199,7 +195,10 @@ MaterialRecord material_hit_info(HittableRecord record, Ray r)
 
     // Borosilicate glass BK
     const float idx = 1.8 + transmission_refractive_coeff / (selected_wave_length * selected_wave_length * 0.001 * 0.001);
+#else
 
+    const float idx = 1.8;
+#endif
     float refract_ratio = 1.0 / idx;
 
     result.ior = refract_ratio;
@@ -258,7 +257,11 @@ MaterialRecord material_hit_info(HittableRecord record, Ray r)
 
     if (result.is_transmissive)
     {
+#if USE_RANDOM_WAVELENGTH
         result.albedo = result.albedo * 3 * wavelength_to_color(selected_wave_length);
+#else
+        result.albedo = result.albedo;
+#endif
         //  result.albedo = vec3(1);
     }
 
@@ -302,6 +305,7 @@ MaterialQueryRecord material_query(MaterialRecord record, Ray r)
         result.H = result.scatter.direction;
         return result;
     }
+    float effective_ior = 1;
     if (record.is_specular) // specular
     {
         is_specular = true;
@@ -340,6 +344,8 @@ MaterialQueryRecord material_query(MaterialRecord record, Ray r)
         {
             dir = -dir;
         }
+
+        effective_ior *= record.ior;
         //   dir = unit_direction;
 
         //   H = normalize(record.N);
@@ -374,10 +380,78 @@ MaterialQueryRecord material_query(MaterialRecord record, Ray r)
     result.is_specular = is_specular;
     result.pdf = 1;
     result.H = H;
+    result.effective_ior = record.ior;
 
     return result;
 }
+MaterialQueryRecord material_query_camera(MaterialRecord record, Ray r, PdfSampleRecord forced_record, out bool look_cam, float prob)
+{
+    MaterialQueryRecord result;
+    vec3 dir;
+    look_cam = false;
+    if (record.transparent)
+    {
+        result.scatter.direction = r.direction;
+        result.scatter.inv_direction = 1 / r.direction;
+        result.scatter.origin = record.point;
+        result.pdf = 1;
+        result.scatter_pdf = 1;
+        result.H = result.scatter.direction;
+        return result;
+    }
+    if (record.do_scatter && !record.is_specular && random() > prob && !record.is_transmissive)
+    {
 
+        int maxv = 0;
+
+        //        PdfSampleRecord pdf_sample = sample_point(record.N, record.point);
+        dir = -(record.point - forced_record.random_point);
+        vec3 ndir = normalize(dir);
+
+        if (dot(forced_record.light_normal, ndir) >= 0.00001 || dot(ndir, record.N) <= 0.00001)
+
+        {
+
+            result = material_query(record, r);
+            result.pdf = 1;
+
+            result.scatter_pdf = 1;
+
+            //    result.emitted = vec3(0, 1, 0);
+            //    result.do_scatter = false;
+            //    return result;
+        }
+        else
+        {
+            look_cam = true;
+            float ldir = length(dir);
+
+            result.pdf = (ldir * ldir) / abs(dot(forced_record.light_normal, ndir));
+            // dir = normalize(dir);
+
+            result.scatter.direction = ndir;
+            result.scatter.origin = record.point;
+            result.scatter.inv_direction = 1.0 / ndir;
+            // result.is_specular = false;
+            //  result.pdf = pdf_sample.pdf;
+            result.scatter_pdf = 1;
+            //    result.emitted = vec3(1, 0, 0);
+            //    result.do_scatter = false;
+            //    return result;
+        }
+    }
+    else
+    {
+
+        result = material_query(record, r);
+
+        result.pdf = 1;
+
+        result.scatter_pdf = 1;
+    }
+
+    return result;
+}
 MaterialQueryRecord material_query_pdf(MaterialRecord record, Ray r, float prob)
 {
     MaterialQueryRecord result;

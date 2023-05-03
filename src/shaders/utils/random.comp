@@ -58,8 +58,7 @@ RandomResult fast_rand(vec2 state)
     return result;
 }
 
-vec2 seed = vec2(0);
-bool loaded = false;
+shared vec2 seed;
 void seed_random_init(vec2 v)
 {
     seed += vec2( ((ubo.t )));
@@ -84,14 +83,19 @@ void seed_random_init(vec2 v)
 }
 void random_init(vec2 v)
 {
-    seed = vec2(v.x , v.y);
+
+    
+    seed = vec2(v.x,v.y);
 
     seed_random_init(v);
 }
 
 float random()
 {
-    RandomResult r = fast_rand(seed);
+
+    vec2 rseed= seed + vec2(gl_LocalInvocationID.x, gl_LocalInvocationID.y);
+
+    RandomResult r = fast_rand(rseed);
     seed = r.state;
     return r.value;
 }

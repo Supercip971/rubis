@@ -1,27 +1,36 @@
 #ifndef MESHES_COMP
 #define MESHES_COMP
 
+#include "hittable/brdf.comp"
 #include "hittable/bvh.comp"
 #include "hittable/hittable.comp"
-#include "hittable/brdf.comp"
 #include "hittable/material.comp"
-
-
+#include "hittable/sampling.comp"
 #include "hittable/textures.comp"
-
-
+#include "layouts.comp"
+#include "utils/camera.comp"
 #include "utils/color.comp"
 #include "utils/ray.comp"
-#include "layouts.comp"
-#include "hittable/sampling.comp"
 
-#define FROM_SIBLING 1
-#define FROM_PARENT 2
-#define FROM_CHILD 3
+bool any_hit(Ray r, float maxv)
+{
+    rayQueryEXT rayQuery;
+    rayQueryInitializeEXT(rayQuery, TLAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, r.origin, 0.0001, r.direction, maxv);
 
-// size in vec4
+    // Start traversal: return false if traversal is complete
+    while (rayQueryProceedEXT(rayQuery))
+    {
+    }
+    bool front = false;
 
-
+    // Returns type of committed (true) intersection
+    if (rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT)
+    {
+        return true;
+        //		//const int primitiveId = rayQueryGetIntersectionPrimitiveIndexEXT(rayQuery, true);
+    }
+    return false;
+}
 HittableRecord world_hit(Ray r, int denya, int denyb)
 {
 
@@ -33,7 +42,7 @@ HittableRecord world_hit(Ray r, int denya, int denyb)
     // traverse_bvh_stack(r, cmin, cmax);
 
     rayQueryEXT rayQuery;
-    rayQueryInitializeEXT(rayQuery, TLAS, gl_RayFlagsOpaqueEXT | gl_RayFlagsCullFrontFacingTrianglesEXT, 0xFF, r.origin, cmin, r.direction, cmax);
+    rayQueryInitializeEXT(rayQuery, TLAS, gl_RayFlagsOpaqueEXT, 0xFF, r.origin, cmin, r.direction, cmax);
 
     // Start traversal: return false if traversal is complete
     while (rayQueryProceedEXT(rayQuery))
@@ -100,11 +109,11 @@ HittableRecord world_hit(Ray r, int denya, int denyb)
         rec.uv = final;
         rec.uv2 = final2;
 
-       // rec = update_face_normal(rec, r, rec.normal);
+        // rec = update_face_normal(rec, r, rec.normal);
 
         rec.front = front;
 
-        if(dot(r.direction, rec.normal) > 0)
+        if (dot(r.direction, rec.normal) > 0)
         {
             rec.front = false;
             rec.normal = -rec.normal;
@@ -119,20 +128,19 @@ float map(float value, float min1, float max1, float min2, float max2)
     return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
 }
 
-vec3 light_off = -vec_unit(vec3(-1.99851,  1.53129, -3.35852 ));
+vec3 light_off = -vec_unit(vec3(-1.99851, 1.53129, -3.35852));
 vec4 sky_color(Ray r)
 {
-     return vec4(0);
+    // return vec4(0);
     //   //return vec4(1);
-   //    return vec4(vec3(0.251, 0.612, 1), 1);
+    //    return vec4(vec3(0.251, 0.612, 1), 1);
     vec3 unit_direction = vec_unit(r.direction);
-    float rad = (0.009285) / 40  ;
+    float rad = (0.009285) / 40;
     float ldir = map(clamp(dot(-light_off, unit_direction), 1.0 - rad, 1.0), 1.0 - rad, 1.0, 0, 1);
 
     //  return vec4(0, 0, 0, 1);
- // return vec4(mix(vec3(0.23, 0.36, 0.41), vec3(0.9922, 0.9843, 0.8275) * (100), ldir), 1);
-   return vec4(mix(vec3(0), vec3(1) * (100), ldir), 1);
-
+    // return vec4(mix(vec3(0.23, 0.36, 0.41), vec3(0.9922, 0.9843, 0.8275) * (100), ldir), 1);
+    // return vec4(mix(vec3(0), vec3(1) * (100), ldir), 1);
 
     float t = acos(unit_direction.y);
     float p = atan(-unit_direction.z, unit_direction.x) + 3.1415;
@@ -150,6 +158,7 @@ struct ExportRecord
     vec3 normal;
     vec3 albedo;
 };
+
 vec4 ray_color(Ray r, float x, float y, uint maxv, out ExportRecord export_record)
 {
 
@@ -159,6 +168,14 @@ vec4 ray_color(Ray r, float x, float y, uint maxv, out ExportRecord export_recor
     int tdepth = 0;
     int depth = 0;
 
+    // if(any_hit(r, 1000))
+    // {
+    //     return vec4(0,0,0,1);
+    // }
+    // else
+    // {
+    //     return vec4(1,1,1,1);
+    // }
 #ifdef SHOW_DEPTH
 
     if (rec.depth < 5)
@@ -184,6 +201,7 @@ vec4 ray_color(Ray r, float x, float y, uint maxv, out ExportRecord export_recor
     }
     float accum = 1.0;
     int transparent_depth = 8;
+
     while (depth < maxv && transparent_depth > 0)
     {
         MaterialRecord material = material_hit_info(rec, r);
@@ -226,7 +244,7 @@ vec4 ray_color(Ray r, float x, float y, uint maxv, out ExportRecord export_recor
 
             material.emitted = (material.emitted) * abs(dot(material.N, r.direction)) / length(rec.point - r.origin);
 
-            //material.emitted = material.emitted * ;
+            // material.emitted = material.emitted * ;
             result = result * (vec4(material.emitted, 1.0));
 
             return result;
@@ -244,6 +262,443 @@ vec4 ray_color(Ray r, float x, float y, uint maxv, out ExportRecord export_recor
         }
     }
     return vec4(0);
-}
+};
 
+#ifdef OLD
+
+bool bidir_raytrace(inout vec4 result, camera cam, Ray camera_ray, Ray light_ray, uint maxv, out vec3 origin)
+{
+    HittableRecord cam_rec = world_hit(camera_ray, -1, -1);
+    if (!cam_rec.hitted)
+    {
+        return false;
+    }
+    HittableRecord light_rec = world_hit(light_ray, -1, -1);
+
+    if (!light_rec.hitted)
+    {
+        return false;
+    }
+    uint depth = 0;
+    float accum = 1.0;
+    int transparent_depth = 8;
+    vec4 light_result = result;
+    result = vec4(1);
+    float summed_ior = 1;
+
+    while (depth < maxv && transparent_depth > 0)
+    {
+        MaterialRecord cam_material = material_hit_info(cam_rec, camera_ray);
+        MaterialRecord light_material = material_hit_info(light_rec, light_ray);
+        Ray prev_camera_ray = camera_ray;
+        Ray prev_light_ray = light_ray;
+
+        bool hit_camera = false;
+        if (true)
+        {
+            PdfSampleRecord rsample;
+            rsample.random_point = cam_material.point;
+            rsample.light_normal = normalize(cam_material.N);
+            MaterialQueryRecord query;
+
+            if (light_material.transparent)
+            {
+                query = material_query_camera(light_material, light_ray, rsample, hit_camera, 1);
+
+                // query = material_query_pdf(light_material, light_ray, 10000);
+                query = material_update_attenuation(query, light_material);
+
+                // depth -= 1;
+                // transparent_depth -= 1;
+                light_ray = query.scatter;
+                // result = result * vec4(1,0,0,1);
+                // result = result * (vec4(query.attenuation, 1.0) * query.scatter_pdf) / (query.pdf + 0.001);
+            }
+            else
+            {
+                query = material_query_camera(light_material, light_ray, rsample, hit_camera, (depth + 2) == maxv ? 0 : 0.5);
+
+                // query = material_query_pdf(light_material, light_ray, 10000);
+                query = material_update_attenuation(query, light_material);
+                //       query.attenuation =  material.albedo;
+                light_ray = query.scatter;
+                light_result = light_result * (vec4(query.attenuation, 1.0) * query.scatter_pdf) / (query.pdf + 0.00001);
+                //  result.w = 1.0;
+            }
+        }
+        else
+        {
+            return false;
+        }
+        bool hit_light = false;
+        // return vec4(material.,0,0,1);
+        if (cam_material.do_scatter)
+        {
+            PdfSampleRecord rsample;
+            rsample.random_point = light_material.point;
+            rsample.light_normal = normalize(light_material.N);
+            MaterialQueryRecord query;
+
+            if (cam_material.transparent)
+            {
+                query = material_query_camera(cam_material, camera_ray, rsample, hit_light, 1);
+                query = material_update_attenuation(query, cam_material);
+                depth -= 1;
+                transparent_depth -= 1;
+                camera_ray = query.scatter;
+            }
+            else
+            {
+                query = material_query_camera(cam_material, camera_ray, rsample, hit_light, (depth + 2) == maxv ? 0 : 0.5);
+                summed_ior *= query.effective_ior;
+
+                query = material_update_attenuation(query, cam_material);
+                //       query.attenuation =  material.albedo;
+                camera_ray = query.scatter;
+
+                result = result * (vec4(query.attenuation, 1.0) * query.scatter_pdf) / (query.pdf + 0.00001);
+                //  result.w = 1.0;
+            }
+        }
+        else
+        {
+            cam_material.emitted = (cam_material.emitted) * abs(dot(cam_material.N, camera_ray.direction)) / length(cam_rec.point - camera_ray.origin);
+
+            //  // material.emitted = material.emitted * ;
+            result = result * (vec4(cam_material.emitted, 1.0));
+            // result= light_result;
+            // return result;
+            return true;
+        }
+
+        if (hit_light && hit_camera)
+        {
+            float dist = (length(-(cam_rec.point - light_ray.origin)));
+            if (!any_hit(camera_ray, dist))
+            {
+                result = result * light_result;
+                return true;
+            }
+        }
+
+        // float dist = (length(-(cam_rec.point - light_ray.origin)));
+
+        // if (hit_light && !any_hit(camera_ray, dist) && light_ray.scatter)
+        // {
+        //     result = result * light_result;
+        //     return true;
+        // }
+        //  float deddlta = ubo.fov / 2.0;
+        // float vt = 1 -tan(((M_PI / 180.f) * (ubo.fov)) / 2.f);
+
+        // if(!hit_camera && (dot(dir_to_cam, r.direction)) > 0.99 && (dot(dir_to_cam, -cam.to)) > 0.99)
+        // {
+        //     hit_camera = true;
+        // }
+
+        depth += 1;
+        cam_rec = world_hit(camera_ray, -1, -1);
+        light_rec = world_hit(light_ray, -1, -1);
+
+        if (cam_rec.hitted == false || light_rec.hitted == false)
+        {
+            return false;
+        }
+    }
+    return false;
+};
+
+#endif
+
+bool bidir_raytrace(inout vec4 result, camera cam, Ray camera_ray, Ray light_ray, uint maxv, out vec3 origin)
+{
+    HittableRecord cam_rec = world_hit(camera_ray, -1, -1);
+    if (!cam_rec.hitted)
+    {
+        result = sky_color(camera_ray);
+        return true;
+    }
+    HittableRecord light_rec = world_hit(light_ray, -1, -1);
+
+    if (!light_rec.hitted)
+    {
+        return false;
+    }
+    uint depth = 0;
+    //   float accum = 1.0;
+    int transparent_depth = 8;
+    vec4 light_result = vec4(1);
+    //  result = vec4(1);
+    float summed_ior = 1;
+
+    vec3 cam_geometry_n = cam_rec.normal;
+
+    MaterialRecord light_material = material_hit_info(light_rec, light_ray);
+
+    // ---- LIGHT
+    while (depth < maxv && transparent_depth > 0 &&
+           (light_material.is_transmissive || light_material.is_specular || !light_material.do_scatter || random() > 0.5))
+    {
+
+        bool hit_light = false;
+        // return vec4(material.,0,0,1);
+        if (light_material.do_scatter)
+        {
+            PdfSampleRecord rsample;
+            // rsample.random_point = light_material.point;
+            // rsample.light_normal = normalize(light_material.N);
+            MaterialQueryRecord query;
+
+            if (light_material.transparent)
+            {
+                query = material_query_camera(light_material, light_ray, rsample, hit_light, 100000);
+                query = material_update_attenuation(query, light_material);
+                depth -= 1;
+                transparent_depth -= 1;
+                light_ray = query.scatter;
+            }
+            else
+            {
+                query = material_query_camera(light_material, light_ray, rsample, hit_light, 100000);
+                summed_ior *= query.effective_ior;
+
+                query = material_update_attenuation(query, light_material);
+                // query.attenuation = cam_material.albedo;
+                light_ray = query.scatter;
+
+                result = result * (vec4(query.attenuation, 1.0) * query.scatter_pdf) / (query.pdf + 0.00001);
+                //  result.w = 1.0;
+            }
+        }
+        else
+        {
+            return false;
+        }
+        // if(hit_light)
+        // {
+        //     break;
+        // }
+
+        depth += 1;
+        light_rec = world_hit(light_ray, -1, -1);
+
+        if (light_rec.hitted == false)
+        {
+            //       result = sky_color(light_ray);
+            return false;
+        }
+        light_material = material_hit_info(light_rec, light_ray);
+    }
+
+    if (depth >= maxv)
+    {
+        return false;
+    }
+    //   result = vec4(abs(light_rec.point) / 4, 1);
+    //   return true;
+    depth = 0;
+    transparent_depth = 8;
+
+    while (depth < maxv && transparent_depth > 0)
+    {
+        MaterialRecord material = material_hit_info(cam_rec, camera_ray);
+        MaterialQueryRecord query;
+
+        vec3 light_geometry_n = light_rec.normal;
+
+        bool hit_light = false;
+        // return vec4(material.,0,0,1);
+        if (material.do_scatter)
+        {
+            PdfSampleRecord rsample;
+            rsample.random_point = light_material.point;
+
+            rsample.light_normal = normalize(-light_ray.direction);
+            if (material.transparent)
+            {
+
+                //     MaterialQueryRecord material_query_camera(MaterialRecord record, Ray r, PdfSampleRecord forced_record, out bool look_cam, float prob)
+
+                query = material_query_camera(material, camera_ray, rsample, hit_light, 1);
+                query = material_update_attenuation(query, material);
+                depth -= 1;
+                transparent_depth -= 1;
+                camera_ray = query.scatter;
+                // result = result * vec4(1,0,0,1);
+                // result = result * (vec4(query.attenuation, 1.0) * query.scatter_pdf) / (query.pdf + 0.001);
+            }
+            else
+            {
+                query = material_query_camera(material, camera_ray, rsample, hit_light, 0.5);
+
+                vec3 dir_to_cam = (-(cam_rec.point - light_material.point));
+
+                // if (hit_camera)
+                //! {
+                //     result = vec4(cam_material.point, 1) / 8;
+                //     return true;
+                //  }
+
+                float dist = (length(dir_to_cam));
+                if (hit_light && (any_hit(query.scatter, dist)))
+                {
+                    hit_light = false;
+                    query = material_query_camera(material, camera_ray, rsample, hit_light, 1000000000);
+                }
+
+                query = material_update_attenuation(query, material);
+                //        query.attenuation = material.albedo;
+                camera_ray = query.scatter;
+
+                // if (!hit_light)
+                //{
+
+                light_result = light_result * (vec4(query.attenuation, 1.0) * query.scatter_pdf) / (query.pdf + 0.00001);
+                //}
+                //  result.w = 1.0;
+            }
+        }
+        else
+        {
+            return false;
+        }
+
+        vec3 dir_to_cam = (-(cam_rec.point - light_material.point));
+
+        //  float deddlta = ubo.fov / 2.0;
+        // float vt = 1 -tan(((M_PI / 180.f) * (ubo.fov)) / 2.f);
+
+        // if(!hit_camera && (dot(dir_to_cam, r.direction)) > 0.99 && (dot(dir_to_cam, -cam.to)) > 0.99)
+        // {
+        //     hit_camera = true;
+        // }
+        //      float dist = (length(dir_to_cam));
+        if (hit_light)
+        {
+            // POTENTIAL ISSUES:
+            // - direction
+            // - checking if it really hit the camera (we treat the camera as a point with 180 fov which is false)
+            // origin = rec.point;
+
+            //  result = vec4(light_rec.point / 4, 1);
+            PdfSampleRecord rsample;
+            rsample.random_point = material.point;
+
+            rsample.light_normal = normalize(camera_ray.direction);
+            MaterialQueryRecord light_query;
+            bool hit_cam;
+            light_query = material_query_camera(light_material, light_ray, rsample, hit_cam, -1);
+            // summed_ior *= query.effective_ior;
+            if (!hit_cam)
+            {
+                return false;
+            }
+
+            // cam_material.albedo = light_result.xyz;
+            light_query = material_update_attenuation(light_query, light_material);
+            // light_query.attenuation = cam_material.albedo;
+            //   camera_ray = camera_query.scatter;
+            light_result = light_result * (vec4(light_query.attenuation, 1.0) * light_query.scatter_pdf) / (light_query.pdf + 0.00001);
+            result = (result * light_result) / (length(dir_to_cam) * length(dir_to_cam));
+            //  result.w = 1.0;
+
+            //  result = light_result * result;
+            //  result = vec4(length(rec.point - cam.origin) / 100);
+            return true;
+        }
+        depth += 1;
+        cam_rec = world_hit(camera_ray, -1, -1);
+
+        if (cam_rec.hitted == false)
+        {
+            return false;
+        }
+    }
+
+    return false;
+};
+bool light_to_camera(inout vec4 result, camera cam, Ray r, uint maxv, out vec3 origin)
+{
+    HittableRecord rec = world_hit(r, -1, -1);
+    if (!rec.hitted)
+    {
+        return false;
+    }
+    uint depth = 0;
+    float accum = 1.0;
+    int transparent_depth = 8;
+
+    float summed_ior = 1;
+    while (depth < maxv && transparent_depth > 0)
+    {
+        MaterialRecord material = material_hit_info(rec, r);
+        MaterialQueryRecord query;
+
+        bool hit_camera = false;
+        // return vec4(material.,0,0,1);
+        if (material.do_scatter)
+        {
+            PdfSampleRecord rsample;
+            rsample.random_point = cam.origin;
+            rsample.light_normal = normalize(-cam.to);
+            if (material.transparent)
+            {
+
+                //     MaterialQueryRecord material_query_camera(MaterialRecord record, Ray r, PdfSampleRecord forced_record, out bool look_cam, float prob)
+
+                query = material_query_camera(material, r, rsample, hit_camera, 1);
+                query = material_update_attenuation(query, material);
+                depth -= 1;
+                transparent_depth -= 1;
+                r = query.scatter;
+                // result = result * vec4(1,0,0,1);
+                // result = result * (vec4(query.attenuation, 1.0) * query.scatter_pdf) / (query.pdf + 0.001);
+            }
+            else
+            {
+                query = material_query_camera(material, r, rsample, hit_camera, (depth + 2) == maxv ? 0 : 0.5);
+                summed_ior *= query.effective_ior;
+
+                query = material_update_attenuation(query, material);
+                //       query.attenuation =  material.albedo;
+                r = query.scatter;
+
+                result = result * (vec4(query.attenuation, 1.0) * query.scatter_pdf) / (query.pdf + 0.00001);
+                //  result.w = 1.0;
+            }
+        }
+        else
+        {
+            return false;
+        }
+
+        vec3 dir_to_cam = normalize(-(rec.point - cam.origin));
+
+        //  float deddlta = ubo.fov / 2.0;
+        // float vt = 1 -tan(((M_PI / 180.f) * (ubo.fov)) / 2.f);
+
+        // if(!hit_camera && (dot(dir_to_cam, r.direction)) > 0.99 && (dot(dir_to_cam, -cam.to)) > 0.99)
+        // {
+        //     hit_camera = true;
+        // }
+        float dist = (length(-(rec.point - cam.origin)));
+        if (hit_camera && !any_hit(r, dist))
+        {
+            // POTENTIAL ISSUES:
+            // - direction
+            // - checking if it really hit the camera (we treat the camera as a point with 180 fov which is false)
+            origin = rec.point;
+            // result = vec4(length(rec.point - cam.origin) / 100);
+            return true;
+        }
+        depth += 1;
+        rec = world_hit(r, rec.mesh_id, rec.vert_id);
+
+        if (rec.hitted == false)
+        {
+            return false;
+        }
+    }
+    return false;
+}
 #endif

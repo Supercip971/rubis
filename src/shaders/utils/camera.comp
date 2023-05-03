@@ -12,10 +12,12 @@ struct camera
     vec3 vertical;
     float aperture;
     float focus_disk;
-
+    vec3 to;
     vec3 u;
     vec3 v;
     float lens_radius;
+
+    mat4 world_to_camera;
 };
 #define FOV 39.5978/2
 //#define FOV 39.5978
@@ -29,13 +31,14 @@ camera camera_init(vec3 pos, vec3 to, vec3 up, float aperture, float focus_disk,
     float he = 2.f * vt;
     float wi = he * (ratio);
 
-    vec3 w = normalize(pos - to);
-    vec3 u = normalize(cross(up, w));
-    vec3 v = cross(w, u);
+    vec3 w = normalize(pos - to); // forward
+    vec3 u = normalize(cross(up, w)); // right
+    vec3 v = normalize(cross(w, u)); // up
+
     camera cam;
     cam.origin = pos;
     cam.horizontal = focus_disk * u * wi;
-
+    cam.to = w;
     cam.vertical = focus_disk * v * he;
     cam.llc = pos - (cam.horizontal / 2.0) - (cam.vertical / 2.0) - focus_disk * w;
     cam.aperture = aperture;
@@ -43,6 +46,34 @@ camera camera_init(vec3 pos, vec3 to, vec3 up, float aperture, float focus_disk,
     cam.lens_radius = aperture / 2.0;
     cam.u = u;
     cam.v = v;
+  //:w  vec3 up = vec3(sin(roll), cos(roll), 0.0);
+    //vec3 z = normalize(target - camera);	
+    //vec3 x = normalize(cross(z, up));
+    //vec3 y = normalize(cross(x, z));
+
+    mat4 c = transpose(mat4(
+        u, -dot(u, pos), 
+        v, -dot(v, pos), 
+        w, -dot(w, pos), 
+        0, 0, 0, 1
+    ));
+
+    mat4 proj = mat4(
+        1 / (ratio * vt), 0, 0, 0,
+        0, 1 / vt, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+    );
+
+
+    cam.world_to_camera = proj *c ;
+ //   cam.world_to_camera = 1 / mat4(vec4(cam.horizontal ,pos.x), vec4(cam.vertical, pos.y), vec4(cam.llc,pos.z), vec4(0,0,0,1));
+
+    /*cam.world_to_camera = mat4(
+        vec4(u.x, v.x, w.x, 0),
+        vec4(u.y, v.y, w.y, 0),
+        vec4(u.z, v.z, w.z, 0),
+        vec4(-(pos.x), -(pos.y), -(pos.z), 1));*/
     return cam;
 }
 
@@ -63,4 +94,14 @@ Ray camera_ray(camera cam, float u, float v)
 #endif  
 }
 
+vec2 pos_to_screen_coordinate(camera cam, vec3 pos)
+{
+    vec4 p = (cam.world_to_camera * vec4(pos, 1));
+    p.xyz /= p.w;
+    const vec2 uv = vec2(p.x / p.z, p.y / p.z);
+
+    const vec2 c = uv.xy * 0.5 + vec2(0.5);
+    
+    return c * vec2(ubo.width, ubo.height);
+}
 #endif

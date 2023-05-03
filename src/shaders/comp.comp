@@ -6,7 +6,6 @@
 
 #extension GL_EXT_nonuniform_qualifier : require
 
-
 #extension GL_EXT_ray_query : require
 #define M_PI 3.14159265f
 
@@ -53,7 +52,8 @@ struct raytraceInfo
     vec4 normal;
     vec4 position;
 };
-layout(set =0, binding = 9, std140) writeonly buffer info {
+layout(set = 0, binding = 9, std140) writeonly buffer info
+{
     raytraceInfo infos[];
 };
 // #define SHOW_DEPTH
@@ -74,14 +74,18 @@ void main()
     const float window_height = (ubo.height) / int(ubo.scale);
     const uint x = gl_GlobalInvocationID.x;
     const uint y = gl_GlobalInvocationID.y;
-    const vec2 cc = vec2(x / window_width , y / window_height);
+    const vec2 cc = vec2(x / window_width, y / window_height);
     random_init(vec2(gl_WorkGroupID.x, gl_WorkGroupID.y));
     camera cam = camera_init(ubo.camera_pos.xyz, vec3(ubo.camera_target.xyz), vec3(0, 1, 0), 0, 9.3, window_width / window_height);
 
+#if 0
     vec2 rpos = vec2((x) / window_width, 1 - ((y - 1) / window_height));
     ExportRecord er;
     vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
     int count = 0;
+
+
+    
     for(int cu = 0; cu < 1; cu++)
     {
         float u = ((float(x) + random()) / (window_width - 1));
@@ -108,12 +112,53 @@ void main()
         //   memoryBarrierImage();
         prev = imageLoad(buf, ivec2(x, y));
     }
-   // if(ubo.t <= 1) 
-   // {
-   //     int pos = int(x) + int(y * ubo.width);
-   //     infos[pos].albedo = vec4(er.albedo, 0.0);
-   //     infos[pos].normal = vec4(er.normal, 0.0);
-   //     infos[pos].position = vec4(er.pos, 0.0);
-   // }
-    imageStore(buf, ivec2(x, y), ((prev * (ubo.t)) + (color)) / ((ubo.t + count)));
+
+    imageStore(buf, ivec2(x, y), vec4(color.xyz / float(count), 1) + prev);
+#else
+
+    vec4 prev = vec4(0);
+    vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+
+    Ray r = random_light_ray(color);
+    vec3 point = vec3(0);
+    //    bool hitted = light_to_camera(color, cam, r, ubo.bounce_limit, point);
+    float u = ((float(x) + random()) / (window_width - 1));
+    float v = ((float(y) + random()) / (window_height - 1));
+
+    Ray cr = camera_ray(cam, u, v);
+    cr.inv_direction = vec3(1) / r.direction;
+
+    //      vec4 prev = color;;
+    //     color += (ray_color(r, u, v, ubo.bounce_limit, er));
+
+    bool hitted = bidir_raytrace(color, cam, cr, r, ubo.bounce_limit, point);
+    vec2 rpos = pos_to_screen_coordinate(cam, point);
+
+    if (!hitted)
+    {
+
+        if (ubo.t < 1)
+        {
+            imageStore(buf, ivec2(x, y), vec4(0, 0, 0, 0));
+        }
+        return;
+    }
+    // if(ubo.t <= 1)
+    // {
+    //     int pos = int(x) + int(y * ubo.width);
+    //     infos[pos].albedo = vec4(er.albedo, 0.0);
+    //     infos[pos].normal = vec4(er.normal, 0.0);
+    //     infos[pos].position = vec4(er.pos, 0.0);
+    // }
+    if (ubo.t > float(0))
+    {
+
+        //   memoryBarrierImage();
+        prev = imageLoad(buf, ivec2(x, y));
+    }
+    int count = 1;
+    imageStore(buf, ivec2(x, y), vec4(color.xyz, 1) + prev);
+
+    // imageStore(buf, ivec2(x,y), vec4(1, 0, 0, 1) );
+#endif
 }

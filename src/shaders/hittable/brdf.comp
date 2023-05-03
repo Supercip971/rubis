@@ -35,6 +35,7 @@ struct MaterialQueryRecord
     vec3 H;
     bool is_specular;
     float pdf;
+    float effective_ior;
     float scatter_pdf;
     vec3 attenuation;
 };
