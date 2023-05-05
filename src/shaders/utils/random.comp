@@ -1,97 +1,97 @@
 #ifndef RANDOM_COMP
 #define RANDOM_COMP
 
-
-
 struct RandomResult
 {
-    
+
     vec2 state;
     float value;
 };
 
-uint hash( uint x ) {
-    x += ( x << 10u );
-    x ^= ( x >>  6u );
-    x += ( x <<  3u );
-    x ^= ( x >> 11u );
-    x += ( x << 15u );
+uint hash(uint x)
+{
+    x += (x << 10u);
+    x ^= (x >> 6u);
+    x += (x << 3u);
+    x ^= (x >> 11u);
+    x += (x << 15u);
     return x;
 }
 
-uint hash( uvec2 v ) { return hash( v.x ^ hash(v.y)                         ); }
-uint hash( uvec3 v ) { return hash( v.x ^ hash(v.y) ^ hash(v.z)             ); }
-uint hash( uvec4 v ) { return hash( v.x ^ hash(v.y) ^ hash(v.z) ^ hash(v.w) ); }
+uint hash(uvec2 v) { return hash(v.x ^ hash(v.y)); }
+uint hash(uvec3 v) { return hash(v.x ^ hash(v.y) ^ hash(v.z)); }
+uint hash(uvec4 v) { return hash(v.x ^ hash(v.y) ^ hash(v.z) ^ hash(v.w)); }
 
-float floatConstruct( uint m ) {
+float floatConstruct(uint m)
+{
     const uint ieeeMantissa = 0x007FFFFFu; // binary32 mantissa bitmask
-    const uint ieeeOne      = 0x3F800000u; // 1.0 in IEEE binary32
+    const uint ieeeOne = 0x3F800000u;      // 1.0 in IEEE binary32
 
-    m &= ieeeMantissa;                     // Keep only mantissa bits (fractional part)
-    m |= ieeeOne;                          // Add fractional part to 1.0
+    m &= ieeeMantissa; // Keep only mantissa bits (fractional part)
+    m |= ieeeOne;      // Add fractional part to 1.0
 
-    float  f = uintBitsToFloat( m );       // Range [1:2]
-    return f - 1.0;                        // Range [0:1]
+    float f = uintBitsToFloat(m); // Range [1:2]
+    return f - 1.0;               // Range [0:1]
 }
 
-//float Arandom( float x ) { return floatConstruct(hash(floatBitsToUint(x))); }
-float Arandom( vec2  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
-//float Arandom( vec3  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
-//float Arandom( vec4  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
-
+// float Arandom( float x ) { return floatConstruct(hash(floatBitsToUint(x))); }
+float Arandom(vec2 v) { return floatConstruct(hash(floatBitsToUint(v))); }
+// float Arandom( vec3  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
+// float Arandom( vec4  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
 
 float rand(vec2 co)
 {
     return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
-
 RandomResult fast_rand(vec2 state)
 {
     RandomResult result;
     result.value = Arandom(state);
-    
+
     result.state = vec2(
         state.x + 1,
-        state.y + result.value
-    );
+        state.y + result.value);
     return result;
 }
 
-vec2 seed = vec2(0);
-bool loaded = false;
+shared vec2 seed;
 void seed_random_init(vec2 v)
 {
-    seed += vec2( ((ubo.t )));
+    seed += vec2(((ubo.t)));
 
-    if(seed.x > 1000.0)
+    if (seed.x > 1000.0)
     {
         seed.x -= 1000.0;
         seed.y += 1;
     }
-    if(seed.x > 10000.0)
+    if (seed.x > 10000.0)
     {
         seed.x -= 10000.0;
         seed.y += 1;
     }
-     if(seed.x > 100000.0)
+    if (seed.x > 100000.0)
     {
         seed.x -= 100000.0;
         seed.y += 1;
     }
-    
+
     //   seed.y = float(rubo.t) * 13.f + 256.f;
 }
 void random_init(vec2 v)
 {
-    seed = vec2(v.x , v.y);
+
+    seed = vec2(v.x, v.y);
 
     seed_random_init(v);
 }
 
 float random()
 {
-    RandomResult r = fast_rand(seed);
+
+    vec2 rseed = seed + vec2(gl_LocalInvocationID.x, gl_LocalInvocationID.y);
+
+    RandomResult r = fast_rand(rseed);
     seed = r.state;
     return r.value;
 }
