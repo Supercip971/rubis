@@ -1,9 +1,11 @@
+
 #ifndef LAYOUTS_COMP
 #define LAYOUTS_COMP
 
-
-
 #define VERTEX_SIZE 4
+#extension GL_EXT_ray_query : require
+
+// layout(binding = 4, set = 0) uniform accelerationStructureEXT TLAS;
 
 layout(binding = 4, set = 0) uniform accelerationStructureEXT TLAS;
 layout(set = 0, std140, binding = 1) readonly restrict buffer MeshesBufData

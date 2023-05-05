@@ -9,7 +9,7 @@ layout(location = 4) in vec2 texCoord2;
 #extension GL_EXT_nonuniform_qualifier : require
 #define M_PI 3.14159265f
 
-layout(std140, push_constant ) uniform UniformBufferObject
+layout(std140, push_constant) uniform UniformBufferObject
 {
     float width;
     float height;
@@ -22,17 +22,14 @@ layout(std140, push_constant ) uniform UniformBufferObject
     float aperture;
     float focus_disk;
 
-
     uint bounce_limit;
     uint scale;
 
     uint use_fsr;
     int mesh_index;
     int material_index;
-} ubo;
-#include "hittable/meshes.comp"
-
-
+}
+ubo;
 
 layout(location = 0) out vec3 fragColor;
 
@@ -74,23 +71,24 @@ mat4 matrix_perspective(float fov_deg, float ratio, float near, float far)
     m[3][3] = 1.0;
     return m;
 }
-void main() {
+void main()
+{
 
-    vec4 t =  (inTangent);
-    vec2 tc =  (texCoord1);
-    vec2 tb =  (texCoord2);
+    vec4 t = (inTangent);
+    vec2 tc = (texCoord1);
+    vec2 tb = (texCoord2);
     mat4 view_m = matrix_lookat(ubo.camera_pos.xyz, ubo.camera_target.xyz, ubo.camera_up.xyz);
 
-    mat4 proj_m = matrix_perspective( ubo.focus_disk, ubo.width / ubo.height, 0.1f, 1000.0f);
-    gl_Position = proj_m * view_m *vec4(inPosition.xyz, 1.0) ;
+    mat4 proj_m = matrix_perspective(ubo.focus_disk, ubo.width / ubo.height, 0.1f, 1000.0f);
+    gl_Position = proj_m * view_m * vec4(inPosition.xyz, 1.0);
 
-	gl_Position.y = -gl_Position.y;	
-    PbrtTexture albedo_T = material_load_tex(int(ubo.material_index), 0);
-
-    vec2 uv = tc;
-    if(albedo_T.tid == 1)
-    {
-        uv = tb;
-    }
-    fragColor = material_tex_query(albedo_T, uv) * albedo_T.factor.xyz;
+    gl_Position.y = -gl_Position.y;
+    // PbrtTexture albedo_T = material_load_tex(int(ubo.material_index), 0);
+    //
+    // vec2 uv = tc;
+    // if(albedo_T.tid == 1)
+    //{
+    //    uv = tb;
+    //}
+    fragColor = vec3(1.0, 0.0, 0.0);
 }

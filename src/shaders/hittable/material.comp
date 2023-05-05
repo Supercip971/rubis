@@ -1,18 +1,13 @@
 #ifndef MATERIAL_COMP
 #define MATERIAL_COMP
-#include "hittable/hittable.comp"
 #include "hittable/brdf.comp"
+#include "hittable/hittable.comp"
 #include "hittable/material.comp"
-
-
-#include "hittable/textures.comp"
-
-
-#include "utils/ray.comp"
-#include "layouts.comp"
 #include "hittable/sampling.comp"
-
-
+#include "hittable/textures.comp"
+#include "layouts.comp"
+#include "utils/color.comp"
+#include "utils/ray.comp"
 
 MaterialRecord material_hit_info(HittableRecord record, Ray r)
 {
