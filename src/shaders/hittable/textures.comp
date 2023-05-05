@@ -1,0 +1,58 @@
+#ifndef PBRT_TEXTURE_H
+#define PBRT_TEXTURE_H
+
+#include "layouts.comp"
+
+struct PbrtTexture
+{
+    int id;
+    int tid;
+    vec4 factor;
+    vec2 offset;
+    vec2 scale;
+};
+
+
+PbrtTexture material_load_tex(int begin, int off)
+{
+    const int scale = 3;
+    PbrtTexture result;
+    vec4 first = vec4(buf_datas[begin + off * scale]);
+    vec4 second = vec4(buf_datas[begin + off * scale + 1]);
+    vec4 third = vec4(buf_datas[begin + off * scale + 2]);
+    result.id = int(first.x);
+    result.tid = int(first.y);
+    result.factor = second;
+    result.offset = third.xy;
+    result.scale = third.zw;
+    return result;
+}
+
+vec3 material_tex_query(PbrtTexture tex, vec2 uv)
+{
+    mat3 translation = mat3(1, 0, 0, 0, 1, 0, tex.offset.x + 1, tex.offset.y + 1, 1);
+
+    mat3 scale = mat3(tex.scale.x * 1, 0, 0, 0, tex.scale.y * 1, 0, 0, 0, 1);
+
+    mat3 matrix = translation * scale;
+    vec2 uvTransformed = (matrix * vec3(uv.xy, 1)).xy;
+
+    vec3 result = texture(sampler2D(textures[nonuniformEXT(tex.id)], tex_sampler), uvTransformed).rgb;
+    return result;
+}
+
+vec4 material_tex_query_rgba(PbrtTexture tex, vec2 uv)
+{
+    mat3 translation = mat3(1, 0, 0, 0, 1, 0, tex.offset.x + 1, tex.offset.y + 1, 1);
+
+    mat3 scale = mat3(tex.scale.x, 0, 0, 0, tex.scale.y, 0, 0, 0, 1);
+
+    mat3 matrix = translation * scale;
+    vec2 uvTransformed = (matrix * vec3(uv.xy, 1)).xy;
+
+
+    vec4 result = texture(sampler2D(textures[nonuniformEXT(tex.id)], tex_sampler), uvTransformed);
+    return result;
+}
+
+#endif
