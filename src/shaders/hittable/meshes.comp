@@ -122,16 +122,16 @@ float map(float value, float min1, float max1, float min2, float max2)
 vec3 light_off = -vec_unit(vec3(-1.99851,  1.53129, -3.35852 ));
 vec4 sky_color(Ray r)
 {
-     return vec4(0);
+   //  return vec4(0);
     //   //return vec4(1);
    //    return vec4(vec3(0.251, 0.612, 1), 1);
     vec3 unit_direction = vec_unit(r.direction);
-    float rad = (0.009285) / 40  ;
-    float ldir = map(clamp(dot(-light_off, unit_direction), 1.0 - rad, 1.0), 1.0 - rad, 1.0, 0, 1);
+   // float rad = (0.009285) / 40  ;
+   // float ldir = map(clamp(dot(-light_off, unit_direction), 1.0 - rad, 1.0), 1.0 - rad, 1.0, 0, 1);
 
     //  return vec4(0, 0, 0, 1);
  // return vec4(mix(vec3(0.23, 0.36, 0.41), vec3(0.9922, 0.9843, 0.8275) * (100), ldir), 1);
-   return vec4(mix(vec3(0), vec3(1) * (100), ldir), 1);
+  // return vec4(mix(vec3(0), vec3(1) * (100), ldir), 1);
 
 
     float t = acos(unit_direction.y);
