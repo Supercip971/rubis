@@ -4,7 +4,7 @@
 #include <vulkan/vulkan_core.h>
 
 static VkInstance selected_instance = VK_NULL_HANDLE;
-void init_loader(VkInstance *instance)
+void vulkan_init_func_ptr_loader(VkInstance *instance)
 {
     selected_instance = *instance;
 }

@@ -13,6 +13,6 @@ typedef struct
     bool _has_present_family;
 } QueueFamilyIndices;
 
-void vulkan_pick_physical_device(VulkanCtx *self);
+void vulkan_pick_physical_device(VulkanCoreCtx *self);
 
-QueueFamilyIndices vulkan_pick_queue_family(VulkanCtx *self);
+QueueFamilyIndices vulkan_pick_queue_family(VulkanCoreCtx *self);

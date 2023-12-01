@@ -16,8 +16,10 @@ CFLAGS_WARNS ?= 	\
 		-Wvla
 
 CFLAGS = 			\
-		-Ofast 		\
+		-O3 		\
 		-g 		 	\
+		-march=native \
+		-mtune=native \
 		-std=gnu2x  \
 		-Isrc/      \
 		$(CFLAGS_WARNS) $(shell pkg-config --cflags json-c)

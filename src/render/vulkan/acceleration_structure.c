@@ -75,7 +75,7 @@ void prepare_blas(VulkanCtx *self, AccelerationStructures *array, VkBuildAcceler
     // from spec, it doesn't read any data,
     // "VkDeviceOrHostAddressKHR members of pBuildInfo are ignored by this command"
     // So I don't expect that we need to offset anything ?
-    vkGetAccelerationStructureBuildSizesKHR(self->logical_device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &build_info, maxprim_count.data, &size_info);
+    vkGetAccelerationStructureBuildSizesKHR(self->gfx.device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &build_info, maxprim_count.data, &size_info);
 
     array->data[id].build_info = build_info;
     array->data[id].requested_size = size_info.accelerationStructureSize;
@@ -91,7 +91,7 @@ void create_Blas(VulkanCtx *self, AccelerationStructures *array, ObjIndices *ind
 {
     // if (query_pool)
     //{
-    //     vkResetQueryPool(self->logical_device, query_pool, 0, indices->length);
+    //     vkResetQueryPool(self->device, query_pool, 0, indices->length);
     // }
 
     (void)query_pool;
@@ -118,7 +118,7 @@ void create_Blas(VulkanCtx *self, AccelerationStructures *array, ObjIndices *ind
         acceleration_structure->build_info.scratchData.deviceAddress = vk_buffer_addr(self, scratch);
         acceleration_structure->build_info.dstAccelerationStructure = acceleration_structure->handle;
 
-        vk_try$(vkCreateAccelerationStructureKHR(self->logical_device, &create_info, NULL, &acceleration_structure->handle));
+        vk_try$(vkCreateAccelerationStructureKHR(self->gfx.device, &create_info, NULL, &acceleration_structure->handle));
     }
 }
 
@@ -126,7 +126,7 @@ void create_Tlas(VulkanCtx *self, AccelerationStructures *array, ObjIndices *ind
 {
     // if (query_pool)
     //{
-    //     vkResetQueryPool(self->logical_device, query_pool, 0, indices->length);
+    //     vkResetQueryPool(self->device, query_pool, 0, indices->length);
     // }
 
     (void)query_pool;
@@ -196,7 +196,7 @@ void create_Tlas(VulkanCtx *self, AccelerationStructures *array, ObjIndices *ind
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR,
     };
 
-    vkGetAccelerationStructureBuildSizesKHR(self->logical_device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &num_instances, &sizeInfo);
+    vkGetAccelerationStructureBuildSizesKHR(self->gfx.device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildInfo, &num_instances, &sizeInfo);
 
     VulkanBuffer tlas_buffer = vk_buffer_alloc(self, sizeInfo.accelerationStructureSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
@@ -207,14 +207,14 @@ void create_Tlas(VulkanCtx *self, AccelerationStructures *array, ObjIndices *ind
         .buffer = tlas_buffer.buffer,
     };
 
-    vk_try$(vkCreateAccelerationStructureKHR(self->logical_device, &create_info, NULL, &self->tlas));
+    vk_try$(vkCreateAccelerationStructureKHR(self->gfx.device, &create_info, NULL, &self->tlas));
 
     VulkanBuffer tlas_scratch_buffer = vk_buffer_alloc(self, sizeInfo.buildScratchSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     buildInfo.dstAccelerationStructure = self->tlas;
     buildInfo.scratchData.deviceAddress = vk_buffer_addr(self, tlas_scratch_buffer);
 
-    VkCommandBuffer tmp_cmd = vk_start_single_time_command(self);
+    VkCommandBuffer tmp_cmd = vk_start_single_time_command(&self->gfx);
     {
         VkAccelerationStructureBuildRangeInfoKHR range = {};
         range.primitiveCount = num_instances;
@@ -225,7 +225,7 @@ void create_Tlas(VulkanCtx *self, AccelerationStructures *array, ObjIndices *ind
 
         vkCmdBuildAccelerationStructuresKHR(tmp_cmd, 1, &buildInfo, ranges);
     }
-    vk_end_single_time_command(self, tmp_cmd);
+    vk_end_single_time_command(&self->gfx, tmp_cmd);
 
 
 
@@ -233,7 +233,7 @@ void create_Tlas(VulkanCtx *self, AccelerationStructures *array, ObjIndices *ind
         .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
         .accelerationStructure = self->tlas,
     };
-    self->tlas_address = vkGetAccelerationStructureDeviceAddressKHR(self->logical_device, &addressInfo);
+    self->tlas_address = vkGetAccelerationStructureDeviceAddressKHR(self->gfx.device, &addressInfo);
     // int len = array->length;
 }
 
@@ -282,7 +282,7 @@ void init_acceleration_structure(VulkanCtx *self)
 
         vec_push(&blas_indices, i);
     }
-    VkCommandBuffer cmd = vk_start_single_time_command(self);
+    VkCommandBuffer cmd = vk_start_single_time_command(&self->gfx);
 
     create_Blas(self, &structures, &blas_indices, scratch_buffer, query_pool);
 
@@ -305,9 +305,9 @@ void init_acceleration_structure(VulkanCtx *self)
                              0, 1, &memoryBarrier, 0, NULL, 0, NULL);
 
         // for the scratch buffer
-        //  vk_try$(vkGetAccelerationStructureBuildSizesKHR(self->logical_device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &acceleration_structure->build_info, &acceleration_structure->primitive_count, &acceleration_structure->build_sizes));
+        //  vk_try$(vkGetAccelerationStructureBuildSizesKHR(self->device, VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &acceleration_structure->build_info, &acceleration_structure->primitive_count, &acceleration_structure->build_sizes));
     }
-    vk_end_single_time_command(self, cmd);
+    vk_end_single_time_command(&self->gfx, cmd);
 
     for (int i = 0; i < blas_indices.length; i++)
     {
@@ -317,11 +317,11 @@ void init_acceleration_structure(VulkanCtx *self)
             .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
             .accelerationStructure = acceleration_structure->handle,
         };
-        acceleration_structure->handle_addr = vkGetAccelerationStructureDeviceAddressKHR(self->logical_device, &addressInfo);
+        acceleration_structure->handle_addr = vkGetAccelerationStructureDeviceAddressKHR(self->gfx.device, &addressInfo);
     }
 
     create_Tlas(self, &structures,& blas_indices, query_pool);
-    //    vkDestroyQueryPool(self->logical_device, query_pool, NULL);
+    //    vkDestroyQueryPool(self->device, query_pool, NULL);
 
  vk_buffer_free(self, scratch_buffer);
 
@@ -332,9 +332,9 @@ void deinit_acceleration_structure(VulkanCtx *self)
 {
     for (int i = 0; i < self->accels.length; i++)
     {
-        vkDestroyAccelerationStructureKHR(self->logical_device, self->accels.data[i].handle, NULL);
+        vkDestroyAccelerationStructureKHR(self->gfx.device, self->accels.data[i].handle, NULL);
     }
-    vkDestroyAccelerationStructureKHR(self->logical_device, self->tlas,NULL);
+    vkDestroyAccelerationStructureKHR(self->gfx.device, self->tlas,NULL);
     vec_deinit(&self->accels);
 }
 #endif

@@ -25,7 +25,7 @@
 HittableRecord world_hit(Ray r, int denya, int denyb)
 {
 
-    float cmin = 0.00001f;
+    float cmin = 0.000001f;
     float cmax = 100000.f;
 
     HittableRecord rec;

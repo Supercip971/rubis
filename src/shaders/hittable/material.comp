@@ -135,14 +135,14 @@ MaterialRecord material_hit_info(HittableRecord record, Ray r)
 #if 0
     if (true)
     {
-        result.emitted = vec3(albedo_T.id, metallic_roughness_T.id, emit_T.id) / 11.0; 
+        result.emitted = vec3(alpha,0,0) ; 
 
 
-        if(albedo_T.id > 11 || metallic_roughness_T.id > 11 || emit_T.id > 11)
-        {
-            result.emitted = vec3(0, 0, 0);
+       //if(albedo_T.id > 11 || metallic_roughness_T.id > 11 || emit_T.id > 11)
+       //{
+       //    result.emitted = vec3(0, 0, 0);
 
-        }
+       //}
         result.do_scatter = false;
         return result;
     }
@@ -199,7 +199,7 @@ MaterialRecord material_hit_info(HittableRecord record, Ray r)
 
     result.ior = refract_ratio;
 
-    result.transparent = (alpha < random()) ? true : false;
+    result.transparent = (alpha*alpha < random()) ? true : false;
 
     transmission *= (1 - result.metallic);
 

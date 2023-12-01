@@ -61,7 +61,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(
     return VK_FALSE;
 }
 
-static VkResult vulkan_create_debug_messenger(VulkanCtx *self, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator)
+static VkResult vulkan_create_debug_messenger(VulkanCoreCtx *self, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator)
 {
     PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(self->instance, "vkCreateDebugUtilsMessengerEXT");
     if (func != NULL)
@@ -83,7 +83,7 @@ static void vulkan_destroy_debug_messenger(VkInstance instance, VkDebugUtilsMess
     }
 }
 
-void vulkan_debug_deinit(VulkanCtx *ctx)
+void vulkan_debug_deinit(VulkanCoreCtx *ctx)
 {
     vulkan_destroy_debug_messenger(ctx->instance, ctx->debug_messenger, NULL);
 }
@@ -100,7 +100,7 @@ void vulkan_debug_info(VkDebugUtilsMessengerCreateInfoEXT *info)
     };
 }
 
-void vulkan_debug_init(VulkanCtx *ctx)
+void vulkan_debug_init(VulkanCoreCtx *ctx)
 {
     VkDebugUtilsMessengerCreateInfoEXT info;
     vulkan_debug_info(&info);

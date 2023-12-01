@@ -11,17 +11,17 @@ void vulkan_sync_init(VulkanCtx *ctx)
         .flags = VK_FENCE_CREATE_SIGNALED_BIT,
     };
 
-    vk_try$(vkCreateSemaphore(ctx->logical_device, &create_info, NULL, &ctx->image_available_semaphore));
-    vk_try$(vkCreateSemaphore(ctx->logical_device, &create_info, NULL, &ctx->render_finished_semaphore));
+    vk_try$(vkCreateSemaphore(ctx->gfx.device, &create_info, NULL, &ctx->image_available_semaphore));
+    vk_try$(vkCreateSemaphore(ctx->gfx.device, &create_info, NULL, &ctx->render_finished_semaphore));
 
-    vk_try$(vkCreateFence(ctx->logical_device, &fence_create, NULL, &ctx->in_flight_fence));
-    vk_try$(vkCreateFence(ctx->logical_device, &fence_create, NULL, &ctx->compute_fence));
+    vk_try$(vkCreateFence(ctx->gfx.device, &fence_create, NULL, &ctx->in_flight_fence));
+    vk_try$(vkCreateFence(ctx->gfx.device, &fence_create, NULL, &ctx->compute_fence));
 }
 
 void vulkan_sync_deinit(VulkanCtx *ctx)
 {
-    vkDestroySemaphore(ctx->logical_device, ctx->image_available_semaphore, NULL);
-    vkDestroySemaphore(ctx->logical_device, ctx->render_finished_semaphore, NULL);
+    vkDestroySemaphore(ctx->gfx.device, ctx->image_available_semaphore, NULL);
+    vkDestroySemaphore(ctx->gfx.device, ctx->render_finished_semaphore, NULL);
 
-    vkDestroyFence(ctx->logical_device, ctx->in_flight_fence, NULL);
+    vkDestroyFence(ctx->gfx.device, ctx->in_flight_fence, NULL);
 }

@@ -50,6 +50,8 @@ typedef struct
 } VulkanConstants;
 
 _Static_assert(sizeof(VulkanConstants) < 125, "VulkanConstants is not 256 bytes");
+
+/*
 typedef struct
 {
     VkQueue queue;
@@ -62,6 +64,7 @@ typedef struct
     VkPipeline raw_pipeline;
     int32_t pipeline_idx;
 } VulkanCompute;
+*/
 
 typedef struct
 {
@@ -108,51 +111,102 @@ typedef struct
 typedef vec_t(AccelerationStructure) AccelerationStructures;
 
 
-typedef struct
+typedef struct 
 {
     VkApplicationInfo app_info;
-    VkInstance instance;
-    VkPhysicalDevice physical_device;
-    VkDevice logical_device;
-    VkQueue gfx_queue;
-    VkQueue comp_queue;
-
-    VkQueue present_queue;
     VulkanExts exts;
-    VkSwapchainKHR swapchain;
-    VkDebugUtilsMessengerEXT debug_messenger;
+    
+    VkInstance instance;
+    int aligned_width;
+    int aligned_height;
 
+    // extended debug
+    VkDebugUtilsMessengerEXT debug_messenger;
+    
+    // surface
     VkSurfaceKHR surface;
 
+    // device selection
+    VkPhysicalDevice physical_device;
+} VulkanCoreCtx;
+
+
+typedef struct 
+{
+    VkSwapchainKHR handle;
+    VkExtent2D extend;
+    VkFormat format;
     uint32_t image_cnt;
 
-    SwapImages swapchain_images;
-    SwapImageViews swapchain_img_view;
+    SwapImages images;
+    SwapImageViews img_view;
+} VulkanSwapchainCtx;
 
-    VkExtent2D extend;
-    VkFormat swapchain_image_format;
-    VkPipelineLayout pipeline_layout;
-    VkPipelineLayout compute_pipeline_layout;
+typedef struct 
+{
+    VkCommandPool command_pool;
+    VkQueue queue;
+    VkCommandBuffer command_buffer;
+} VulkanDevInterface;
+
+typedef struct 
+{
+    VkPipelineLayout layout;
+    VkPipeline handle;
+} VulkanPipeline; 
+typedef struct 
+{
+    VkDevice device;
+    VulkanSwapchainCtx swapchain;
+
+    VulkanDevInterface gfx;
+    VulkanDevInterface compute;
+
+    VulkanPipeline gfx_pipeline;
+    VulkanPipeline compute_pipeline;
+
+    VulkanPipeline compute_preview_pipeline;
 
 
-    VkPipeline gfx_pipeline;
-    VkPipelineLayout compute_preview_pipeline_layout;
+    VkDescriptorSetLayout descriptor_layout;
+    VkDescriptorSet descriptor_set;
+
+    // more abstracted components 
+
+    VulkanTex comp_targ;
+    VulkanTex fragment_image;
+
+    // - commands pools- 
+    //VkCommandPool cmd_pool;
+   // VkCommandPool comp_pool;
+    // - queues - 
+    //VkQueue gfx_queue;
+    //VkQueue comp_queue;
+} VulkanGfxCtx;
+
+typedef struct 
+{
+    
+} VulkanAppCtx;
+typedef struct
+{
+    VulkanCoreCtx core;
+    VulkanGfxCtx gfx;
+
+    VkQueue present_queue;
+
+   // VkPipelineLayout pipeline_layout;
+    //VkPipelineLayout compute_pipeline_layout;
 
 
-    VkPipeline compute_preview_pipeline;
-    VkPipeline compute_pipeline;
 
     VkRenderPass render_pass;
 
     Framebuffers framebuffers;
 
-    VkCommandPool cmd_pool;
-    VkCommandPool comp_pool;
     VkDescriptorPool gui_pool;
 
 
-    VkCommandBuffer cmd_buffer;
-    VkCommandBuffer comp_buffer;
 
     VkSemaphore image_available_semaphore;
     VkFence compute_fence;
@@ -160,13 +214,10 @@ typedef struct
     VkSemaphore render_finished_semaphore;
     VkFence in_flight_fence;
 
-    VulkanCompute compute;
+    //VulkanCompute compute;
 
-    VkDescriptorSetLayout descriptor_layout;
-    VkDescriptorSet descriptor_set;
 
     VulkanBuffer computing_image;
-    VulkanTex fragment_image;
 
     VulkanBuffer config_buf;
 
@@ -186,7 +237,6 @@ typedef struct
     VulkanTexArrays combined_textures;
    // VulkanTex _combined_textures;
     VulkanTex skymap;
-    VulkanTex comp_targ;
     VulkanTex frag_targ;
     VulkanTex depth_buffer;
 
@@ -208,8 +258,6 @@ typedef struct
     VkQueryPool qpool;
 
 
-    int aligned_width;
-    int aligned_height;
     int threads_size;
 
     vec_t(VkQueue) submitting;

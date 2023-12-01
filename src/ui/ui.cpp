@@ -43,15 +43,15 @@ extern "C" void ui_init(void *window_handle, VulkanCtx *ctx)
     pool_info.poolSizeCount = sizeof(pool_sizes) / sizeof(VkDescriptorPoolSize);
     pool_info.pPoolSizes = pool_sizes;
 
-    vk_try$(vkCreateDescriptorPool(ctx->logical_device, &pool_info, NULL, &ctx->gui_pool));
+    vk_try$(vkCreateDescriptorPool(ctx->gfx.device, &pool_info, NULL, &ctx->gui_pool));
 
     ImGui_ImplGlfw_InitForVulkan((GLFWwindow *)window_handle, true);
 
     struct ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = ctx->instance;
-    init_info.PhysicalDevice = ctx->physical_device;
-    init_info.Device = ctx->logical_device;
-    init_info.Queue = ctx->gfx_queue;
+    init_info.Instance = ctx->core.instance;
+    init_info.PhysicalDevice = ctx->core.physical_device;
+    init_info.Device = ctx->gfx.device;
+    init_info.Queue = ctx->gfx.gfx.queue;
     init_info.DescriptorPool = ctx->gui_pool;
     init_info.MinImageCount = 3;
     init_info.ImageCount = 3;
@@ -59,11 +59,11 @@ extern "C" void ui_init(void *window_handle, VulkanCtx *ctx)
 
     ImGui_ImplVulkan_Init(&init_info, ctx->render_pass);
 
-    VkCommandBuffer cmd = vk_start_single_time_command(ctx);
+    VkCommandBuffer cmd = vk_start_single_time_command(&ctx->gfx);
 
     ImGui_ImplVulkan_CreateFontsTexture(cmd);
 
-    vk_end_single_time_command(ctx, cmd);
+    vk_end_single_time_command(&ctx->gfx, cmd);
 
     ImGui_ImplVulkan_DestroyFontUploadObjects();
 
@@ -130,12 +130,12 @@ extern "C" void ui_end()
 
 extern "C" void ui_record(VulkanCtx *ctx)
 {
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), ctx->cmd_buffer);
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), ctx->gfx.gfx.command_buffer);
 }
 extern "C" void ui_deinit(VulkanCtx *ctx)
 {
 
-    vkDestroyDescriptorPool(ctx->logical_device, ctx->gui_pool, NULL);
+    vkDestroyDescriptorPool(ctx->gfx.device, ctx->gui_pool, NULL);
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();

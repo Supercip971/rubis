@@ -1,6 +1,6 @@
 #include <render/vulkan/img_view.h>
 
-void vulkan_create_imageview(VulkanCtx *ctx, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VkImageView *imageView)
+void vulkan_create_imageview(VulkanGfxCtx *ctx, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VkImageView *imageView)
 
 {
     VkImageViewCreateInfo viewInfo = {
@@ -23,26 +23,26 @@ void vulkan_create_imageview(VulkanCtx *ctx, VkImage image, VkFormat format, VkI
         },
     };
 
-    vk_try$(vkCreateImageView(ctx->logical_device, &viewInfo, NULL, imageView));
+    vk_try$(vkCreateImageView(ctx->device, &viewInfo, NULL, imageView));
 }
 
-void vulkan_image_view_init(VulkanCtx *ctx)
+void vulkan_image_view_init(VulkanGfxCtx *ctx)
 {
 
-    int img_view_cnt = ctx->swapchain_images.length;
-    vec_init(&ctx->swapchain_img_view);
-    vec_resize(&ctx->swapchain_img_view, img_view_cnt);
+    int img_view_cnt = ctx->swapchain.images.length;
+    vec_init(&ctx->swapchain.img_view);
+    vec_resize(&ctx->swapchain.img_view, img_view_cnt);
 
     for (int i = 0; i < img_view_cnt; i++)
     {
-        vulkan_create_imageview(ctx, ctx->swapchain_images.data[i], ctx->swapchain_image_format, VK_IMAGE_ASPECT_COLOR_BIT, &ctx->swapchain_img_view.data[i]);
+        vulkan_create_imageview(ctx, ctx->swapchain.images.data[i], ctx->swapchain.format, VK_IMAGE_ASPECT_COLOR_BIT, &ctx->swapchain.img_view.data[i]);
     }
 }
 
-void vulkan_image_view_deinit(VulkanCtx *ctx)
+void vulkan_image_view_deinit(VulkanGfxCtx *ctx)
 {
-    for (int i = 0; i < ctx->swapchain_img_view.length; i++)
+    for (int i = 0; i < ctx->swapchain.img_view.length; i++)
     {
-        vkDestroyImageView(ctx->logical_device, ctx->swapchain_img_view.data[i], NULL);
+        vkDestroyImageView(ctx->device, ctx->swapchain.img_view.data[i], NULL);
     }
 }

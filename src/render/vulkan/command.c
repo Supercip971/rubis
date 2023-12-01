@@ -10,7 +10,7 @@
 #include "render/vulkan/vulkan.h"
 void vulkan_cmd_pool_init(VulkanCtx *ctx)
 {
-    QueueFamilyIndices queue_family_idx = vulkan_pick_queue_family(ctx);
+    QueueFamilyIndices queue_family_idx = vulkan_pick_queue_family(&ctx->core);
 
     VkCommandPoolCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -18,7 +18,7 @@ void vulkan_cmd_pool_init(VulkanCtx *ctx)
         .queueFamilyIndex = queue_family_idx.family_idx,
     };
 
-    vk_try$(vkCreateCommandPool(ctx->logical_device, &create_info, NULL, &ctx->cmd_pool));
+    vk_try$(vkCreateCommandPool(ctx->gfx.device, &create_info, NULL, &ctx->gfx.gfx.command_pool));
 
     VkCommandPoolCreateInfo comp_create_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -26,38 +26,38 @@ void vulkan_cmd_pool_init(VulkanCtx *ctx)
         .queueFamilyIndex = queue_family_idx.compute_idx,
     };
 
-    vk_try$(vkCreateCommandPool(ctx->logical_device, &comp_create_info, NULL, &ctx->comp_pool));
+    vk_try$(vkCreateCommandPool(ctx->gfx.device, &comp_create_info, NULL, &ctx->gfx.compute.command_pool));
 }
 
 void vulkan_cmd_pool_deinit(VulkanCtx *ctx)
 {
-    vkDestroyCommandPool(ctx->logical_device, ctx->cmd_pool, NULL);
+    vkDestroyCommandPool(ctx->gfx.device, ctx->gfx.gfx.command_pool, NULL);
 }
 
-void vulkan_compute_cmd_buffer_record(VulkanCtx *ctx)
+void vulkan_compute_cmd_buffer_record(VulkanGfxCtx *ctx, int threads_size, void* constants)
 {
 
-    vkResetCommandBuffer(ctx->comp_buffer, 0);
+    vkResetCommandBuffer(ctx->compute.command_buffer, 0);
 
     VkCommandBufferBeginInfo begin_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = 0,
     };
 
-    vk_try$(vkBeginCommandBuffer(ctx->comp_buffer, &begin_info));
+    vk_try$(vkBeginCommandBuffer(ctx->compute.command_buffer, &begin_info));
     {
-        vkCmdBindPipeline(ctx->comp_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, ctx->compute.raw_pipeline);
+        vkCmdBindPipeline(ctx->compute.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, ctx->compute_pipeline.handle);
 
-        vkCmdBindDescriptorSets(ctx->comp_buffer,
+        vkCmdBindDescriptorSets(ctx->compute.command_buffer,
                                 VK_PIPELINE_BIND_POINT_COMPUTE,
-                                ctx->compute_pipeline_layout, 0, 1, &ctx->descriptor_set, 0, 0);
+                                ctx->compute_pipeline.layout, 0, 1, &ctx->descriptor_set, 0, 0);
 
         //    vkCmdPushConstants(ctx->cmd_buffer, ctx->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VulkanConstants), (void*)&ctx->cfg);
 
-        vkCmdPushConstants(ctx->comp_buffer, ctx->compute_pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VulkanConstants), (void *)&ctx->cfg);
+        vkCmdPushConstants(ctx->compute.command_buffer, ctx->compute_pipeline.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VulkanConstants), (void *)constants);
 
-        int divider = get_config().scale_divider * ctx->threads_size;
-        vkCmdDispatch(ctx->comp_buffer, ctx->comp_targ.width / divider, ctx->comp_targ.height / divider, 1);
+        int divider = get_config().scale_divider * threads_size;
+        vkCmdDispatch(ctx->compute.command_buffer, ctx->comp_targ.width / divider, ctx->comp_targ.height / divider, 1);
 
         VkImageCopy region = {
             .srcSubresource = {
@@ -79,50 +79,51 @@ void vulkan_compute_cmd_buffer_record(VulkanCtx *ctx)
             .extent = {.width = ctx->comp_targ.width, .height = ctx->comp_targ.height, .depth = 1},
         };
 
-        vkCmdCopyImage(ctx->comp_buffer, ctx->comp_targ.image, ctx->comp_targ.desc_info.imageLayout, ctx->fragment_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+        vkCmdCopyImage(ctx->compute.command_buffer, ctx->comp_targ.image, ctx->comp_targ.desc_info.imageLayout, ctx->fragment_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
         //vkCmdCopyImageToBuffer(ctx->comp_buffer, ctx->comp_targ.image, ctx->comp_targ.desc_info.imageLayout, ctx->fragment_image.buffer, 1, &region);
     }
-    vk_try$(vkEndCommandBuffer(ctx->comp_buffer));
+    vk_try$(vkEndCommandBuffer(ctx->compute.command_buffer));
 }
 
-void vulkan_cmd_buffer_init(VulkanCtx *ctx)
+void vulkan_cmd_buffer_init(VulkanGfxCtx *ctx)
 {
     VkCommandBufferAllocateInfo command_alloc_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = ctx->cmd_pool,
+        .commandPool = ctx->gfx.command_pool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1,
     };
 
-    vkAllocateCommandBuffers(ctx->logical_device, &command_alloc_info, &ctx->cmd_buffer);
+    vkAllocateCommandBuffers(ctx->device, &command_alloc_info, &ctx->gfx.command_buffer);
 
     VkCommandBufferAllocateInfo compute_alloc_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-        .commandPool = ctx->comp_pool,
+        .commandPool = ctx->compute.command_pool,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1,
     };
 
-    vkAllocateCommandBuffers(ctx->logical_device, &compute_alloc_info, &ctx->comp_buffer);
+    vkAllocateCommandBuffers(ctx->device, &compute_alloc_info, &ctx->compute.command_buffer);
 }
 
 void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
 {
+
     (void)refresh;
     VkCommandBufferBeginInfo begin_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
     };
 
-    vkResetCommandBuffer(ctx->cmd_buffer, 0);
+    vkResetCommandBuffer(ctx->gfx.gfx.command_buffer, 0);
 
-    vk_try$(vkBeginCommandBuffer(ctx->cmd_buffer, &begin_info));
+    vk_try$(vkBeginCommandBuffer(ctx->gfx.gfx.command_buffer, &begin_info));
 
     VkRenderPassBeginInfo render_pass_info = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
         .renderPass = ctx->render_pass,
         .framebuffer = ctx->framebuffers.data[img_idx],
         .renderArea = {
-            .extent = ctx->extend,
+            .extent = ctx->gfx.swapchain.extend,
         },
         .clearValueCount = 0,
     };
@@ -142,11 +143,11 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
     if (get_config().show_raster)
     {
 
-        vkCmdBeginRenderPass(ctx->cmd_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBeginRenderPass(ctx->gfx.gfx.command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
         {
 
-            vkCmdBindPipeline(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->gfx_pipeline);
-            vkCmdBindDescriptorSets(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->pipeline_layout, 0, 1, &ctx->descriptor_set, 0, NULL);
+            vkCmdBindPipeline(ctx->gfx.gfx.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->gfx.gfx_pipeline.handle);
+            vkCmdBindDescriptorSets(ctx->gfx.gfx.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->gfx.gfx_pipeline.layout, 0, 1, &ctx->gfx.descriptor_set, 0, NULL);
 
             for (int i = 0; i < ctx->scene.meshes.length; i++)
             {
@@ -168,9 +169,9 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
                 VulkanConstants node = ctx->cfg;
                 node.mesh_id = i;
                 node.material_offset = mesh.material.start;
-                vkCmdPushConstants(ctx->cmd_buffer, ctx->pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VulkanConstants), &node);
-                vkCmdBindVertexBuffers(ctx->cmd_buffer, 0, 1, vertex_buffers, offsets);
-                vkCmdDraw(ctx->cmd_buffer, data_size / SVERTEX_PACKED_COUNT, 1, 0, 0);
+                vkCmdPushConstants(ctx->gfx.gfx.command_buffer, ctx->gfx.gfx_pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VulkanConstants), &node);
+                vkCmdBindVertexBuffers(ctx->gfx.gfx.command_buffer, 0, 1, vertex_buffers, offsets);
+                vkCmdDraw(ctx->gfx.gfx.command_buffer, data_size / SVERTEX_PACKED_COUNT, 1, 0, 0);
             }
 
             if(get_config().show_ui)
@@ -178,17 +179,17 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
                 ui_record(ctx);
             }
         }
-        vkCmdEndRenderPass(ctx->cmd_buffer);
+        vkCmdEndRenderPass(ctx->gfx.gfx.command_buffer);
     }
     else
     {
-        vkCmdBeginRenderPass(ctx->cmd_buffer, &render_pass_info, 0);
+        vkCmdBeginRenderPass(ctx->gfx.gfx.command_buffer, &render_pass_info, 0);
         {
-            vkCmdBindPipeline(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->compute_preview_pipeline);
+            vkCmdBindPipeline(ctx->gfx.gfx.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->gfx.compute_preview_pipeline.handle);
 
-            vkCmdPushConstants(ctx->cmd_buffer, ctx->compute_preview_pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(VulkanConstants), (void *)&ctx->cfg);
-            vkCmdBindDescriptorSets(ctx->cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->compute_preview_pipeline_layout, 0, 1, &ctx->descriptor_set, 0, NULL);
-            vkCmdDraw(ctx->cmd_buffer, 6, 1, 0, 0);
+            vkCmdPushConstants(ctx->gfx.gfx.command_buffer, ctx->gfx.compute_preview_pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(VulkanConstants), (void *)&ctx->cfg);
+            vkCmdBindDescriptorSets(ctx->gfx.gfx.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->gfx.compute_preview_pipeline.layout, 0, 1, &ctx->gfx.descriptor_set, 0, NULL);
+            vkCmdDraw(ctx->gfx.gfx.command_buffer, 6, 1, 0, 0);
  
             if(get_config().show_ui)
             {
@@ -196,23 +197,23 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
             }     
         }
 
-        vkCmdEndRenderPass(ctx->cmd_buffer);
+        vkCmdEndRenderPass(ctx->gfx.gfx.command_buffer);
     }
 
-    vk_try$(vkEndCommandBuffer(ctx->cmd_buffer));
+    vk_try$(vkEndCommandBuffer(ctx->gfx.gfx.command_buffer));
 }
 
-VkCommandBuffer vk_start_single_time_command(VulkanCtx *ctx)
+VkCommandBuffer vk_start_single_time_command(VulkanGfxCtx *ctx)
 {
     VkCommandBufferAllocateInfo alloc_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-        .commandPool = ctx->cmd_pool,
+        .commandPool = ctx->gfx.command_pool,
         .commandBufferCount = 1,
     };
 
     VkCommandBuffer cmd_buf;
-    vkAllocateCommandBuffers(ctx->logical_device, &alloc_info, &cmd_buf);
+    vkAllocateCommandBuffers(ctx->device, &alloc_info, &cmd_buf);
 
     VkCommandBufferBeginInfo begin_info = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -223,7 +224,7 @@ VkCommandBuffer vk_start_single_time_command(VulkanCtx *ctx)
 
     return cmd_buf;
 }
-void vk_end_single_time_command(VulkanCtx *ctx, VkCommandBuffer cmd_buf)
+void vk_end_single_time_command(VulkanGfxCtx *ctx, VkCommandBuffer cmd_buf)
 {
     vkEndCommandBuffer(cmd_buf);
 
@@ -233,8 +234,8 @@ void vk_end_single_time_command(VulkanCtx *ctx, VkCommandBuffer cmd_buf)
         .pCommandBuffers = &cmd_buf,
     };
 
-    vkQueueSubmit(ctx->gfx_queue, 1, &submit, VK_NULL_HANDLE);
+    vkQueueSubmit(ctx->gfx.queue, 1, &submit, VK_NULL_HANDLE);
 
-    vkQueueWaitIdle(ctx->gfx_queue);
-    vkFreeCommandBuffers(ctx->logical_device, ctx->cmd_pool, 1, &cmd_buf);
+    vkQueueWaitIdle(ctx->gfx.queue);
+    vkFreeCommandBuffers(ctx->device, ctx->gfx.command_pool, 1, &cmd_buf);
 }

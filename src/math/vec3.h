@@ -208,21 +208,28 @@ static inline float vec3_dot(Vec3 vec1, Vec3 vec2)
 }
 static inline bool is_vec3_near_zero(Vec3 vec)
 {
-    const float precision = 1e-8;
+    const float precision = 1e-6;
 
     return (fabs((double)vec.x) < precision) && (fabs((double)vec.y) < precision) && (fabs((double)vec.z) < precision);
 }
 static inline bool is_vec3_near_zero_l(Vec3 vec)
 {
-    const float precision = 1e-8;
-    return (fabs((double)vec.x) < precision) && (fabs((double)vec.y) < precision) && (fabs((double)vec.z) < precision);
+    const float precision = 1e-6;
+    return (fabsf(vec.x) <= precision) && (fabsf(vec.y) <= precision) && (fabsf(vec.z) <= precision);
+}
+static inline bool is_vec3_near_zero_p(Vec3 vec, float precision)
+{
+    return (fabsf(vec.x) <= precision) && (fabsf(vec.y) <= precision) && (fabsf(vec.z) <= precision);
 }
 
 static inline bool vec3_eq(Vec3 l, Vec3 r)
 {
     return is_vec3_near_zero_l(vec3_sub(l, r));
 }
-
+static inline bool vec3_eq_p(Vec3 l, Vec3 r, float precision)
+{
+    return is_vec3_near_zero_p(vec3_sub(l, r), precision);
+}
 /* vec / sqrt(vecx * vecx + vecy * vecy + vecz * vecz)
 // vec * 1/sqrt()
 // vec * Q_rdqrt()*/

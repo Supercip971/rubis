@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <vulkan/vulkan.h>
 
-static QueueFamilyIndices vulkan_find_queue_family(VulkanCtx *self, VkPhysicalDevice dev)
+static QueueFamilyIndices vulkan_find_queue_family(VulkanCoreCtx *self, VkPhysicalDevice dev)
 {
     QueueFamilyIndices idx = {};
     vec_t(VkQueueFamilyProperties) queue_famiy_properties = {};
@@ -73,14 +73,14 @@ static QueueFamilyIndices vulkan_find_queue_family(VulkanCtx *self, VkPhysicalDe
     return idx;
 }
 
-QueueFamilyIndices vulkan_pick_queue_family(VulkanCtx *self)
+QueueFamilyIndices vulkan_pick_queue_family(VulkanCoreCtx *self)
 {
 
     QueueFamilyIndices idx = vulkan_find_queue_family(self, self->physical_device);
     return idx;
 }
 
-static bool vulkan_is_device_suitable(VulkanCtx *self, VkPhysicalDevice device)
+static bool vulkan_is_device_suitable(VulkanCoreCtx *self, VkPhysicalDevice device)
 {
     VkPhysicalDeviceProperties properties;
     vkGetPhysicalDeviceProperties(device, &properties);
@@ -116,7 +116,7 @@ static bool vulkan_is_device_suitable(VulkanCtx *self, VkPhysicalDevice device)
     return true;
 }
 
-void vulkan_pick_physical_device(VulkanCtx *self)
+void vulkan_pick_physical_device(VulkanCoreCtx *self)
 {
     VkPhysicalDevice device = VK_NULL_HANDLE;
     uint32_t device_count = 0;
@@ -141,9 +141,11 @@ void vulkan_pick_physical_device(VulkanCtx *self)
         printf("device[%u]: %s \n", i, properties.deviceName);
         if (vulkan_is_device_suitable(self, devices.data[i]))
         {
+            printf("-> is suitable \n");
             device = devices.data[i];
             break;
         }
+        printf("-> was not suitable \n");
     }
 
     vec_deinit(&devices);

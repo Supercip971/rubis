@@ -1,4 +1,4 @@
 #pragma once 
 
 #include <vulkan/vulkan.h>
-void init_loader(VkInstance* instance);
+void vulkan_init_func_ptr_loader(VkInstance* instance);

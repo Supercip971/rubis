@@ -55,7 +55,7 @@ VulkanBuffer vulkan_scene_texture_data_init(VulkanCtx *ctx, uint32_t *final_size
 
 void image_load_from_buffer(VulkanCtx *ctx, VkImage target, uint32_t width, uint32_t height, uint32_t layout_count, VkBuffer buf)
 {
-    VkCommandBuffer cmd_buf = vk_start_single_time_command(ctx);
+    VkCommandBuffer cmd_buf = vk_start_single_time_command(&ctx->gfx);
     VkBufferImageCopy region = {
         .bufferImageHeight = 0,
         .bufferOffset = 0,
@@ -71,14 +71,14 @@ void image_load_from_buffer(VulkanCtx *ctx, VkImage target, uint32_t width, uint
     };
     vkCmdCopyBufferToImage(cmd_buf, buf, target, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
-    vk_end_single_time_command(ctx, cmd_buf);
+    vk_end_single_time_command(&ctx->gfx, cmd_buf);
 }
 
 void swap_image_layout(VulkanCtx *ctx, VkImage image, VkFormat fmt, VkImageLayout old, VkImageLayout new, int layers, bool compute, bool writable)
 {
     // TODO: improve this function
 
-    VkCommandBuffer cmd_buf = vk_start_single_time_command(ctx);
+    VkCommandBuffer cmd_buf = vk_start_single_time_command(&ctx->gfx);
     VkImageMemoryBarrier barrier = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         .oldLayout = old,
@@ -147,7 +147,7 @@ void swap_image_layout(VulkanCtx *ctx, VkImage image, VkFormat fmt, VkImageLayou
     }
     vkCmdPipelineBarrier(cmd_buf, src_stage, dst_stage, 0, 0, 0, 0, 0, 1, &barrier);
 
-    vk_end_single_time_command(ctx, cmd_buf);
+    vk_end_single_time_command(&ctx->gfx, cmd_buf);
 }
 
 VkImageView image_view_create(VulkanCtx *ctx, VkImage image, int layers, bool use_float)
@@ -165,7 +165,7 @@ VkImageView image_view_create(VulkanCtx *ctx, VkImage image, int layers, bool us
         .subresourceRange.layerCount = layers,
     };
     VkImageView view;
-    vk_try$(vkCreateImageView(ctx->logical_device, &view_info, NULL, &view));
+    vk_try$(vkCreateImageView(ctx->gfx.device, &view_info, NULL, &view));
 
     return view;
 }
@@ -189,7 +189,7 @@ VkSampler image_sampler_create(VulkanCtx *ctx)
     };
 
     VkSampler sampler;
-    vk_try$(vkCreateSampler(ctx->logical_device, &sampler_info, NULL, &sampler));
+    vk_try$(vkCreateSampler(ctx->gfx.device, &sampler_info, NULL, &sampler));
 
     return sampler;
 }
@@ -213,10 +213,10 @@ void vulkan_shader_shared_texture_init(VulkanCtx *ctx, VulkanTex *self, int widt
         .samples = VK_SAMPLE_COUNT_1_BIT,
     };
 
-    vk_try$(vkCreateImage(ctx->logical_device, &image_info, NULL, &self->image));
+    vk_try$(vkCreateImage(ctx->gfx.device, &image_info, NULL, &self->image));
 
     VkMemoryRequirements mem_requirements;
-    vkGetImageMemoryRequirements(ctx->logical_device, self->image, &mem_requirements);
+    vkGetImageMemoryRequirements(ctx->gfx.device, self->image, &mem_requirements);
 
     VkMemoryAllocateInfo alloc_info = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -224,9 +224,9 @@ void vulkan_shader_shared_texture_init(VulkanCtx *ctx, VulkanTex *self, int widt
         .memoryTypeIndex = find_memory_type(ctx, mem_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mem_requirements.size),
     };
 
-    vk_try$(vkAllocateMemory(ctx->logical_device, &alloc_info, NULL, &self->mem));
+    vk_try$(vkAllocateMemory(ctx->gfx.device, &alloc_info, NULL, &self->mem));
 
-    vk_try$(vkBindImageMemory(ctx->logical_device, self->image, self->mem, 0));
+    vk_try$(vkBindImageMemory(ctx->gfx.device, self->image, self->mem, 0));
 
     swap_image_layout(ctx, self->image, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_UNDEFINED, (fragment) ? (VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) : (VK_IMAGE_LAYOUT_GENERAL), 1, true, true);
 
@@ -256,10 +256,10 @@ static void vulkan_scene_texture_load_impl(VulkanCtx *ctx, VulkanTex *self, Vulk
         .samples = VK_SAMPLE_COUNT_1_BIT,
     };
 
-    vk_try$(vkCreateImage(ctx->logical_device, &image_info, NULL, &self->image));
+    vk_try$(vkCreateImage(ctx->gfx.device, &image_info, NULL, &self->image));
 
     VkMemoryRequirements mem_requirements;
-    vkGetImageMemoryRequirements(ctx->logical_device, self->image, &mem_requirements);
+    vkGetImageMemoryRequirements(ctx->gfx.device, self->image, &mem_requirements);
 
     VkMemoryAllocateInfo alloc_info = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -267,9 +267,9 @@ static void vulkan_scene_texture_load_impl(VulkanCtx *ctx, VulkanTex *self, Vulk
         .memoryTypeIndex = find_memory_type(ctx, mem_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mem_requirements.size),
     };
 
-    vk_try$(vkAllocateMemory(ctx->logical_device, &alloc_info, NULL, &self->mem));
+    vk_try$(vkAllocateMemory(ctx->gfx.device, &alloc_info, NULL, &self->mem));
 
-    vkBindImageMemory(ctx->logical_device, self->image, self->mem, 0);
+    vkBindImageMemory(ctx->gfx.device, self->image, self->mem, 0);
 
     swap_image_layout(ctx, self->image, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, depth, false, false);
 
@@ -348,7 +348,7 @@ void vulkan_scene_textures_init(VulkanCtx *ctx)
 {
     VulkanBuffer staging_buf;
 
-    vulkan_shader_shared_texture_init(ctx, &ctx->fragment_image, ctx->aligned_width, ctx->aligned_height, true);
+    vulkan_shader_shared_texture_init(ctx, &ctx->gfx.fragment_image, ctx->core.aligned_width, ctx->core.aligned_height, true);
 
     vulkan_scene_ressource_texture_init(ctx, &ctx->combined_textures);
 
@@ -372,26 +372,26 @@ void vulkan_scene_textures_init(VulkanCtx *ctx)
 void vulkan_scene_textures_deinit(VulkanCtx *ctx)
 {
 
-    //  vkDestroyImageView(ctx->logical_device, ctx->combined_textures.desc_info.imageView, NULL);
-    //  vkDestroySampler(ctx->logical_device, ctx->combined_textures.desc_info.sampler, NULL);
-    //  vkDestroyImage(ctx->logical_device, ctx->combined_textures.image, NULL);
-    //  vkFreeMemory(ctx->logical_device, ctx->combined_textures.mem, NULL);
+    //  vkDestroyImageView(ctx->device, ctx->combined_textures.desc_info.imageView, NULL);
+    //  vkDestroySampler(ctx->device, ctx->combined_textures.desc_info.sampler, NULL);
+    //  vkDestroyImage(ctx->device, ctx->combined_textures.image, NULL);
+    //  vkFreeMemory(ctx->device, ctx->combined_textures.mem, NULL);
     for(int i = 0; i < ctx->combined_textures.textures.length; i++)
     {
-        vkDestroyImageView(ctx->logical_device, ctx->combined_textures.textures.data[i].desc_info.imageView, NULL);
-        vkDestroyImage(ctx->logical_device, ctx->combined_textures.textures.data[i].image, NULL);
-        vkFreeMemory(ctx->logical_device, ctx->combined_textures.textures.data[i].mem, NULL);
+        vkDestroyImageView(ctx->gfx.device, ctx->combined_textures.textures.data[i].desc_info.imageView, NULL);
+        vkDestroyImage(ctx->gfx.device, ctx->combined_textures.textures.data[i].image, NULL);
+        vkFreeMemory(ctx->gfx.device, ctx->combined_textures.textures.data[i].mem, NULL);
     }
-    vkDestroyImageView(ctx->logical_device, ctx->skymap.desc_info.imageView, NULL);
-    vkDestroySampler(ctx->logical_device, ctx->skymap.desc_info.sampler, NULL);
-    vkDestroyImage(ctx->logical_device, ctx->skymap.image, NULL);
-    vkFreeMemory(ctx->logical_device, ctx->skymap.mem, NULL);
+    vkDestroyImageView(ctx->gfx.device, ctx->skymap.desc_info.imageView, NULL);
+    vkDestroySampler(ctx->gfx.device, ctx->skymap.desc_info.sampler, NULL);
+    vkDestroyImage(ctx->gfx.device, ctx->skymap.image, NULL);
+    vkFreeMemory(ctx->gfx.device, ctx->skymap.mem, NULL);
 
-    vkDestroyImageView(ctx->logical_device, ctx->fragment_image.desc_info.imageView, NULL);
-    vkDestroySampler(ctx->logical_device, ctx->fragment_image.desc_info.sampler, NULL);
-    vkDestroyImage(ctx->logical_device, ctx->fragment_image.image, NULL);
-    vkFreeMemory(ctx->logical_device, ctx->fragment_image.mem, NULL);
+    vkDestroyImageView(ctx->gfx.device, ctx->gfx.fragment_image.desc_info.imageView, NULL);
+    vkDestroySampler(ctx->gfx.device, ctx->gfx.fragment_image.desc_info.sampler, NULL);
+    vkDestroyImage(ctx->gfx.device, ctx->gfx.fragment_image.image, NULL);
+    vkFreeMemory(ctx->gfx.device, ctx->gfx.fragment_image.mem, NULL);
 
-    vkDestroySampler(ctx->logical_device, ctx->scene_sampler.desc_info.sampler, NULL);
+    vkDestroySampler(ctx->gfx.device, ctx->scene_sampler.desc_info.sampler, NULL);
     (void)ctx;
 }

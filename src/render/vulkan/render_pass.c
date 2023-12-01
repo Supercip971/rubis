@@ -3,7 +3,7 @@
 void vulkan_render_pass_init(VulkanCtx *ctx)
 {
     VkAttachmentDescription color_attachement = {
-        .format = ctx->swapchain_image_format,
+        .format = ctx->gfx.swapchain.format,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -65,9 +65,9 @@ void vulkan_render_pass_init(VulkanCtx *ctx)
         .pDependencies = &dependency,
     };
 
-    vk_try$(vkCreateRenderPass(ctx->logical_device, &create_info, NULL, &ctx->render_pass));
+    vk_try$(vkCreateRenderPass(ctx->gfx.device, &create_info, NULL, &ctx->render_pass));
 }
 void vulkan_render_pass_deinit(VulkanCtx *ctx)
 {
-    vkDestroyRenderPass(ctx->logical_device, ctx->render_pass, NULL);
+    vkDestroyRenderPass(ctx->gfx.device, ctx->render_pass, NULL);
 }

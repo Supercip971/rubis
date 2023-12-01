@@ -13,7 +13,7 @@ static VkFormat find_depth_format(VulkanCtx* ctx, VulkanFormats* candidates, VkI
     {
         VkFormat format = candidates->data[i];
         VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(ctx->physical_device, format, &props);
+        vkGetPhysicalDeviceFormatProperties(ctx->core.physical_device, format, &props);
         if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & feats) == feats)
         {
             return format;
@@ -45,8 +45,8 @@ void vulkan_depth_target_init(VulkanCtx* self)
     VkImageCreateInfo image_info = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
-        .extent.width = self->extend.width,
-        .extent.height = self->extend.height,
+        .extent.width = self->gfx.swapchain.extend.width,
+        .extent.height = self->gfx.swapchain.extend.height,
         .extent.depth = 1,
         .mipLevels = 1,
         .arrayLayers = 1,
@@ -59,12 +59,12 @@ void vulkan_depth_target_init(VulkanCtx* self)
 
     };
 
-    tex.width = self->extend.width;
-    tex.height = self->extend.height;
-    vk_try$(vkCreateImage(self->logical_device, &image_info, NULL, &tex.image));
+    tex.width = self->gfx.swapchain.extend.width;
+    tex.height = self->gfx.swapchain.extend.height;
+    vk_try$(vkCreateImage(self->gfx.device, &image_info, NULL, &tex.image));
 
     VkMemoryRequirements mem_reqs;
-    vkGetImageMemoryRequirements(self->logical_device, tex.image, &mem_reqs);
+    vkGetImageMemoryRequirements(self->gfx.device, tex.image, &mem_reqs);
 
     VkMemoryAllocateInfo alloc_info = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -72,9 +72,9 @@ void vulkan_depth_target_init(VulkanCtx* self)
         .memoryTypeIndex = find_memory_type(self, mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, mem_reqs.size),
     };
 
-    vk_try$(vkAllocateMemory(self->logical_device, &alloc_info, NULL, &tex.mem));
+    vk_try$(vkAllocateMemory(self->gfx.device, &alloc_info, NULL, &tex.mem));
 
-    vk_try$(vkBindImageMemory(self->logical_device, tex.image, tex.mem, 0));
+    vk_try$(vkBindImageMemory(self->gfx.device, tex.image, tex.mem, 0));
 
 
     VkImageViewCreateInfo view_info = {
@@ -89,7 +89,7 @@ void vulkan_depth_target_init(VulkanCtx* self)
         .subresourceRange.layerCount = 1,
     };
     VkImageView view;
-    vk_try$(vkCreateImageView(self->logical_device, &view_info, NULL, &view));
+    vk_try$(vkCreateImageView(self->gfx.device, &view_info, NULL, &view));
 
     swap_image_layout(self, tex.image, depth_format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1,0,0);
 
@@ -100,9 +100,9 @@ void vulkan_depth_target_init(VulkanCtx* self)
 }
 void vulkan_depth_target_deinit(VulkanCtx* self)
 {
-    vkDestroyImageView(self->logical_device, self->depth_view, NULL);
+    vkDestroyImageView(self->gfx.device, self->depth_view, NULL);
 
-    vkFreeMemory(self->logical_device, self->depth_buffer.mem, NULL);
+    vkFreeMemory(self->gfx.device, self->depth_buffer.mem, NULL);
 
-    vkDestroyImage(self->logical_device, self->depth_buffer.image, NULL);
+    vkDestroyImage(self->gfx.device, self->depth_buffer.image, NULL);
 }

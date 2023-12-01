@@ -53,7 +53,7 @@ static int vulkan_dump_extension(void)
     return 0;
 }
 
-static int vulkan_query_extension(VulkanCtx *self, VkInstanceCreateInfo *info)
+static int vulkan_query_extension(VulkanCoreCtx *self, VkInstanceCreateInfo *info)
 {
 
     uint32_t glfw_ext_count = 0;
@@ -83,7 +83,7 @@ static int vulkan_query_extension(VulkanCtx *self, VkInstanceCreateInfo *info)
     return 0;
 }
 
-int vulkan_create_instance(VulkanCtx *self)
+int vulkan_create_instance(VulkanCoreCtx *self)
 {
     VkInstanceCreateInfo create = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
@@ -124,11 +124,11 @@ int vulkan_create_instance(VulkanCtx *self)
     return 0;
 }
 
-static int vulkan_device_init(VulkanCtx *self)
+static int vulkan_logical_device_init(VulkanCtx *self)
 {
-    vulkan_pick_physical_device(self);
+    vulkan_pick_physical_device(&self->core);
 
-    vulkan_logical_device_init(self);
+    vulkan_device_init(self);
     return 0;
 }
 
@@ -137,16 +137,19 @@ struct timespec start;
 int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
 {
     *self = (VulkanCtx){
-        .app_info = (VkApplicationInfo){
-            .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-            .pApplicationName = "compute-tracer",
-            .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
-            .pEngineName = "none",
-            .engineVersion = VK_MAKE_VERSION(1, 0, 0),
-            .apiVersion = VK_API_VERSION_1_3,
-            .pNext = NULL,
-        },
+        .core = (VulkanCoreCtx){
         .instance = 0,
+
+            .app_info = (VkApplicationInfo){
+                .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+                .pApplicationName = "compute-tracer",
+                .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
+                .pEngineName = "none",
+                .engineVersion = VK_MAKE_VERSION(1, 0, 0),
+                .apiVersion = VK_API_VERSION_1_3,
+                .pNext = NULL,
+            },
+        },
         .frame_id = 0,
         .threads_size = 8,
         .scene = *scene};
@@ -157,30 +160,33 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
 
     int width = 0, height = 0;
     vulkan_render_surface_target_size(self, window_handle, &width, &height);
-    self->aligned_width = (int)(floor((float)width / (float)self->threads_size) * self->threads_size);
-    self->aligned_height = (int)(floor((float)height / (float)self->threads_size) * self->threads_size);
+    self->core.aligned_width = (int)(floor((float)width / (float)self->threads_size) * self->threads_size);
+    self->core.aligned_height = (int)(floor((float)height / (float)self->threads_size) * self->threads_size);
 
     vulkan_dump_extension();
 
-    vulkan_create_instance(self);
+    vulkan_create_instance(&self->core);
 
     if (ENABLE_VALIDATION_LAYERS)
     {
-        vulkan_debug_init(self);
+        vulkan_debug_init(&self->core);
     }
-    init_loader(&self->instance);
 
-    vulkan_render_surface_init(self, window_handle);
+    // used to load function pointers for vulkan 
+    vulkan_init_func_ptr_loader(&self->core.instance);
 
-    vulkan_device_init(self);
+    vulkan_render_surface_init(&self->core, window_handle);
+
+    vulkan_logical_device_init(self);
+    // start of the vulkan "gfx" initialization
 
     vulkan_swapchain_init(self, width, height);
 
-    vulkan_image_view_init(self);
+    vulkan_image_view_init(&self->gfx);
 
     vulkan_cmd_pool_init(self);
 
-    vulkan_cmd_buffer_init(self);
+    vulkan_cmd_buffer_init(&self->gfx);
 
     vulkan_depth_target_init(self);
 
@@ -188,13 +194,14 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
     vulkan_scene_textures_init(self);
 
     vulkan_vertex_buffer_init(self);
-    vulkan_shader_shared_texture_init(self, &self->comp_targ, self->aligned_width, self->aligned_height, false);
-    vulkan_shader_shared_texture_init(self, &self->frag_targ, self->aligned_width, self->aligned_height, true);
+    vulkan_shader_shared_texture_init(self, &self->gfx.comp_targ, self->core.aligned_width, self->core.aligned_height, false);
+    vulkan_shader_shared_texture_init(self, &self->frag_targ, self->core.aligned_width, self->core.aligned_height, true);
     init_acceleration_structure(self);
     vulkan_desc_set_layout(self);
 
     vulkan_pipeline_init(self);
-    vulkan_compute_cmd_buffer_record(self);
+    vulkan_compute_cmd_buffer_record(&self->gfx, self->threads_size, (void*)&self->cfg);
+
     vulkan_framebuffer_init(self);
 
     vulkan_sync_init(self);
@@ -210,7 +217,7 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
 
 int vulkan_deinit(VulkanCtx *self)
 {
-    vkDeviceWaitIdle(self->logical_device);
+    vkDeviceWaitIdle(self->gfx.device);
     ui_deinit(self);
     vk_buffer_unmap(self, self->config_buf);
     vulkan_sync_deinit(self);
@@ -225,21 +232,21 @@ int vulkan_deinit(VulkanCtx *self)
     vulkan_pipeline_deinit(self);
     vulkan_render_pass_deinit(self);
 
-    vulkan_image_view_deinit(self);
+    vulkan_image_view_deinit(&self->gfx);
 
     vulkan_swapchain_deinit(self);
     vulkan_desc_layout_deinit(self);
 
-    vulkan_render_surface_deinit(self);
+    vulkan_render_surface_deinit(&self->core);
 
-    vulkan_logical_device_deinit(self);
+    vulkan_device_deinit(self);
     if (ENABLE_VALIDATION_LAYERS)
     {
-        vulkan_debug_deinit(self);
+        vulkan_debug_deinit(&self->core);
     }
 
-    vkDestroyInstance(self->instance, NULL);
-    vec_deinit(&self->exts);
+    vkDestroyInstance(self->core.instance, NULL);
+    vec_deinit(&self->core.exts);
     return 0;
 }
 
@@ -253,21 +260,23 @@ int vulkan_frame(VulkanCtx *self)
     UiInfo info = {
         .fps = fps,
         .frame = tick,
-        .width = self->aligned_width,
-        .height = self->aligned_height,
+        .width = self->core.aligned_width,
+        .height = self->core.aligned_height,
     };
 
     ui_begin(info);
 
     ui_end();
-    Vec3 cam_look = vec3_add(self->cam_look, self->cam_pos);
+    const Vec3 cam_look = vec3_add(self->cam_look, self->cam_pos);
 
 
     float fov_dif = fabs(self->cfg.fov - get_config().r_fov);
     if (!vec3_eq(self->cfg.cam_pos, self->cam_pos) ||
-        !vec3_eq(self->cfg.cam_look, cam_look) ||
+        !vec3_eq_p(vec3_sub(self->cfg.cam_look, self->cam_pos), self->cam_look, 0.001) ||
         fov_dif > 0.001)
     {
+
+   //    printf("resetting: %f %i %i\n", fov_dif, vec3_eq(self->cfg.cam_pos, self->cam_pos), vec3_eq(self->cfg.cam_look, cam_look));
         self->frame_id = 0;
     }
 
@@ -281,8 +290,8 @@ int vulkan_frame(VulkanCtx *self)
 
 
 
-    self->cfg.width = self->aligned_width;
-    self->cfg.height = self->aligned_height;
+    self->cfg.width = self->core.aligned_width;
+    self->cfg.height = self->core.aligned_height;
     self->cfg.t = self->frame_id;
 
     self->cfg.fov = get_config().r_fov;
@@ -301,7 +310,7 @@ int vulkan_frame(VulkanCtx *self)
     }
 #if 1
 
-    if (vkGetFenceStatus(self->logical_device, self->compute_fence) == VK_SUCCESS)
+    if (vkGetFenceStatus(self->gfx.device, self->compute_fence) == VK_SUCCESS)
     {
 
         //     VkCommandBuffer cmd = vk_start_single_time_command(self);
@@ -335,17 +344,17 @@ int vulkan_frame(VulkanCtx *self)
         tick = self->frame_id;
        // printf("a1 %lf %i \n", 1 / accum, self->frame_id);
 
-        vkResetFences(self->logical_device, 1, &self->compute_fence);
+        vkResetFences(self->gfx.device, 1, &self->compute_fence);
 
-        vulkan_compute_cmd_buffer_record(self);
+        vulkan_compute_cmd_buffer_record(&self->gfx, self->threads_size, (void*)&self->cfg);
 
         VkSubmitInfo submitInfo2 = {
             .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
             .commandBufferCount = 1,
-            .pCommandBuffers = &self->comp_buffer,
+            .pCommandBuffers = &self->gfx.compute.command_buffer,
         };
 
-        vk_try$(vkQueueSubmit(self->comp_queue, 1, &submitInfo2, self->compute_fence));
+        vk_try$(vkQueueSubmit(self->gfx.compute.queue, 1, &submitInfo2, self->compute_fence));
 
         self->frame_id += 1;
        // printf("a2\n");
@@ -355,13 +364,13 @@ int vulkan_frame(VulkanCtx *self)
     }
 
 #endif
-    if (vkGetFenceStatus(self->logical_device, self->in_flight_fence) == VK_SUCCESS)
+    if (vkGetFenceStatus(self->gfx.device, self->in_flight_fence) == VK_SUCCESS)
     {
-      vk_try$(vkResetFences(self->logical_device, 1, &self->in_flight_fence));
+      vk_try$(vkResetFences(self->gfx.device, 1, &self->in_flight_fence));
 
         uint32_t image_idx = 0;
 
-        vk_try$(vkAcquireNextImageKHR(self->logical_device, self->swapchain, UINT64_MAX, self->image_available_semaphore, VK_NULL_HANDLE, &image_idx));
+        vk_try$(vkAcquireNextImageKHR(self->gfx.device, self->gfx.swapchain.handle, UINT64_MAX, self->image_available_semaphore, VK_NULL_HANDLE, &image_idx));
         vulkan_record_cmd_buffer(self, image_idx, true);
         VkSemaphore signaledSemaphores[] = {self->render_finished_semaphore};
         VkSemaphore waitSemaphores[] = {self->image_available_semaphore};
@@ -373,14 +382,14 @@ int vulkan_frame(VulkanCtx *self)
             .pWaitSemaphores = waitSemaphores,
             .pWaitDstStageMask = waitStages,
             .commandBufferCount = 1,
-            .pCommandBuffers = &self->cmd_buffer,
+            .pCommandBuffers = &self->gfx.gfx.command_buffer,
             .signalSemaphoreCount = 1,
             .pSignalSemaphores = signaledSemaphores,
         };
 
-        vk_try$(vkQueueSubmit(self->gfx_queue, 1, &submitInfo, self->in_flight_fence));
+        vk_try$(vkQueueSubmit(self->gfx.gfx.queue, 1, &submitInfo, self->in_flight_fence));
 
-        VkSwapchainKHR swapchains[] = {self->swapchain};
+        VkSwapchainKHR swapchains[] = {self->gfx.swapchain.handle};
         VkPresentInfoKHR present_info = {
             .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
             .waitSemaphoreCount = 1,
@@ -390,7 +399,15 @@ int vulkan_frame(VulkanCtx *self)
             .pImageIndices = &image_idx,
 
         };
-        vk_try$(vkQueuePresentKHR(self->present_queue, &present_info));
+        VkResult r = vkQueuePresentKHR(self->present_queue, &present_info);
+
+        if(r == VK_ERROR_OUT_OF_DATE_KHR)
+        {
+            printf("out of date KHR \n");
+        }
+        
+
+        
        // printf("a2\n");
 
 
@@ -398,7 +415,7 @@ int vulkan_frame(VulkanCtx *self)
     }
     else if(!get_config().show_raster)
     {
-        vkWaitForFences(self->logical_device, 1, &self->compute_fence, VK_TRUE, 16666000);
+        vkWaitForFences(self->gfx.device, 1, &self->compute_fence, VK_TRUE, 16666000);
     }
     return 0;
 }

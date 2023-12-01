@@ -107,7 +107,7 @@ void main()
     if (ubo.t > float(0))
     {
 
-        //   memoryBarrierImage();
+        memoryBarrierImage();
         prev = imageLoad(buf, ivec2(x, y));
     }
     // if(ubo.t <= 1)

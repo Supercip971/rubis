@@ -40,9 +40,9 @@ static void scene_buf_init(VulkanCtx *ctx)
 static void vulkan_descriptor_buffer_init(VulkanCtx *ctx)
 {
 
-    size_t info_buf_size = umax(16, sizeof(PixelInfo) * ctx->aligned_width * ctx->aligned_height);
+    size_t info_buf_size = umax(16, sizeof(PixelInfo) * ctx->core.aligned_width * ctx->core.aligned_height);
     ctx->result_info_buf = vk_buffer_alloc(ctx, info_buf_size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    ctx->computing_image = vk_buffer_alloc(ctx, 4 * sizeof(float) * ctx->aligned_width * ctx->aligned_height, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    ctx->computing_image = vk_buffer_alloc(ctx, 4 * sizeof(float) * ctx->core.aligned_width * ctx->core.aligned_height, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     // ctx->fragment_image = vk_buffer_alloc(ctx, 4 * sizeof(float) * ctx->aligned_width * ctx->aligned_height, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     // ctx->config_buf = vk_buffer_alloc(ctx, sizeof(*ctx->cfg), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
@@ -54,7 +54,7 @@ void shader_descriptors_init(VulkanCtx *ctx, ShaderDescriptors *desc)
     vec_init(desc);
     // 0
     vec_push(desc, ((ShaderDescriptor){
-                       .image = &ctx->comp_targ.desc_info,
+                       .image = &ctx->gfx.comp_targ.desc_info,
                        .flag = VK_SHADER_STAGE_COMPUTE_BIT,
                        .type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                        .count = 1,
@@ -89,7 +89,7 @@ void shader_descriptors_init(VulkanCtx *ctx, ShaderDescriptors *desc)
     //
     // 3
     vec_push(desc, ((ShaderDescriptor){
-                       .image = &ctx->fragment_image.desc_info,
+                       .image = &ctx->gfx.fragment_image.desc_info,
                        .flag = VK_SHADER_STAGE_FRAGMENT_BIT,
                        .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ,
                        .count = 1,
@@ -171,7 +171,7 @@ static void vulkan_desc_pool_init(VulkanCtx *ctx, ShaderDescriptors descriptors)
         .maxSets = 1,
     };
 
-    vk_try$(vkCreateDescriptorPool(ctx->logical_device, &pool_info, NULL, &ctx->descriptor_pool));
+    vk_try$(vkCreateDescriptorPool(ctx->gfx.device, &pool_info, NULL, &ctx->descriptor_pool));
 
     vec_deinit(&pool_sizes);
 }
@@ -206,7 +206,7 @@ static void vulkan_desc_layout_init(VulkanCtx *ctx, ShaderDescriptors descriptor
         .flags = 0,
     };
 
-    vk_try$(vkCreateDescriptorSetLayout(ctx->logical_device, &create_info, NULL, &ctx->descriptor_layout));
+    vk_try$(vkCreateDescriptorSetLayout(ctx->gfx.device, &create_info, NULL, &ctx->gfx.descriptor_layout));
 
     //VkDescriptorSetLayoutBindingFlagsCreateInfoEXT extended_info = {
     //    .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT,
@@ -218,7 +218,7 @@ static void vulkan_desc_layout_init(VulkanCtx *ctx, ShaderDescriptors descriptor
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .descriptorPool = ctx->descriptor_pool,
         .descriptorSetCount = 1,
-        .pSetLayouts = &ctx->descriptor_layout,
+        .pSetLayouts = &ctx->gfx.descriptor_layout,
         .pNext = NULL,
     };
 
@@ -229,7 +229,7 @@ static void vulkan_desc_layout_init(VulkanCtx *ctx, ShaderDescriptors descriptor
     //    .pDescriptorCounts = &max_count,
     //};
     //alloc_info.pNext = &count_info;
-    vk_try$(vkAllocateDescriptorSets(ctx->logical_device, &alloc_info, &ctx->descriptor_set));
+    vk_try$(vkAllocateDescriptorSets(ctx->gfx.device, &alloc_info, &ctx->gfx.descriptor_set));
 }
 
 static void vulkan_desc_layout_update(VulkanCtx *ctx, ShaderDescriptors descriptors)
@@ -251,11 +251,11 @@ static void vulkan_desc_layout_update(VulkanCtx *ctx, ShaderDescriptors descript
                 .dstBinding = i,
                 .descriptorType = current.type,
                 .descriptorCount = current.count,
-                .dstSet = ctx->descriptor_set,
+                .dstSet = ctx->gfx.descriptor_set,
                 .pImageInfo = current.image,
             };
 
-            vkUpdateDescriptorSets(ctx->logical_device, 1, &desc_write, 0, NULL);
+            vkUpdateDescriptorSets(ctx->gfx.device, 1, &desc_write, 0, NULL);
             continue;
         }
 
@@ -273,11 +273,11 @@ static void vulkan_desc_layout_update(VulkanCtx *ctx, ShaderDescriptors descript
                 .dstBinding = i,
                 .descriptorType = current.type,
                 .descriptorCount = current.count,
-                .dstSet = ctx->descriptor_set,
+                .dstSet = ctx->gfx.descriptor_set,
                 .pNext = &desc_acceleration,
             };
 
-            vkUpdateDescriptorSets(ctx->logical_device, 1, &desc_write, 0, NULL);
+            vkUpdateDescriptorSets(ctx->gfx.device, 1, &desc_write, 0, NULL);
             continue;
         }
         VkDescriptorBufferInfo buffer_info = {
@@ -292,11 +292,11 @@ static void vulkan_desc_layout_update(VulkanCtx *ctx, ShaderDescriptors descript
             .dstBinding = i,
             .descriptorType = current.type,
             .descriptorCount = current.count,
-            .dstSet = ctx->descriptor_set,
+            .dstSet = ctx->gfx.descriptor_set,
             .pBufferInfo = &buffer_info,
         };
 
-        vkUpdateDescriptorSets(ctx->logical_device, 1, &desc_write, 0, NULL);
+        vkUpdateDescriptorSets(ctx->gfx.device, 1, &desc_write, 0, NULL);
     }
 }
 
@@ -318,7 +318,7 @@ void vulkan_desc_set_layout(VulkanCtx *ctx)
 void vulkan_desc_layout_deinit(VulkanCtx *ctx)
 {
 
-    vkDestroyDescriptorPool(ctx->logical_device, ctx->descriptor_pool, NULL);
+    vkDestroyDescriptorPool(ctx->gfx.device, ctx->descriptor_pool, NULL);
     vk_buffer_free(ctx, ctx->computing_image);
 
     // vk_buffer_free(ctx, ctx->fragment_image);
@@ -328,7 +328,7 @@ void vulkan_desc_layout_deinit(VulkanCtx *ctx)
     vk_buffer_free(ctx, ctx->mesh_buf);
 
     vk_buffer_free(ctx, ctx->mesh_data_buf);
-    vkDestroyDescriptorSetLayout(ctx->logical_device, ctx->descriptor_layout, NULL);
+    vkDestroyDescriptorSetLayout(ctx->gfx.device, ctx->gfx.descriptor_layout, NULL);
 }
 
 void scene_buf_value_init(VulkanCtx *ctx)
@@ -365,8 +365,8 @@ void scene_buf_value_init(VulkanCtx *ctx)
     vk_buffer_unmap(ctx, temp_buf);
     vk_buffer_set(ctx, ctx->computing_image, (uint32_t)(0.0f));
 
-    ctx->cfg.width = ctx->aligned_width;
-    ctx->cfg.height = ctx->aligned_height;
+    ctx->cfg.width = ctx->core.aligned_width;
+    ctx->cfg.height = ctx->core.aligned_height;
     ctx->cfg.cam_up = vec3_create(0, 1, 0);
 
     ctx->cfg.cam_pos = vec3_create(0, 0, -2);

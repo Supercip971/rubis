@@ -18,7 +18,13 @@ vec_t(WindowImpl) windows = {};
 
 int window_engine_init(void)
 {
-    glfwInit();
+    int res = glfwInit();
+
+    if(res == 0)
+    {
+        printf("failed to init glfw\n");
+        return -1;
+    }
     vec_init(&windows);
     return 0;
 }

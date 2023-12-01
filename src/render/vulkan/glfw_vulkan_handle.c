@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-int vulkan_render_surface_init(VulkanCtx *self, uintptr_t handle)
+int vulkan_render_surface_init(VulkanCoreCtx *self, uintptr_t handle)
 {
     VkSurfaceKHR surface = 0;
 
@@ -18,7 +18,7 @@ int vulkan_render_surface_init(VulkanCtx *self, uintptr_t handle)
     return 0;
 }
 
-int vulkan_render_surface_deinit(VulkanCtx *self)
+int vulkan_render_surface_deinit(VulkanCoreCtx *self)
 {
     vkDestroySurfaceKHR(self->instance, self->surface, NULL);
     return 0;

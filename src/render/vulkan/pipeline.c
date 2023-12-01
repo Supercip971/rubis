@@ -13,7 +13,7 @@ VkShaderModule vulkan_shader_create(VulkanCtx *ctx, Buffer code)
     };
 
     VkShaderModule module;
-    vk_try$(vkCreateShaderModule(ctx->logical_device, &create_info, NULL, &module));
+    vk_try$(vkCreateShaderModule(ctx->gfx.device, &create_info, NULL, &module));
     return module;
 }
 
@@ -31,10 +31,10 @@ void vulkan_compute_pipeline(VulkanCtx *ctx)
             .module = comp_mod,
             .pName = "main",
         },
-        .layout = ctx->compute_pipeline_layout,
+        .layout = ctx->gfx.compute_pipeline.layout,
     };
 
-    vkCreateComputePipelines(ctx->logical_device, VK_NULL_HANDLE, 1, &info, NULL, &ctx->compute.raw_pipeline);
+    vkCreateComputePipelines(ctx->gfx.device, VK_NULL_HANDLE, 1, &info, NULL, &ctx->gfx.compute_pipeline.handle);
 }
 
 
@@ -84,15 +84,15 @@ void vulkan_graphics_pipeline_init(VulkanCtx *ctx, VkPipeline* target, VkPipelin
     VkViewport viewport = {
         .x = 0.0f,
         .y = 0.0f,
-        .width = (float)ctx->extend.width,
-        .height = (float)ctx->extend.height,
+        .width = (float)ctx->gfx.swapchain.extend.width,
+        .height = (float)ctx->gfx.swapchain.extend.height,
         .minDepth = 0.0f,
         .maxDepth = 1.0f,
     };
 
     VkRect2D scissor = {
         .offset = {0,0},
-        .extent = ctx->extend,
+        .extent = ctx->gfx.swapchain.extend,
     };
 
     VkPipelineViewportStateCreateInfo viewport_state = {
@@ -155,12 +155,12 @@ void vulkan_graphics_pipeline_init(VulkanCtx *ctx, VkPipeline* target, VkPipelin
     VkPipelineLayoutCreateInfo pipeline_create = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = 1,
-        .pSetLayouts = &ctx->descriptor_layout,
+        .pSetLayouts = &ctx->gfx.descriptor_layout,
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &push_constant,
     };
 
-    vk_try$(vkCreatePipelineLayout(ctx->logical_device, &pipeline_create, NULL, layout));
+    vk_try$(vkCreatePipelineLayout(ctx->gfx.device, &pipeline_create, NULL, layout));
 
     
     
@@ -192,10 +192,10 @@ void vulkan_graphics_pipeline_init(VulkanCtx *ctx, VkPipeline* target, VkPipelin
     };
 
     }
-    vk_try$(vkCreateGraphicsPipelines(ctx->logical_device, VK_NULL_HANDLE, 1, &graphic_pipeline, NULL, target));
+    vk_try$(vkCreateGraphicsPipelines(ctx->gfx.device, VK_NULL_HANDLE, 1, &graphic_pipeline, NULL, target));
 
-    vkDestroyShaderModule(ctx->logical_device, frag_mod, NULL);
-    vkDestroyShaderModule(ctx->logical_device, vert_mod, NULL);
+    vkDestroyShaderModule(ctx->gfx.device, frag_mod, NULL);
+    vkDestroyShaderModule(ctx->gfx.device, vert_mod, NULL);
 }
 
 
@@ -212,7 +212,7 @@ void vulkan_pipeline_init(VulkanCtx *ctx)
     VkPipelineLayoutCreateInfo pipeline_create = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .setLayoutCount = 1,
-        .pSetLayouts = &ctx->descriptor_layout,
+        .pSetLayouts = &ctx->gfx.descriptor_layout,
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &push_constant,
     };
@@ -220,22 +220,22 @@ void vulkan_pipeline_init(VulkanCtx *ctx)
 
     //vulkan_graphics_pipeline_init(ctx, &ctx->gfx_pipeline, &ctx->pipeline_layout, "build/shaders/vert.spv", "build/shaders/frag.spv", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, true); 
     
-    vulkan_graphics_pipeline_init(ctx, &ctx->compute_preview_pipeline, &ctx->compute_preview_pipeline_layout, "build/shaders/vert_cview.spv", "build/shaders/frag_cview.spv", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, false);
+    vulkan_graphics_pipeline_init(ctx, &ctx->gfx.compute_preview_pipeline.handle, &ctx->gfx.compute_preview_pipeline.layout, "build/shaders/vert_cview.spv", "build/shaders/frag_cview.spv", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, false);
 
-    vk_try$(vkCreatePipelineLayout(ctx->logical_device, &pipeline_create, NULL, &ctx->compute_pipeline_layout));
+    vk_try$(vkCreatePipelineLayout(ctx->gfx.device, &pipeline_create, NULL, &ctx->gfx.compute_pipeline.layout));
 
     vulkan_compute_pipeline(ctx);
 }
 
 void vulkan_pipeline_deinit(VulkanCtx *ctx)
 {
-    vkDestroyPipeline(ctx->logical_device, ctx->compute.raw_pipeline, NULL);
+    vkDestroyPipeline(ctx->gfx.device, ctx->gfx.compute_pipeline.handle, NULL);
 
-    vkDestroyPipeline(ctx->logical_device, ctx->gfx_pipeline, NULL);
-    vkDestroyPipeline(ctx->logical_device, ctx->compute_preview_pipeline, NULL);
+    vkDestroyPipeline(ctx->gfx.device, ctx->gfx.gfx_pipeline.handle, NULL);
+    vkDestroyPipeline(ctx->gfx.device, ctx->gfx.compute_preview_pipeline.handle, NULL);
 
-    //vkDestroyPipelineLayout(ctx->logical_device, ctx->pipeline_layout, NULL);
-    vkDestroyPipelineLayout(ctx->logical_device, ctx->compute_preview_pipeline_layout, NULL);
+    //vkDestroyPipelineLayout(ctx->device, ctx->pipeline_layout, NULL);
+    vkDestroyPipelineLayout(ctx->gfx.device, ctx->gfx.compute_preview_pipeline.layout, NULL);
 
 
     (void)ctx;

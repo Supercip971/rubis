@@ -7,8 +7,8 @@
 #    define ENABLE_VALIDATION_LAYERS true
 #endif
 
-#define WINDOW_WIDTH (1920*2)
-#define WINDOW_HEIGHT (1080*2)
+#define WINDOW_WIDTH (2560)
+#define WINDOW_HEIGHT (1440)
 
 #define USE_GLFW
 #define USE_VULKAN

@@ -19,14 +19,14 @@ vec_t(RenderImpl) impls = {};
 int render_surface_init(Render *self, uintptr_t handle)
 {
     (void)self;
-    return vulkan_render_surface_init(&ctx, handle);
+    return vulkan_render_surface_init(&ctx.core, handle);
 }
 
 int render_surface_deinit(Render *self, uintptr_t handle)
 {
     (void)self;
     (void)handle;
-    return vulkan_render_surface_deinit(&ctx);
+    return vulkan_render_surface_deinit(&ctx.core);
 }
 
 int render_engine_init(Window *window, Scene *scene)

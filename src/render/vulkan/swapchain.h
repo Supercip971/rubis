@@ -17,7 +17,7 @@ typedef struct
 
 void swap_chain_support_deinit(SwapChainSupportDetails *self);
 
-SwapChainSupportDetails swap_chain_support_query(VulkanCtx *self, VkPhysicalDevice device);
+SwapChainSupportDetails swap_chain_support_query(VulkanCoreCtx *self, VkPhysicalDevice device);
 
 VkSurfaceFormatKHR swap_chain_get_best_format(SwapChainSupportDetails *self);
 

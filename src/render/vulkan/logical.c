@@ -50,7 +50,7 @@ bool vulkan_check_device_extensions(VkPhysicalDevice device)
 
     return true;
 }
-void vulkan_logical_device_init(VulkanCtx *ctx)
+void vulkan_device_init(VulkanCtx *ctx)
 {
     float priority = 1.0f;
     float priorityb = 0.0f;
@@ -60,7 +60,7 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
     vec_init(&queue_create_idx);
     vec_init(&queue_create_infos);
 
-    QueueFamilyIndices idx = vulkan_pick_queue_family(ctx);
+    QueueFamilyIndices idx = vulkan_pick_queue_family(&ctx->core);
     vec_push(&queue_create_idx, idx.family_idx);
 
     vec_push(&queue_create_idx, idx.compute_idx);
@@ -108,7 +108,7 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
         .storageBuffer16BitAccess = VK_TRUE,
         .uniformAndStorageBuffer16BitAccess = VK_TRUE,
         .storagePushConstant16 = VK_FALSE,
-        .storageInputOutput16 = VK_TRUE,
+   //     .storageInputOutput16 = VK_TRUE,
         .pNext = NULL,
     };
     VkPhysicalDeviceDescriptorIndexingFeaturesEXT index_feat = 
@@ -172,17 +172,17 @@ void vulkan_logical_device_init(VulkanCtx *ctx)
     create_info.pNext = &accel_feat;
 
     vulkan_load_validation_layer_device(&create_info);
-    vk_try$(vkCreateDevice(ctx->physical_device, &create_info, NULL, &ctx->logical_device));
+    vk_try$(vkCreateDevice(ctx->core.physical_device, &create_info, NULL, &ctx->gfx.device));
 
-    vkGetDeviceQueue(ctx->logical_device, idx.family_idx, 0, &ctx->gfx_queue);
-    vkGetDeviceQueue(ctx->logical_device, idx.compute_idx, 0, &ctx->comp_queue);
-    vkGetDeviceQueue(ctx->logical_device, idx.present_family, 0, &ctx->present_queue);
+    vkGetDeviceQueue(ctx->gfx.device, idx.family_idx, 0, &ctx->gfx.gfx.queue);
+    vkGetDeviceQueue(ctx->gfx.device, idx.compute_idx, 0, &ctx->gfx.compute.queue);
+    vkGetDeviceQueue(ctx->gfx.device, idx.present_family, 0, &ctx->present_queue);
 
     vec_deinit(&queue_create_infos);
     vec_deinit(&queue_create_idx);
 }
 
-void vulkan_logical_device_deinit(VulkanCtx *ctx)
+void vulkan_device_deinit(VulkanCtx *ctx)
 {
-    vkDestroyDevice(ctx->logical_device, NULL);
+    vkDestroyDevice(ctx->gfx.device, NULL);
 }
