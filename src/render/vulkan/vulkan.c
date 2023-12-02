@@ -6,6 +6,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <config.h>
+#include <render/vulkan/textures_app.h>
 #include <ds/vec.h>
 #include <render/vulkan/buffer.h>
 #include <render/vulkan/command.h>
@@ -152,7 +153,9 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
         },
         .frame_id = 0,
         .threads_size = 8,
-        .scene = *scene};
+        .scene = (VulkanSceneCtx){
+            .data = *scene
+        }};
 
     printf("loading bvh %i...\n", scene->meshes.length);
 //    bvh_init(&self->bvh_data, scene);
@@ -192,10 +195,11 @@ int vulkan_init(VulkanCtx *self, uintptr_t window_handle, Scene *scene)
 
     vulkan_render_pass_init(self);
     vulkan_scene_textures_init(self);
+    //
 
     vulkan_vertex_buffer_init(self);
     vulkan_shader_shared_texture_init(self, &self->gfx.comp_targ, self->core.aligned_width, self->core.aligned_height, false);
-    vulkan_shader_shared_texture_init(self, &self->frag_targ, self->core.aligned_width, self->core.aligned_height, true);
+    vulkan_shader_shared_texture_init(self, &self->gfx.frag_targ, self->core.aligned_width, self->core.aligned_height, true);
     init_acceleration_structure(self);
     vulkan_desc_set_layout(self);
 
@@ -267,12 +271,12 @@ int vulkan_frame(VulkanCtx *self)
     ui_begin(info);
 
     ui_end();
-    const Vec3 cam_look = vec3_add(self->cam_look, self->cam_pos);
+    const Vec3 cam_look = vec3_add(self->scene.cam_look, self->scene.cam_pos);
 
 
     float fov_dif = fabs(self->cfg.fov - get_config().r_fov);
-    if (!vec3_eq(self->cfg.cam_pos, self->cam_pos) ||
-        !vec3_eq_p(vec3_sub(self->cfg.cam_look, self->cam_pos), self->cam_look, 0.001) ||
+    if (!vec3_eq(self->cfg.cam_pos, self->scene.cam_pos) ||
+        !vec3_eq_p(vec3_sub(self->cfg.cam_look, self->scene.cam_pos), self->scene.cam_look, 0.001) ||
         fov_dif > 0.001)
     {
 
@@ -281,9 +285,9 @@ int vulkan_frame(VulkanCtx *self)
     }
 
     self->cfg.bounce_count = (get_config().rays_bounce);
-    self->cfg.cam_pos = self->cam_pos;
-    self->cfg.focus_disc = self->cam_focus_disk;
-    self->cfg.aperture = self->cam_aperture;
+    self->cfg.cam_pos = self->scene.cam_pos;
+    self->cfg.focus_disc = self->scene.cam_focus_disk;
+    self->cfg.aperture = self->scene.cam_aperture;
     self->cfg.cam_look = cam_look;
     self->cfg.scale = get_config().scale_divider;
     self->cfg.use_fsr = get_config().use_fsr;

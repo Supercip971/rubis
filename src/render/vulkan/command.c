@@ -120,8 +120,8 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
 
     VkRenderPassBeginInfo render_pass_info = {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-        .renderPass = ctx->render_pass,
-        .framebuffer = ctx->framebuffers.data[img_idx],
+        .renderPass = ctx->gfx.render_pass,
+        .framebuffer = ctx->gfx.framebuffers.data[img_idx],
         .renderArea = {
             .extent = ctx->gfx.swapchain.extend,
         },
@@ -149,9 +149,9 @@ void vulkan_record_cmd_buffer(VulkanCtx *ctx, uint32_t img_idx, bool refresh)
             vkCmdBindPipeline(ctx->gfx.gfx.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->gfx.gfx_pipeline.handle);
             vkCmdBindDescriptorSets(ctx->gfx.gfx.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->gfx.gfx_pipeline.layout, 0, 1, &ctx->gfx.descriptor_set, 0, NULL);
 
-            for (int i = 0; i < ctx->scene.meshes.length; i++)
+            for (int i = 0; i < ctx->scene.data.meshes.length; i++)
             {
-                Mesh mesh = ctx->scene.meshes.data[i];
+                Mesh mesh = ctx->scene.data.meshes.data[i];
 
                 int data_start = mesh.vertices.start;
                 int data_end = mesh.vertices.end;

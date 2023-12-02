@@ -224,8 +224,8 @@ void sbvh_init(BvhList *self, int entry_id, Scene *scene)
         // We have 2 sides, 2 element, if for each element in each sides we nead to compute the AABB
         // of that side element and then push 2 new object for each side
 
-        AABB best_a;
-        AABB best_b;
+        AABB best_a = {};
+        AABB best_b = {};
         bool is_valid = false;
         float best_sah = 10000000;
 

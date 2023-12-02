@@ -7,13 +7,13 @@
 
 typedef vec_t(VkFormat) VulkanFormats;
 
-static VkFormat find_depth_format(VulkanCtx* ctx, VulkanFormats* candidates, VkImageTiling tiling, VkFormatFeatureFlags feats)
+static VkFormat find_depth_format(VulkanCoreCtx* ctx, VulkanFormats* candidates, VkImageTiling tiling, VkFormatFeatureFlags feats)
 {
     for (int i = 0; i < candidates->length; i++)
     {
         VkFormat format = candidates->data[i];
         VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(ctx->core.physical_device, format, &props);
+        vkGetPhysicalDeviceFormatProperties(ctx->physical_device, format, &props);
         if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & feats) == feats)
         {
             return format;
@@ -39,7 +39,7 @@ void vulkan_depth_target_init(VulkanCtx* self)
 
     VulkanTex tex = {0};
 
-    VkFormat depth_format = find_depth_format(self, &candidates, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+    VkFormat depth_format = find_depth_format(&self->core, &candidates, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
     tex.fmt = depth_format;
     VkImageCreateInfo image_info = {
@@ -93,16 +93,16 @@ void vulkan_depth_target_init(VulkanCtx* self)
 
     swap_image_layout(self, tex.image, depth_format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, 1,0,0);
 
-    self->depth_view = view;
-    self->depth_buffer = tex;
+    self->gfx.depth_view = view;
+    self->gfx.depth_buffer = tex;
         //VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     vec_deinit(&candidates);
 }
 void vulkan_depth_target_deinit(VulkanCtx* self)
 {
-    vkDestroyImageView(self->gfx.device, self->depth_view, NULL);
+    vkDestroyImageView(self->gfx.device, self->gfx.depth_view, NULL);
 
-    vkFreeMemory(self->gfx.device, self->depth_buffer.mem, NULL);
+    vkFreeMemory(self->gfx.device, self->gfx.depth_buffer.mem, NULL);
 
-    vkDestroyImage(self->gfx.device, self->depth_buffer.image, NULL);
+    vkDestroyImage(self->gfx.device, self->gfx.depth_buffer.image, NULL);
 }

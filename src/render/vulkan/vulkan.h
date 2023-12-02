@@ -174,15 +174,53 @@ typedef struct
     // more abstracted components 
 
     VulkanTex comp_targ;
+    VulkanTex frag_targ;
     VulkanTex fragment_image;
 
+    // -- render pass --
+
+    // depth for rasterization
+
+    VulkanTex depth_buffer;
+
+    VkImageView depth_view;
+
+    VkRenderPass render_pass;
+
+
+    Framebuffers framebuffers;
     // - commands pools- 
     //VkCommandPool cmd_pool;
    // VkCommandPool comp_pool;
     // - queues - 
     //VkQueue gfx_queue;
     //VkQueue comp_queue;
+    //
 } VulkanGfxCtx;
+
+
+typedef struct 
+{
+
+    VulkanTex skymap;
+    VulkanTexs overlay_images;
+
+    VulkanTex sampler;
+    Scene data;
+    VulkanTexArrays combined_textures;
+
+    // camera 
+    Vec3 cam_pos;
+    Vec3 cam_look;
+    Vec3 cam_up;
+    float cam_aperture;
+    float cam_focus_disk;
+
+    // misc configuration 
+
+    bool enable_denoise;
+
+} VulkanSceneCtx;
 
 typedef struct 
 {
@@ -192,6 +230,7 @@ typedef struct
 {
     VulkanCoreCtx core;
     VulkanGfxCtx gfx;
+    VulkanSceneCtx scene;
 
     VkQueue present_queue;
 
@@ -200,9 +239,7 @@ typedef struct
 
 
 
-    VkRenderPass render_pass;
 
-    Framebuffers framebuffers;
 
     VkDescriptorPool gui_pool;
 
@@ -234,26 +271,7 @@ typedef struct
     VkDescriptorPool descriptor_pool;
     uint32_t frame_id;
 
-    VulkanTexArrays combined_textures;
    // VulkanTex _combined_textures;
-    VulkanTex skymap;
-    VulkanTex frag_targ;
-    VulkanTex depth_buffer;
-
-    VkImageView depth_view;
-
-    VulkanTexs overlay_images;
-
-    VulkanTex scene_sampler;
-    Vec3 cam_pos;
-    Vec3 cam_look;
-    Vec3 cam_up;
-
-    bool enable_denoise;
-
-    float cam_aperture;
-    float cam_focus_disk;
-    Scene scene;
     BvhList bvh_data;
     VkQueryPool qpool;
 

@@ -14,7 +14,7 @@ void vulkan_render_pass_init(VulkanCtx *ctx)
     };
 
     VkAttachmentDescription depth_attachement = {
-        .format = ctx->depth_buffer.fmt,
+        .format = ctx->gfx.depth_buffer.fmt,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
         .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -65,9 +65,9 @@ void vulkan_render_pass_init(VulkanCtx *ctx)
         .pDependencies = &dependency,
     };
 
-    vk_try$(vkCreateRenderPass(ctx->gfx.device, &create_info, NULL, &ctx->render_pass));
+    vk_try$(vkCreateRenderPass(ctx->gfx.device, &create_info, NULL, &ctx->gfx.render_pass));
 }
 void vulkan_render_pass_deinit(VulkanCtx *ctx)
 {
-    vkDestroyRenderPass(ctx->gfx.device, ctx->render_pass, NULL);
+    vkDestroyRenderPass(ctx->gfx.device, ctx->gfx.render_pass, NULL);
 }

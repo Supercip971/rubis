@@ -177,7 +177,7 @@ void vulkan_graphics_pipeline_init(VulkanCtx *ctx, VkPipeline* target, VkPipelin
         .pColorBlendState = &color_blending,
         .pDepthStencilState = &depth_stencil,
         .layout = *layout,
-        .renderPass = ctx->render_pass,
+        .renderPass = ctx->gfx.render_pass,
         .subpass = 0,
     };
 

@@ -5,12 +5,16 @@
 #include <stdbool.h>
 #include <vulkan/vulkan_core.h>
 
-void vulkan_scene_textures_init(VulkanCtx *ctx);
-
-void vulkan_scene_textures_deinit(VulkanCtx *ctx);
 
 void vulkan_shader_shared_texture_init(VulkanCtx *ctx, VulkanTex *self, int width, int height, bool fragment);
 void swap_image_layout(VulkanCtx *ctx, VkImage image, VkFormat fmt, VkImageLayout old, VkImageLayout new, int layers, bool compute, bool writable);
+
+
+void image_load_from_buffer(VulkanCtx *ctx, VkImage target, uint32_t width, uint32_t height, uint32_t layout_count, VkBuffer buf);
+
+VkImageView image_view_create(VulkanCtx *ctx, VkImage image, int layers, bool use_float);
+
+VkSampler image_sampler_create(VulkanCtx *ctx);
 
 typedef struct
 {

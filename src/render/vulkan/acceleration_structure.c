@@ -10,7 +10,7 @@
 void init_acceleration_structure_mesh(VulkanCtx *self, int id, AccelerationStructures *structures)
 {
 
-    Mesh mesh = self->scene.meshes.data[id];
+    Mesh mesh = self->scene.data.meshes.data[id];
     // vkGetBufferDeviceAddressKHR(VkDevice device, const VkBufferDeviceAddressInfo *pInfo), const VkBufferDeviceAddressInfo *pInfo)
 
     VkAccelerationStructureGeometryTrianglesDataKHR _data = {
@@ -20,7 +20,7 @@ void init_acceleration_structure_mesh(VulkanCtx *self, int id, AccelerationStruc
         .vertexStride = sizeof(float) * 4 * SVERTEX_PACKED_COUNT,
         .indexType = VK_INDEX_TYPE_NONE_KHR,
         .indexData = {0},
-        .maxVertex = self->scene.data.length,
+        .maxVertex = self->scene.data.data.length,
     };
 
     VkAccelerationStructureGeometryKHR _geometry = {
@@ -137,6 +137,7 @@ void create_Tlas(VulkanCtx *self, AccelerationStructures *array, ObjIndices *ind
 
     vec_init(&instances);
 
+
     for (int i = 0; i < indices->length; i++)
     {
         AccelerationStructure *acceleration_structure = &array->data[indices->data[i]];
@@ -244,14 +245,14 @@ void init_acceleration_structure(VulkanCtx *self)
 
     vec_init(&structures);
 
-    for (int i = 0; i < self->scene.meshes.length; i++)
+    for (int i = 0; i < self->scene.data.meshes.length; i++)
     {
         init_acceleration_structure_mesh(self, i, &structures);
     }
 
     size_t max_scratch = 0;
 
-    for (int i = 0; i < self->scene.meshes.length; i++)
+    for (int i = 0; i < self->scene.data.meshes.length; i++)
     {
         prepare_blas(self, &structures, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, i);
 

@@ -165,7 +165,7 @@ bool parse_gltf_mesh(GltfCtx *self, cJSON *node, Matrix4x4 transform)
             {
                 if (texcoords1.componen_type != GLTF_COMP_FLOAT && texcoords1.type != GLTF_VEC2)
                 {
-                    printf("not supported texcoord type: %i \n", texcoords1.componen_type);
+                 //   printf("not supported texcoord type: %i \n", texcoords1.componen_type);
                     abort();
                 }
 

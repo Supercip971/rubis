@@ -57,7 +57,7 @@ extern "C" void ui_init(void *window_handle, VulkanCtx *ctx)
     init_info.ImageCount = 3;
     init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
-    ImGui_ImplVulkan_Init(&init_info, ctx->render_pass);
+    ImGui_ImplVulkan_Init(&init_info, ctx->gfx.render_pass);
 
     VkCommandBuffer cmd = vk_start_single_time_command(&ctx->gfx);
 

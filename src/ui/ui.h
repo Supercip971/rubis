@@ -1,11 +1,15 @@
 #pragma once 
 
+#ifdef __cplusplus
+extern "C" {
+    #define _Alignas(x)
+    #define __auto_type auto
+    #define _Static_assert static_assert
+#endif
+    
 #include <window/window.h>
 #include <render/vulkan/vulkan.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 
 typedef struct 

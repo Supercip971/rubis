@@ -52,14 +52,14 @@ int render_engine_update_cam(Render *self, Camera *cam)
 {
     (void)self;
 
-    ctx.cam_look = cam->front;
+    ctx.scene.cam_look = cam->front;
 
-    ctx.cam_pos = cam->pos;
+    ctx.scene.cam_pos = cam->pos;
 
-    ctx.cam_up = cam->up;
-    ctx.enable_denoise = cam->denoise;
-    ctx.cam_focus_disk = cam->focus_disc;
-    ctx.cam_aperture = cam->aperture;
+    ctx.scene.cam_up = cam->up;
+    ctx.scene.enable_denoise = cam->denoise;
+    ctx.scene.cam_focus_disk = cam->focus_disc;
+    ctx.scene.cam_aperture = cam->aperture;
 
     return 0;
 }
